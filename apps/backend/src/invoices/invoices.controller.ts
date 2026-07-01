@@ -1,18 +1,26 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Invoice } from './invoice.entity';
 import { InvoicesService } from './invoices.service';
 
 @Controller('invoices')
+@UseGuards(JwtAuthGuard)
 export class InvoicesController {
     constructor(private readonly invoicesService: InvoicesService) {}
 
     @Post()
-    create(@Body() data: Record<string, unknown>): Promise<Invoice> {
-        return this.invoicesService.create(data);
+    create(@CurrentUser() userId: string, @Body() data: Record<string, unknown>): Promise<Invoice> {
+        return this.invoicesService.create(userId, data);
     }
 
     @Get()
-    findAll(): Promise<Invoice[]> {
-        return this.invoicesService.findAll();
+    findAll(@CurrentUser() userId: string): Promise<Invoice[]> {
+        return this.invoicesService.findAll(userId);
+    }
+
+    @Delete(':id')
+    remove(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
+        return this.invoicesService.remove(userId, id);
     }
 }

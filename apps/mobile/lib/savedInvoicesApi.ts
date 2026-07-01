@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './apiConfig';
+import { authHeaders } from './authStorage';
 import type { InvoiceVerificationResult } from './invoiceApi';
 
 export type SavedInvoice = {
@@ -14,7 +15,7 @@ export async function saveInvoice(data: InvoiceVerificationResult): Promise<Save
   }
   const response = await fetch(`${API_BASE_URL}/invoices`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -27,9 +28,22 @@ export async function fetchSavedInvoices(): Promise<SavedInvoice[]> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
   }
-  const response = await fetch(`${API_BASE_URL}/invoices`);
+  const response = await fetch(`${API_BASE_URL}/invoices`, { headers: await authHeaders() });
   if (!response.ok) {
     throw new Error(`Marrja e faturave dështoi: ${response.status}`);
   }
   return response.json();
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await fetch(`${API_BASE_URL}/invoices/${id}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Fshirja dështoi: ${response.status}`);
+  }
 }

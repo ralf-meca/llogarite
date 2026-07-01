@@ -1,11 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { InvoiceScreen } from './components/InvoiceScreen';
+import { LoginScreen } from './components/LoginScreen';
 import { QrScannerModal } from './components/QrScannerModal';
+import { UserMenuModal } from './components/UserMenuModal';
+import type { AuthResponse } from './lib/authApi';
+import { clearToken, getToken, saveToken } from './lib/authStorage';
 import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
-import { fetchSavedInvoices, saveInvoice, type SavedInvoice } from './lib/savedInvoicesApi';
+import { deleteInvoice, fetchSavedInvoices, saveInvoice, type SavedInvoice } from './lib/savedInvoicesApi';
 
 type ConnectionStatus = 'checking' | 'connected' | 'failed';
 
@@ -22,17 +26,20 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'home' | 'invoice' | 'detail';
+type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail';
 
 export default function App() {
   const [status, setStatus] = useState<ConnectionStatus>('checking');
   const [isScannerVisible, setIsScannerVisible] = useState(false);
+  const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
   const [verification, setVerification] = useState<VerificationState>({ status: 'idle' });
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>('loading');
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<SavedInvoice | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -52,8 +59,31 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadSavedInvoices();
-  }, [loadSavedInvoices]);
+    getToken().then((token) => {
+      if (token) {
+        setScreen('home');
+      } else {
+        setScreen('auth');
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (screen === 'home') {
+      loadSavedInvoices();
+    }
+  }, [screen, loadSavedInvoices]);
+
+  const handleAuthenticated = (auth: AuthResponse) => {
+    saveToken(auth.accessToken).then(() => setScreen('home'));
+  };
+
+  const handleLogout = () => {
+    clearToken().then(() => {
+      setSavedInvoices([]);
+      setScreen('auth');
+    });
+  };
 
   const handleScanned = (scannedText: string) => {
     setIsScannerVisible(false);
@@ -76,12 +106,40 @@ export default function App() {
     setScreen('home');
     setVerification({ status: 'idle' });
     setSaveError(null);
+    setDeleteError(null);
     setSelectedInvoice(null);
   };
 
   const handleSelectInvoice = (invoice: SavedInvoice) => {
     setSelectedInvoice(invoice);
     setScreen('detail');
+  };
+
+  const handleDelete = () => {
+    if (!selectedInvoice) {
+      return;
+    }
+    Alert.alert('Fshi faturën?', 'Ky veprim nuk mund të kthehet.', [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshi',
+        style: 'destructive',
+        onPress: () => {
+          setIsDeleting(true);
+          setDeleteError(null);
+          deleteInvoice(selectedInvoice.id)
+            .then(() => {
+              setIsDeleting(false);
+              loadSavedInvoices();
+              handleClose();
+            })
+            .catch((error: Error) => {
+              setIsDeleting(false);
+              setDeleteError(error.message);
+            });
+        },
+      },
+    ]);
   };
 
   const handleConfirm = () => {
@@ -104,9 +162,18 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {screen === 'home' ? (
+      {screen === 'loading' ? (
+        <Text style={styles.statusText}>Duke u ngarkuar...</Text>
+      ) : screen === 'auth' ? (
+        <LoginScreen onAuthenticated={handleAuthenticated} />
+      ) : screen === 'home' ? (
         <>
-          <Text style={styles.title}>Llogarite</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Llogarite</Text>
+            <Pressable style={styles.userIconButton} onPress={() => setIsUserMenuVisible(true)}>
+              <Text style={styles.userIconText}>👤</Text>
+            </Pressable>
+          </View>
           <Text style={styles.statusText}>Statusi i serverit: {connectionStatusLabels[status]}</Text>
 
           <FlatList
@@ -143,6 +210,9 @@ export default function App() {
           <InvoiceScreen
             verification={{ status: 'success', data: selectedInvoice.data }}
             onClose={handleClose}
+            isDeleting={isDeleting}
+            deleteError={deleteError}
+            onDelete={handleDelete}
           />
         )
       )}
@@ -151,6 +221,12 @@ export default function App() {
         visible={isScannerVisible}
         onClose={() => setIsScannerVisible(false)}
         onScanned={handleScanned}
+      />
+
+      <UserMenuModal
+        visible={isUserMenuVisible}
+        onClose={() => setIsUserMenuVisible(false)}
+        onLogout={handleLogout}
       />
 
       <StatusBar style="auto" />
@@ -164,10 +240,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingTop: 80,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 20,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  userIconButton: {
+    position: 'absolute',
+    right: 24,
+    padding: 4,
+  },
+  userIconText: {
+    fontSize: 20,
   },
   statusText: {
     textAlign: 'center',

@@ -8,9 +8,21 @@ type InvoiceScreenProps = {
   saveError?: string | null;
   onClose: () => void;
   onConfirm?: () => void;
+  isDeleting?: boolean;
+  deleteError?: string | null;
+  onDelete?: () => void;
 };
 
-export function InvoiceScreen({ verification, isSaving, saveError, onClose, onConfirm }: InvoiceScreenProps) {
+export function InvoiceScreen({
+  verification,
+  isSaving,
+  saveError,
+  onClose,
+  onConfirm,
+  isDeleting,
+  deleteError,
+  onDelete,
+}: InvoiceScreenProps) {
   return (
     <View style={styles.container}>
       <Pressable style={styles.closeButton} onPress={onClose}>
@@ -28,12 +40,20 @@ export function InvoiceScreen({ verification, isSaving, saveError, onClose, onCo
         {verification.status === 'success' && <InvoiceReceipt result={verification.data} />}
       </ScrollView>
 
-      {verification.status === 'success' && onConfirm && (
+      {verification.status === 'success' && (onConfirm || onDelete) && (
         <View style={styles.footer}>
           {saveError && <Text style={styles.errorText}>{saveError}</Text>}
-          <Pressable style={styles.confirmButton} onPress={onConfirm} disabled={isSaving}>
-            <Text style={styles.confirmButtonText}>{isSaving ? 'Duke ruajtur...' : 'Konfirmo'}</Text>
-          </Pressable>
+          {deleteError && <Text style={styles.errorText}>{deleteError}</Text>}
+          {onConfirm && (
+            <Pressable style={styles.confirmButton} onPress={onConfirm} disabled={isSaving}>
+              <Text style={styles.confirmButtonText}>{isSaving ? 'Duke ruajtur...' : 'Konfirmo'}</Text>
+            </Pressable>
+          )}
+          {onDelete && (
+            <Pressable style={styles.deleteButton} onPress={onDelete} disabled={isDeleting}>
+              <Text style={styles.deleteButtonText}>{isDeleting ? 'Duke fshirë...' : 'Fshi'}</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </View>
@@ -77,6 +97,19 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  deleteButton: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dc2626',
+  },
+  deleteButtonText: {
+    color: '#dc2626',
     fontWeight: '600',
     fontSize: 16,
   },
