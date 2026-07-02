@@ -1,12 +1,12 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { GlassButton } from './components/GlassButton';
 import { GlassView } from './components/GlassView';
 import { InvoiceScreen } from './components/InvoiceScreen';
 import { LoginScreen } from './components/LoginScreen';
+import { ManualInvoiceScreen } from './components/ManualInvoiceScreen';
 import { QrScannerModal } from './components/QrScannerModal';
+import { ScanMenu } from './components/ScanMenu';
 import { ToastHost } from './components/ToastHost';
 import { UserAvatar } from './components/UserAvatar';
 import { UserMenuModal } from './components/UserMenuModal';
@@ -15,7 +15,13 @@ import type { AuthResponse, AuthUser } from './lib/authApi';
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from './lib/authStorage';
 import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
-import { deleteInvoice, fetchSavedInvoices, saveInvoice, type SavedInvoice } from './lib/savedInvoicesApi';
+import {
+  deleteInvoice,
+  fetchSavedInvoices,
+  saveInvoice,
+  updateInvoice,
+  type SavedInvoice,
+} from './lib/savedInvoicesApi';
 
 export type VerificationState =
   | { status: 'idle' }
@@ -24,7 +30,7 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail';
+type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail' | 'manual';
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -101,6 +107,14 @@ export default function App() {
     setSelectedInvoice(null);
   };
 
+  const handleManualClose = () => {
+    if (selectedInvoice) {
+      setScreen('detail');
+    } else {
+      handleClose();
+    }
+  };
+
   const handleSelectInvoice = (invoice: SavedInvoice) => {
     setSelectedInvoice(invoice);
     setScreen('detail');
@@ -132,6 +146,26 @@ export default function App() {
     ]);
   };
 
+  const handleManualSubmit = (data: InvoiceVerificationResult) => {
+    if (selectedInvoice) {
+      setIsSaving(true);
+      updateInvoice(selectedInvoice.id, data)
+        .then((updated) => {
+          setIsSaving(false);
+          setSelectedInvoice(updated);
+          loadSavedInvoices();
+          setScreen('detail');
+        })
+        .catch((error: Error) => {
+          setIsSaving(false);
+          showError(error.message);
+        });
+      return;
+    }
+    setVerification({ status: 'success', data });
+    setScreen('invoice');
+  };
+
   const handleConfirm = () => {
     if (verification.status !== 'success') {
       return;
@@ -150,7 +184,7 @@ export default function App() {
   };
 
   return (
-    <LinearGradient colors={['#dbeafe', '#ede9fe', '#fdf4ff']} style={styles.container}>
+    <View style={styles.container}>
       {screen === 'loading' ? (
         <Text style={styles.statusText}>Duke u ngarkuar...</Text>
       ) : screen === 'auth' ? (
@@ -183,13 +217,22 @@ export default function App() {
             ListEmptyComponent={<Text style={styles.emptyText}>Nuk ka fatura të ruajtura.</Text>}
           />
 
-          <GlassButton
-            label="Skano"
-            variant="accent"
-            style={styles.scanButton}
-            onPress={() => setIsScannerVisible(true)}
+          <ScanMenu
+            onScanQr={() => setIsScannerVisible(true)}
+            onAddManually={() => {
+              setSelectedInvoice(null);
+              setScreen('manual');
+            }}
+            onScanReceipt={() => showError('Kjo veçori do të vijë së shpejti.')}
           />
         </>
+      ) : screen === 'manual' ? (
+        <ManualInvoiceScreen
+          initialData={selectedInvoice?.data}
+          isSaving={isSaving}
+          onClose={handleManualClose}
+          onSubmit={handleManualSubmit}
+        />
       ) : screen === 'invoice' ? (
         <InvoiceScreen
           verification={verification}
@@ -204,6 +247,7 @@ export default function App() {
             onClose={handleClose}
             isDeleting={isDeleting}
             onDelete={handleDelete}
+            onEdit={() => setScreen('manual')}
           />
         )
       )}
@@ -223,7 +267,7 @@ export default function App() {
 
       <StatusBar style="auto" />
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -231,6 +275,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 80,
+    backgroundColor: '#ffffff',
   },
   headerRow: {
     flexDirection: 'row',
@@ -291,10 +336,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#6b7280',
     marginTop: 40,
-  },
-  scanButton: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
   },
 });

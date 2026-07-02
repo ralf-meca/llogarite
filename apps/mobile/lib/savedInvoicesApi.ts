@@ -36,6 +36,21 @@ export async function fetchSavedInvoices(): Promise<SavedInvoice[]> {
   return response.json();
 }
 
+export async function updateInvoice(id: string, data: InvoiceVerificationResult): Promise<SavedInvoice> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/invoices/${id}`, {
+    method: 'PATCH',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Ndryshimi dështoi. Provo përsëri.'));
+  }
+  return response.json();
+}
+
 export async function deleteInvoice(id: string): Promise<void> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');

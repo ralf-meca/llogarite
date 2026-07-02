@@ -29,6 +29,15 @@ export class InvoicesService {
         return this.invoicesRepository.find({ where: { userId }, order: { createdAt: 'DESC' } });
     }
 
+    async update(userId: string, id: string, data: Record<string, unknown>): Promise<Invoice> {
+        const invoice = await this.invoicesRepository.findOne({ where: { id } });
+        if (!invoice || invoice.userId !== userId) {
+            throw new NotFoundException();
+        }
+        await this.invoicesRepository.update(id, { data });
+        return { ...invoice, data };
+    }
+
     async remove(userId: string, id: string): Promise<void> {
         const invoice = await this.invoicesRepository.findOne({ where: { id } });
         if (!invoice || invoice.userId !== userId) {

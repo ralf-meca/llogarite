@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
 import { GlassButton } from './GlassButton';
@@ -11,6 +12,7 @@ type InvoiceScreenProps = {
   onConfirm?: () => void;
   isDeleting?: boolean;
   onDelete?: () => void;
+  onEdit?: () => void;
 };
 
 export function InvoiceScreen({
@@ -20,14 +22,30 @@ export function InvoiceScreen({
   onConfirm,
   isDeleting,
   onDelete,
+  onEdit,
 }: InvoiceScreenProps) {
   return (
     <View style={styles.container}>
-      <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
-        <GlassView style={styles.closeButton}>
-          <Text style={styles.closeButtonText}>✕</Text>
-        </GlassView>
-      </Pressable>
+      {onEdit ? (
+        <View style={styles.headerRow}>
+          <Pressable onPress={onClose} style={styles.iconButtonShadow}>
+            <GlassView style={[styles.iconButton, styles.backButton]}>
+              <Ionicons name="arrow-back" size={18} color="#9ca3af" />
+            </GlassView>
+          </Pressable>
+          <Pressable onPress={onEdit} style={styles.iconButtonShadow}>
+            <GlassView style={styles.iconButton}>
+              <Ionicons name="create-outline" size={18} color="#111827" />
+            </GlassView>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable onPress={onClose} style={[styles.closeButtonWrapper, styles.iconButtonShadow]}>
+          <GlassView style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </GlassView>
+        </Pressable>
+      )}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {verification.status === 'invalid' && (
@@ -72,18 +90,42 @@ const styles = StyleSheet.create({
   closeButtonWrapper: {
     alignSelf: 'flex-end',
     marginTop: 8,
+    marginBottom: 20,
     marginRight: 16,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
     fontSize: 16,
     color: '#111827',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 20,
+    marginHorizontal: 16,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButton: {
+    width: 52,
+  },
+  iconButtonShadow: {
+    borderRadius: 18,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.15)',
   },
   scroll: {
     flex: 1,

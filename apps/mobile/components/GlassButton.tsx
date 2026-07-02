@@ -16,7 +16,7 @@ type GlassButtonProps = {
 const variantTint: Record<GlassButtonVariant, string> = {
   default: 'rgba(255,255,255,0.3)',
   accent: 'rgba(37,99,235,0.55)',
-  danger: 'rgba(220,38,38,0.18)',
+  danger: 'rgba(248,113,113,0.45)',
 };
 
 const variantTextColor: Record<GlassButtonVariant, string> = {
@@ -43,7 +43,7 @@ export function GlassButton({ label, onPress, disabled, variant = 'default', ico
 const styles = StyleSheet.create({
   wrapper: {
     borderRadius: 999,
-    overflow: 'hidden',
+    boxShadow: '0px 3px 6px rgba(0,0,0,0.18)',
   },
   pressed: {
     opacity: 0.7,
@@ -57,6 +57,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   label: {
     fontWeight: '600',
