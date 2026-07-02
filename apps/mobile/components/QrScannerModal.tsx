@@ -1,6 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 
@@ -10,9 +11,15 @@ type QrScannerModalProps = {
   onScanned: (data: string) => void;
 };
 
+const FRAME_SIZE = 260;
+const FRAME_RADIUS = 24;
+
 export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [hasScanned, setHasScanned] = useState(false);
+  const { width, height } = Dimensions.get('window');
+  const frameLeft = (width - FRAME_SIZE) / 2;
+  const frameTop = (height - FRAME_SIZE) / 2;
 
   const handleShow = () => {
     setHasScanned(false);
@@ -30,12 +37,34 @@ export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalPr
     <Modal visible={visible} animationType="slide" onShow={handleShow} onRequestClose={onClose}>
       <View style={styles.container}>
         {permission?.granted ? (
-          <CameraView
-            style={StyleSheet.absoluteFillObject}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={handleBarcodeScanned}
-          />
+          <>
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={handleBarcodeScanned}
+            />
+            <Svg style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              <Defs>
+                <Mask id="scanMask">
+                  <Rect x={0} y={0} width={width} height={height} fill="white" />
+                  <Rect
+                    x={frameLeft}
+                    y={frameTop}
+                    width={FRAME_SIZE}
+                    height={FRAME_SIZE}
+                    rx={FRAME_RADIUS}
+                    fill="black"
+                  />
+                </Mask>
+              </Defs>
+              <Rect x={0} y={0} width={width} height={height} fill="rgba(0,0,0,0.5)" mask="url(#scanMask)" />
+            </Svg>
+            <View
+              pointerEvents="none"
+              style={[styles.frame, { left: frameLeft, top: frameTop }]}
+            />
+          </>
         ) : (
           <View style={styles.permissionContainer}>
             <GlassView tint="dark" style={styles.permissionCard}>
@@ -64,6 +93,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+  },
+  frame: {
+    position: 'absolute',
+    width: FRAME_SIZE,
+    height: FRAME_SIZE,
+    borderRadius: FRAME_RADIUS,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.85)',
   },
   permissionCard: {
     alignItems: 'center',
