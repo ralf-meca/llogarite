@@ -79,19 +79,28 @@ export class AuthService {
 
         const email = payload.email.toLowerCase().trim();
         const googleId = payload.sub;
+        const name = payload.name;
+        const avatarUrl = payload.picture;
 
         const existingByGoogleId = await this.usersService.findByGoogleId(googleId);
         if (existingByGoogleId) {
-            return this.buildAuthResponse(existingByGoogleId);
+            await this.usersService.updateGoogleProfile(existingByGoogleId.id, { name, avatarUrl });
+            return this.buildAuthResponse({ ...existingByGoogleId, name: name ?? null, avatarUrl: avatarUrl ?? null });
         }
 
-        const existingByEmail = await this.usersService.findByEmail(email);
+        const existingByEmail = await this.usersService.findByEmailWithPassword(email);
         if (existingByEmail) {
             await this.usersService.linkGoogleId(existingByEmail.id, googleId);
-            return this.buildAuthResponse({ ...existingByEmail, googleId });
+            await this.usersService.updateGoogleProfile(existingByEmail.id, { name, avatarUrl });
+            return this.buildAuthResponse({
+                ...existingByEmail,
+                googleId,
+                name: name ?? existingByEmail.name,
+                avatarUrl: avatarUrl ?? existingByEmail.avatarUrl,
+            });
         }
 
-        const user = await this.usersService.create({ email, googleId });
+        const user = await this.usersService.create({ email, googleId, name, avatarUrl });
         return this.buildAuthResponse(user);
     }
 
@@ -99,7 +108,13 @@ export class AuthService {
         const payload: JwtPayload = { sub: user.id, email: user.email };
         return {
             accessToken: this.jwtService.sign(payload),
-            user: { id: user.id, email: user.email },
+            user: {
+                id: user.id,
+                email: user.email,
+                hasPassword: Boolean(user.passwordHash),
+                name: user.name ?? null,
+                avatarUrl: user.avatarUrl ?? null,
+            },
         };
     }
 }

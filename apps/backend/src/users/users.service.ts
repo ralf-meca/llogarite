@@ -17,7 +17,7 @@ export class UsersService {
     findByEmailWithPassword(email: string): Promise<User | null> {
         return this.usersRepository.findOne({
             where: { email },
-            select: { id: true, email: true, passwordHash: true, createdAt: true },
+            select: { id: true, email: true, passwordHash: true, name: true, avatarUrl: true, createdAt: true },
         });
     }
 
@@ -29,10 +29,27 @@ export class UsersService {
     }
 
     findByGoogleId(googleId: string): Promise<User | null> {
-        return this.usersRepository.findOne({ where: { googleId } });
+        return this.usersRepository.findOne({
+            where: { googleId },
+            select: {
+                id: true,
+                email: true,
+                passwordHash: true,
+                googleId: true,
+                name: true,
+                avatarUrl: true,
+                createdAt: true,
+            },
+        });
     }
 
-    create(input: { email: string; passwordHash?: string; googleId?: string }): Promise<User> {
+    create(input: {
+        email: string;
+        passwordHash?: string;
+        googleId?: string;
+        name?: string;
+        avatarUrl?: string;
+    }): Promise<User> {
         const user = this.usersRepository.create(input);
         return this.usersRepository.save(user);
     }
@@ -43,5 +60,9 @@ export class UsersService {
 
     async linkGoogleId(id: string, googleId: string): Promise<void> {
         await this.usersRepository.update(id, { googleId });
+    }
+
+    async updateGoogleProfile(id: string, profile: { name?: string; avatarUrl?: string }): Promise<void> {
+        await this.usersRepository.update(id, profile);
     }
 }

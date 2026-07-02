@@ -3,5 +3,8 @@ export type AuthResponse = {
     user: {
         id: string;
         email: string;
+        hasPassword: boolean;
+        name: string | null;
+        avatarUrl: string | null;
     };
 };

@@ -14,6 +14,12 @@ export class User {
     @Column({ unique: true, nullable: true })
     googleId: string | null;
 
+    @Column({ nullable: true })
+    name: string | null;
+
+    @Column({ nullable: true })
+    avatarUrl: string | null;
+
     @CreateDateColumn()
     createdAt: Date;
 }

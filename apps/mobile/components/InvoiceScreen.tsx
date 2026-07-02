@@ -1,32 +1,32 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
+import { GlassButton } from './GlassButton';
+import { GlassView } from './GlassView';
 import { InvoiceReceipt } from './InvoiceReceipt';
 
 type InvoiceScreenProps = {
   verification: VerificationState;
   isSaving?: boolean;
-  saveError?: string | null;
   onClose: () => void;
   onConfirm?: () => void;
   isDeleting?: boolean;
-  deleteError?: string | null;
   onDelete?: () => void;
 };
 
 export function InvoiceScreen({
   verification,
   isSaving,
-  saveError,
   onClose,
   onConfirm,
   isDeleting,
-  deleteError,
   onDelete,
 }: InvoiceScreenProps) {
   return (
     <View style={styles.container}>
-      <Pressable style={styles.closeButton} onPress={onClose}>
-        <Text style={styles.closeButtonText}>✕</Text>
+      <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
+        <GlassView style={styles.closeButton}>
+          <Text style={styles.closeButtonText}>✕</Text>
+        </GlassView>
       </Pressable>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -42,17 +42,22 @@ export function InvoiceScreen({
 
       {verification.status === 'success' && (onConfirm || onDelete) && (
         <View style={styles.footer}>
-          {saveError && <Text style={styles.errorText}>{saveError}</Text>}
-          {deleteError && <Text style={styles.errorText}>{deleteError}</Text>}
           {onConfirm && (
-            <Pressable style={styles.confirmButton} onPress={onConfirm} disabled={isSaving}>
-              <Text style={styles.confirmButtonText}>{isSaving ? 'Duke ruajtur...' : 'Konfirmo'}</Text>
-            </Pressable>
+            <GlassButton
+              label={isSaving ? 'Duke ruajtur...' : 'Konfirmo'}
+              variant="accent"
+              onPress={onConfirm}
+              disabled={isSaving}
+            />
           )}
           {onDelete && (
-            <Pressable style={styles.deleteButton} onPress={onDelete} disabled={isDeleting}>
-              <Text style={styles.deleteButtonText}>{isDeleting ? 'Duke fshirë...' : 'Fshi'}</Text>
-            </Pressable>
+            <GlassButton
+              label={isDeleting ? 'Duke fshirë...' : 'Fshi'}
+              variant="danger"
+              style={styles.deleteButton}
+              onPress={onDelete}
+              disabled={isDeleting}
+            />
           )}
         </View>
       )}
@@ -64,14 +69,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  closeButton: {
+  closeButtonWrapper: {
     alignSelf: 'flex-end',
     marginTop: 8,
     marginRight: 16,
-    padding: 8,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButtonText: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#111827',
   },
   scroll: {
@@ -89,28 +100,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
   },
-  confirmButton: {
-    backgroundColor: '#16a34a',
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
   deleteButton: {
     marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dc2626',
-  },
-  deleteButtonText: {
-    color: '#dc2626',
-    fontWeight: '600',
-    fontSize: 16,
   },
 });

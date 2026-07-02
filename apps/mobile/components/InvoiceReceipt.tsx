@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
 import type { InvoiceVerificationResult } from '../lib/invoiceApi';
+import { GlassView } from './GlassView';
 
 type InvoiceReceiptProps = {
   result: InvoiceVerificationResult;
@@ -8,7 +9,7 @@ type InvoiceReceiptProps = {
 
 export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
   return (
-    <View>
+    <GlassView style={styles.card}>
       <Text style={styles.date}>{new Date(result.dateTimeCreated).toLocaleString()}</Text>
       <Text style={styles.sellerName}>{result.seller.name}</Text>
 
@@ -31,11 +32,14 @@ export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
         <Text style={styles.totalLabel}>Totali</Text>
         <Text style={styles.totalValue}>{formatAmount(result.totalPrice)}</Text>
       </View>
-    </View>
+    </GlassView>
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    padding: 20,
+  },
   date: {
     color: '#6b7280',
     fontSize: 13,

@@ -1,23 +1,21 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GlassButton } from './components/GlassButton';
+import { GlassView } from './components/GlassView';
 import { InvoiceScreen } from './components/InvoiceScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { QrScannerModal } from './components/QrScannerModal';
+import { ToastHost } from './components/ToastHost';
+import { UserAvatar } from './components/UserAvatar';
 import { UserMenuModal } from './components/UserMenuModal';
-import type { AuthResponse } from './lib/authApi';
-import { clearToken, getToken, saveToken } from './lib/authStorage';
+import { useToasts } from './hooks/useToasts';
+import type { AuthResponse, AuthUser } from './lib/authApi';
+import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from './lib/authStorage';
 import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
 import { deleteInvoice, fetchSavedInvoices, saveInvoice, type SavedInvoice } from './lib/savedInvoicesApi';
-
-type ConnectionStatus = 'checking' | 'connected' | 'failed';
-
-const connectionStatusLabels: Record<ConnectionStatus, string> = {
-  checking: 'duke kontrolluar',
-  connected: 'lidhur',
-  failed: 'dështoi',
-};
 
 export type VerificationState =
   | { status: 'idle' }
@@ -29,7 +27,7 @@ export type VerificationState =
 type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail';
 
 export default function App() {
-  const [status, setStatus] = useState<ConnectionStatus>('checking');
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
   const [verification, setVerification] = useState<VerificationState>({ status: 'idle' });
@@ -37,30 +35,22 @@ export default function App() {
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<SavedInvoice | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!apiUrl) {
-      setStatus('failed');
-      return;
-    }
-    fetch(`${apiUrl}/health`)
-      .then((res) => setStatus(res.ok ? 'connected' : 'failed'))
-      .catch(() => setStatus('failed'));
-  }, []);
+  const { toasts, showError, dismissToast } = useToasts();
 
   const loadSavedInvoices = useCallback(() => {
     fetchSavedInvoices()
       .then(setSavedInvoices)
-      .catch(() => setSavedInvoices([]));
-  }, []);
+      .catch((error: Error) => {
+        setSavedInvoices([]);
+        showError(error.message);
+      });
+  }, [showError]);
 
   useEffect(() => {
     getToken().then((token) => {
       if (token) {
+        getUser().then(setUser);
         setScreen('home');
       } else {
         setScreen('auth');
@@ -75,19 +65,22 @@ export default function App() {
   }, [screen, loadSavedInvoices]);
 
   const handleAuthenticated = (auth: AuthResponse) => {
-    saveToken(auth.accessToken).then(() => setScreen('home'));
+    Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
+      setUser(auth.user);
+      setScreen('home');
+    });
   };
 
   const handleLogout = () => {
-    clearToken().then(() => {
+    Promise.all([clearToken(), clearUser()]).then(() => {
       setSavedInvoices([]);
+      setUser(null);
       setScreen('auth');
     });
   };
 
   const handleScanned = (scannedText: string) => {
     setIsScannerVisible(false);
-    setSaveError(null);
     setScreen('invoice');
 
     const invoiceParams = parseInvoiceQrUrl(scannedText);
@@ -105,8 +98,6 @@ export default function App() {
   const handleClose = () => {
     setScreen('home');
     setVerification({ status: 'idle' });
-    setSaveError(null);
-    setDeleteError(null);
     setSelectedInvoice(null);
   };
 
@@ -126,7 +117,6 @@ export default function App() {
         style: 'destructive',
         onPress: () => {
           setIsDeleting(true);
-          setDeleteError(null);
           deleteInvoice(selectedInvoice.id)
             .then(() => {
               setIsDeleting(false);
@@ -135,7 +125,7 @@ export default function App() {
             })
             .catch((error: Error) => {
               setIsDeleting(false);
-              setDeleteError(error.message);
+              showError(error.message);
             });
         },
       },
@@ -147,7 +137,6 @@ export default function App() {
       return;
     }
     setIsSaving(true);
-    setSaveError(null);
     saveInvoice(verification.data)
       .then(() => {
         setIsSaving(false);
@@ -156,25 +145,24 @@ export default function App() {
       })
       .catch((error: Error) => {
         setIsSaving(false);
-        setSaveError(error.message);
+        showError(error.message);
       });
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#dbeafe', '#ede9fe', '#fdf4ff']} style={styles.container}>
       {screen === 'loading' ? (
         <Text style={styles.statusText}>Duke u ngarkuar...</Text>
       ) : screen === 'auth' ? (
         <LoginScreen onAuthenticated={handleAuthenticated} />
       ) : screen === 'home' ? (
         <>
-          <View style={styles.headerRow}>
+          <GlassView style={styles.headerRow}>
             <Text style={styles.title}>Llogarite</Text>
             <Pressable style={styles.userIconButton} onPress={() => setIsUserMenuVisible(true)}>
-              <Text style={styles.userIconText}>👤</Text>
+              <UserAvatar user={user} size={30} />
             </Pressable>
-          </View>
-          <Text style={styles.statusText}>Statusi i serverit: {connectionStatusLabels[status]}</Text>
+          </GlassView>
 
           <FlatList
             style={styles.list}
@@ -182,26 +170,30 @@ export default function App() {
             data={savedInvoices}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <Pressable style={styles.savedRow} onPress={() => handleSelectInvoice(item)}>
-                <View>
-                  <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
-                  <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleString()}</Text>
-                </View>
-                <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
+              <Pressable onPress={() => handleSelectInvoice(item)}>
+                <GlassView style={styles.savedRow}>
+                  <View>
+                    <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
+                    <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleString()}</Text>
+                  </View>
+                  <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
+                </GlassView>
               </Pressable>
             )}
             ListEmptyComponent={<Text style={styles.emptyText}>Nuk ka fatura të ruajtura.</Text>}
           />
 
-          <Pressable style={styles.scanButton} onPress={() => setIsScannerVisible(true)}>
-            <Text style={styles.scanButtonText}>Skano</Text>
-          </Pressable>
+          <GlassButton
+            label="Skano"
+            variant="accent"
+            style={styles.scanButton}
+            onPress={() => setIsScannerVisible(true)}
+          />
         </>
       ) : screen === 'invoice' ? (
         <InvoiceScreen
           verification={verification}
           isSaving={isSaving}
-          saveError={saveError}
           onClose={handleClose}
           onConfirm={handleConfirm}
         />
@@ -211,7 +203,6 @@ export default function App() {
             verification={{ status: 'success', data: selectedInvoice.data }}
             onClose={handleClose}
             isDeleting={isDeleting}
-            deleteError={deleteError}
             onDelete={handleDelete}
           />
         )
@@ -225,25 +216,28 @@ export default function App() {
 
       <UserMenuModal
         visible={isUserMenuVisible}
+        user={user}
         onClose={() => setIsUserMenuVisible(false)}
         onLogout={handleLogout}
       />
 
       <StatusBar style="auto" />
-    </View>
+      <ToastHost toasts={toasts} onDismiss={dismissToast} />
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     paddingTop: 80,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginHorizontal: 24,
+    paddingVertical: 14,
   },
   title: {
     fontSize: 20,
@@ -252,35 +246,36 @@ const styles = StyleSheet.create({
   },
   userIconButton: {
     position: 'absolute',
-    right: 24,
+    right: 20,
     padding: 4,
-  },
-  userIconText: {
-    fontSize: 20,
   },
   statusText: {
     textAlign: 'center',
+    marginTop: 12,
     marginBottom: 8,
+    color: '#4b5563',
   },
   list: {
     flex: 1,
+    marginTop: 12,
   },
   listContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 120,
+    gap: 12,
   },
   savedRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   savedSeller: {
     fontSize: 15,
     fontWeight: '600',
+    color: '#1f2937',
   },
   savedDate: {
     fontSize: 12,
@@ -290,6 +285,7 @@ const styles = StyleSheet.create({
   savedTotal: {
     fontSize: 15,
     fontWeight: '600',
+    color: '#1f2937',
   },
   emptyText: {
     textAlign: 'center',
@@ -300,14 +296,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 40,
     alignSelf: 'center',
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 999,
-  },
-  scanButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
 });

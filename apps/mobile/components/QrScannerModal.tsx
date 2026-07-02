@@ -1,6 +1,8 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GlassButton } from './GlassButton';
+import { GlassView } from './GlassView';
 
 type QrScannerModalProps = {
   visible: boolean;
@@ -36,14 +38,16 @@ export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalPr
           />
         ) : (
           <View style={styles.permissionContainer}>
-            <Text style={styles.permissionText}>Nevojitet qasje në kamerë për të skanuar kodet QR.</Text>
-            <Pressable style={styles.button} onPress={requestPermission}>
-              <Text style={styles.buttonText}>Jep leje</Text>
-            </Pressable>
+            <GlassView tint="dark" style={styles.permissionCard}>
+              <Text style={styles.permissionText}>Nevojitet qasje në kamerë për të skanuar kodet QR.</Text>
+              <GlassButton label="Jep leje" variant="accent" onPress={requestPermission} />
+            </GlassView>
           </View>
         )}
-        <Pressable style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.buttonText}>Mbyll</Text>
+        <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
+          <GlassView tint="dark" style={styles.closeButton}>
+            <Text style={styles.buttonText}>Mbyll</Text>
+          </GlassView>
         </Pressable>
       </View>
     </Modal>
@@ -60,26 +64,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+  },
+  permissionCard: {
+    alignItems: 'center',
+    padding: 24,
     gap: 16,
   },
   permissionText: {
     color: '#fff',
     textAlign: 'center',
   },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  closeButton: {
+  closeButtonWrapper: {
     position: 'absolute',
     top: 48,
     right: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  closeButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
   },
   buttonText: {
     color: '#fff',

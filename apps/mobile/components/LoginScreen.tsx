@@ -1,9 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useToasts } from '../hooks/useToasts';
 import { login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
+import { GlassButton } from './GlassButton';
+import { GlassTextInput } from './GlassTextInput';
+import { GlassView } from './GlassView';
+import { ToastHost } from './ToastHost';
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
   return (
@@ -41,14 +46,13 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
     GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
   }, []);
 
   const handleSubmit = () => {
-    setError(null);
     setIsSubmitting(true);
     const submit = mode === 'login' ? login : register;
     submit(email, password)
@@ -58,16 +62,15 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       })
       .catch((submitError: Error) => {
         setIsSubmitting(false);
-        setError(submitError.message);
+        showError(submitError.message);
       });
   };
 
   const handleGoogleSignIn = () => {
     if (!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
-      setError('Kyçja me Google nuk është konfiguruar.');
+      showError('Kyçja me Google nuk është konfiguruar.');
       return;
     }
-    setError(null);
     setIsGoogleSubmitting(true);
     GoogleSignin.signOut()
       .catch(() => null)
@@ -85,76 +88,76 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       })
       .catch((googleError: Error) => {
         setIsGoogleSubmitting(false);
-        setError(googleError.message);
+        showError(googleError.message);
       });
   };
 
   const toggleMode = () => {
-    setError(null);
     setMode(mode === 'login' ? 'register' : 'login');
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Llogarite</Text>
+      <GlassView style={styles.card}>
+        <Text style={styles.title}>Llogarite</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Fjalëkalimi"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
+        <GlassTextInput
+          style={styles.input}
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
         />
-        <Pressable
-          style={styles.eyeButton}
-          onPress={() => setShowPassword((prev) => !prev)}
-        >
-          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#6b7280" />
+        <GlassView style={styles.passwordContainer}>
+          <GlassTextInput
+            style={styles.passwordInput}
+            placeholder="Fjalëkalimi"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <Pressable
+            style={styles.eyeButton}
+            onPress={() => setShowPassword((prev) => !prev)}
+          >
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#6b7280" />
+          </Pressable>
+        </GlassView>
+
+        <GlassButton
+          label={
+            isSubmitting
+              ? mode === 'login'
+                ? 'Duke u kyçur...'
+                : 'Duke u regjistruar...'
+              : mode === 'login'
+                ? 'Kyçu'
+                : 'Regjistrohu'
+          }
+          variant="accent"
+          style={styles.submitButton}
+          onPress={handleSubmit}
+          disabled={isSubmitting || isGoogleSubmitting}
+        />
+
+        <GlassButton
+          label="Vazhdo me Google"
+          icon={<GoogleLogo size={20} />}
+          style={styles.googleButton}
+          onPress={handleGoogleSignIn}
+          disabled={isSubmitting || isGoogleSubmitting}
+        />
+        {isGoogleSubmitting && <Text style={styles.googleLoadingText}>Duke u kyçur me Google...</Text>}
+
+        <Pressable onPress={toggleMode}>
+          <Text style={styles.toggleText}>
+            {mode === 'login' ? 'Nuk ke llogari? Regjistrohu' : 'Ke llogari? Kyçu'}
+          </Text>
         </Pressable>
-      </View>
+      </GlassView>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Pressable
-        style={styles.submitButton}
-        onPress={handleSubmit}
-        disabled={isSubmitting || isGoogleSubmitting}
-      >
-        <Text style={styles.submitButtonText}>
-          {isSubmitting
-            ? mode === 'login'
-              ? 'Duke u kyçur...'
-              : 'Duke u regjistruar...'
-            : mode === 'login'
-              ? 'Kyçu'
-              : 'Regjistrohu'}
-        </Text>
-      </Pressable>
-
-      <Pressable
-        style={styles.googleButton}
-        onPress={handleGoogleSignIn}
-        disabled={isSubmitting || isGoogleSubmitting}
-      >
-        <GoogleLogo size={20} />
-        <Text style={styles.googleButtonText}>Vazhdo me Google</Text>
-      </Pressable>
-      {isGoogleSubmitting && <Text style={styles.googleLoadingText}>Duke u kyçur me Google...</Text>}
-
-      <Pressable onPress={toggleMode}>
-        <Text style={styles.toggleText}>
-          {mode === 'login' ? 'Nuk ke llogari? Regjistrohu' : 'Ke llogari? Kyçu'}
-        </Text>
-      </Pressable>
+      <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
   );
 }
@@ -165,71 +168,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  card: {
+    padding: 24,
+  },
   title: {
     fontSize: 24,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 32,
+    color: '#1f2937',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     marginBottom: 12,
-    fontSize: 16,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
     marginBottom: 12,
+    paddingRight: 4,
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   eyeButton: {
     paddingHorizontal: 12,
   },
-  errorText: {
-    color: '#dc2626',
-    marginBottom: 12,
-  },
   submitButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: 'center',
     marginTop: 8,
   },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
   googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-    height: 48,
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
-    backgroundColor: '#fff',
-  },
-  googleButtonText: {
-    color: '#1f2937',
-    fontWeight: '600',
-    fontSize: 16,
   },
   googleLoadingText: {
     textAlign: 'center',
