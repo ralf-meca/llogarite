@@ -6,6 +6,7 @@ import { InvoiceScreen } from './components/InvoiceScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { ManualInvoiceScreen } from './components/ManualInvoiceScreen';
 import { QrScannerModal } from './components/QrScannerModal';
+import { ReceiptScannerModal } from './components/ReceiptScannerModal';
 import { ScanMenu } from './components/ScanMenu';
 import { ToastHost } from './components/ToastHost';
 import { UserAvatar } from './components/UserAvatar';
@@ -15,6 +16,9 @@ import type { AuthResponse, AuthUser } from './lib/authApi';
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from './lib/authStorage';
 import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
+import { toLocalIsoString } from './lib/date';
+import { recognizeReceipt } from './lib/receiptOcr';
+import { parseReceipt, toQrParams } from './lib/receiptParser';
 import {
   deleteInvoice,
   fetchSavedInvoices,
@@ -35,11 +39,14 @@ type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail' | 'manual';
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
+  const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
+  const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
   const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
   const [verification, setVerification] = useState<VerificationState>({ status: 'idle' });
   const [screen, setScreen] = useState<Screen>('loading');
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<SavedInvoice | null>(null);
+  const [manualPrefill, setManualPrefill] = useState<InvoiceVerificationResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toasts, showError, dismissToast } = useToasts();
@@ -105,6 +112,7 @@ export default function App() {
     setScreen('home');
     setVerification({ status: 'idle' });
     setSelectedInvoice(null);
+    setManualPrefill(null);
   };
 
   const handleManualClose = () => {
@@ -144,6 +152,51 @@ export default function App() {
         },
       },
     ]);
+  };
+
+  const handleReceiptCaptured = (photoUri: string) => {
+    setIsProcessingReceipt(true);
+    recognizeReceipt(photoUri)
+      .then((result) => {
+        let parsed;
+        try {
+          parsed = parseReceipt(result);
+        } catch (parseError) {
+          console.log('[OCR parse error]', parseError);
+          throw new Error('Nuk u përpunuan dot të dhënat e faturës. Provo përsëri.');
+        }
+        const qrParams = toQrParams(parsed);
+        setIsProcessingReceipt(false);
+        setIsReceiptScannerVisible(false);
+
+        if (qrParams) {
+          setScreen('invoice');
+          setVerification({ status: 'loading' });
+          verifyInvoice(qrParams)
+            .then((data) => setVerification({ status: 'success', data }))
+            .catch((error: Error) => setVerification({ status: 'error', message: error.message }));
+          return;
+        }
+
+        setSelectedInvoice(null);
+        setManualPrefill({
+          iic: parsed.iic ?? '',
+          dateTimeCreated: parsed.dateTimeCreated ?? toLocalIsoString(new Date()),
+          totalPrice: 0,
+          seller: { name: parsed.sellerName ?? '' },
+          items: parsed.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPriceBeforeVat: item.unitPrice,
+            unitPriceAfterVat: item.unitPrice,
+          })),
+        });
+        setScreen('manual');
+      })
+      .catch((error: Error) => {
+        setIsProcessingReceipt(false);
+        showError(error.message);
+      });
   };
 
   const handleManualSubmit = (data: InvoiceVerificationResult) => {
@@ -221,14 +274,16 @@ export default function App() {
             onScanQr={() => setIsScannerVisible(true)}
             onAddManually={() => {
               setSelectedInvoice(null);
+              setManualPrefill(null);
               setScreen('manual');
             }}
-            onScanReceipt={() => showError('Kjo veçori do të vijë së shpejti.')}
+            onScanReceipt={() => setIsReceiptScannerVisible(true)}
           />
         </>
       ) : screen === 'manual' ? (
         <ManualInvoiceScreen
-          initialData={selectedInvoice?.data}
+          initialData={selectedInvoice?.data ?? manualPrefill ?? undefined}
+          isEditing={Boolean(selectedInvoice)}
           isSaving={isSaving}
           onClose={handleManualClose}
           onSubmit={handleManualSubmit}
@@ -256,6 +311,13 @@ export default function App() {
         visible={isScannerVisible}
         onClose={() => setIsScannerVisible(false)}
         onScanned={handleScanned}
+      />
+
+      <ReceiptScannerModal
+        visible={isReceiptScannerVisible}
+        isProcessing={isProcessingReceipt}
+        onClose={() => setIsReceiptScannerVisible(false)}
+        onCaptured={handleReceiptCaptured}
       />
 
       <UserMenuModal

@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
+import { toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { GlassButton } from './GlassButton';
@@ -11,6 +12,7 @@ import { ToastHost } from './ToastHost';
 
 type ManualInvoiceScreenProps = {
   initialData?: InvoiceVerificationResult;
+  isEditing?: boolean;
   isSaving?: boolean;
   onClose: () => void;
   onSubmit: (result: InvoiceVerificationResult) => void;
@@ -54,7 +56,13 @@ function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
   }));
 }
 
-export function ManualInvoiceScreen({ initialData, isSaving, onClose, onSubmit }: ManualInvoiceScreenProps) {
+export function ManualInvoiceScreen({
+  initialData,
+  isEditing,
+  isSaving,
+  onClose,
+  onSubmit,
+}: ManualInvoiceScreenProps) {
   const [sellerName, setSellerName] = useState(initialData?.seller.name ?? '');
   const [dateLabel, setDateLabel] = useState(
     initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
@@ -108,8 +116,8 @@ export function ManualInvoiceScreen({ initialData, isSaving, onClose, onSubmit }
     }
 
     onSubmit({
-      iic: initialData?.iic ?? `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      dateTimeCreated: date.toISOString(),
+      iic: isEditing && initialData ? initialData.iic : `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      dateTimeCreated: toLocalIsoString(date),
       totalPrice: parsedItems.reduce((sum, item) => sum + item.unitPriceAfterVat * item.quantity, 0),
       seller: { name: sellerName.trim() },
       items: parsedItems,
@@ -120,7 +128,7 @@ export function ManualInvoiceScreen({ initialData, isSaving, onClose, onSubmit }
     <View style={styles.container}>
       <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
         <GlassView style={styles.closeButton}>
-          {initialData ? (
+          {isEditing ? (
             <MaterialCommunityIcons name="pencil-off-outline" size={18} color="#111827" />
           ) : (
             <Text style={styles.closeButtonText}>✕</Text>
@@ -129,7 +137,7 @@ export function ManualInvoiceScreen({ initialData, isSaving, onClose, onSubmit }
       </Pressable>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{initialData ? 'Ndrysho faturën' : 'Shto faturë manualisht'}</Text>
+        <Text style={styles.title}>{isEditing ? 'Ndrysho faturën' : 'Shto faturë manualisht'}</Text>
 
         <GlassTextInput
           style={styles.input}
@@ -195,7 +203,7 @@ export function ManualInvoiceScreen({ initialData, isSaving, onClose, onSubmit }
 
       <View style={styles.footer}>
         <GlassButton
-          label={isSaving ? 'Duke ruajtur...' : initialData ? 'Ruaj ndryshimet' : 'Vazhdo'}
+          label={isSaving ? 'Duke ruajtur...' : isEditing ? 'Ruaj ndryshimet' : 'Vazhdo'}
           variant="accent"
           onPress={handleSubmit}
           disabled={isSaving}

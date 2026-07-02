@@ -11,8 +11,8 @@ type ScanMenuProps = {
 
 const MENU_ITEMS = [
   { key: 'qr', icon: 'qr-code-outline', label: 'Skano kodin QR' },
-  { key: 'manual', icon: 'create-outline', label: 'Shto manualisht' },
   { key: 'receipt', icon: 'scan-outline', label: 'Skano faturën' },
+  { key: 'manual', icon: 'create-outline', label: 'Shto manualisht' },
 ] as const;
 
 export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuProps) {
