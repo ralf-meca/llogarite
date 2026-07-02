@@ -33,8 +33,8 @@ const DATE_ONLY_PATTERN = /(\d{1,2})[./-](\d{1,2})[./-](\d{4})/;
 const SELLER_LABEL_PATTERN = /njesia\s*e\s*biznesit/i;
 const NON_NAME_LABEL_PATTERN =
   /(fatur[eë]|tatimore|shitje|artikull|rruga|^nr$|^[a-z]$|dat[eè]|or[eè]|lloji|pageses|operator|njesia|biznesit|sasi|[cç]mim|vlere|total)/i;
-const DECIMAL_LINE_PATTERN = /^(\d{1,4})[.,\s](\d{2})$/;
-const PURE_NUMBER_PATTERN = /^\d+(?:[.,]\d+)?$/;
+const DECIMAL_LINE_PATTERN = /^(-)?(\d{1,4})[.,\s](\d{2})$/;
+const PURE_NUMBER_PATTERN = /^-?\d+(?:[.,]\d+)?$/;
 const NAME_LETTERS_PATTERN = /[a-zëç]{2,}/i;
 
 function toIsoDate(text: string): string | null {
@@ -82,8 +82,8 @@ function extractTotalWithVat(lines: string[]): number | null {
   if (!match) {
     return null;
   }
-  const [, whole, fraction] = match;
-  return Number(`${whole}.${fraction}`);
+  const [, sign, whole, fraction] = match;
+  return Number(`${sign ?? ''}${whole}.${fraction}`);
 }
 
 function flattenCells(result: TextRecognitionResult): OcrCell[] {
@@ -126,6 +126,33 @@ function isLikelyItemNameFragment(text: string): boolean {
 }
 
 const ROW_INDEX_PATTERN = /^\d{1,3}$/;
+const QTY_PRICE_PATTERN = /(\d{1,3})[.,\s]?(\d{2})\s*[xX]+\s*(\d{1,4})[.,\s]?(\d{2})/;
+
+function tryExtractQtyPriceItem(row: OcrCell[], pendingNamePrefix: string): ParsedReceiptItem | null {
+  const rowText = row
+    .map((cell) => cell.text)
+    .join(' ')
+    .replace(/\bO\b/g, '0');
+  const match = rowText.match(QTY_PRICE_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  const [, qtyWhole, qtyFraction, priceWhole, priceFraction] = match;
+  const quantity = Number(`${qtyWhole}.${qtyFraction}`);
+  const unitPrice = Number(`${priceWhole}.${priceFraction}`);
+  if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice) || quantity <= 0) {
+    return null;
+  }
+
+  const name = pendingNamePrefix.trim();
+  if (!NAME_LETTERS_PATTERN.test(name)) {
+    return null;
+  }
+
+  const total = Math.round(quantity * unitPrice * 100) / 100;
+  return { name, quantity: 1, unitPrice: total };
+}
 
 function tryExtractItem(row: OcrCell[], pendingNamePrefix: string): ParsedReceiptItem | null {
   const numberCells: string[] = [];
@@ -154,7 +181,12 @@ function tryExtractItem(row: OcrCell[], pendingNamePrefix: string): ParsedReceip
     return null;
   }
 
-  const unitPrice = parseNumber(numberCells[numberCells.length - 1]);
+  const lastNumberCell = numberCells[numberCells.length - 1];
+  if (!/[.,]/.test(lastNumberCell)) {
+    return null;
+  }
+
+  const unitPrice = parseNumber(lastNumberCell);
   if (!Number.isFinite(unitPrice)) {
     return null;
   }
@@ -167,6 +199,13 @@ function extractItemsFromRows(rows: OcrCell[][]): ParsedReceiptItem[] {
   let pendingNamePrefix = '';
 
   for (const row of rows) {
+    const qtyPriceItem = tryExtractQtyPriceItem(row, pendingNamePrefix);
+    if (qtyPriceItem) {
+      items.push(qtyPriceItem);
+      pendingNamePrefix = '';
+      continue;
+    }
+
     const hasNumbers = row.some((cell) => PURE_NUMBER_PATTERN.test(cell.text.trim()));
 
     if (!hasNumbers) {
@@ -174,7 +213,9 @@ function extractItemsFromRows(rows: OcrCell[][]): ParsedReceiptItem[] {
         .map((cell) => cell.text)
         .join(' ')
         .trim();
-      pendingNamePrefix = isLikelyItemNameFragment(rowText) ? rowText : '';
+      if (isLikelyItemNameFragment(rowText)) {
+        pendingNamePrefix = rowText;
+      }
       continue;
     }
 
@@ -182,10 +223,18 @@ function extractItemsFromRows(rows: OcrCell[][]): ParsedReceiptItem[] {
     if (!item && row.length > 1 && ROW_INDEX_PATTERN.test(row[0].text.trim())) {
       item = tryExtractItem(row.slice(1), pendingNamePrefix);
     }
-    pendingNamePrefix = '';
 
     if (item) {
       items.push(item);
+      pendingNamePrefix = '';
+    } else {
+      const rowText = row
+        .map((cell) => cell.text)
+        .join(' ')
+        .trim();
+      if (isLikelyItemNameFragment(rowText)) {
+        pendingNamePrefix = rowText;
+      }
     }
   }
 

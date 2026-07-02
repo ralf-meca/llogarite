@@ -93,20 +93,36 @@ export default function App() {
     });
   };
 
+  const fallbackToManualEntry = (prefill: InvoiceVerificationResult) => {
+    setSelectedInvoice(null);
+    setManualPrefill(prefill);
+    setScreen('manual');
+  };
+
   const handleScanned = (scannedText: string) => {
     setIsScannerVisible(false);
-    setScreen('invoice');
 
     const invoiceParams = parseInvoiceQrUrl(scannedText);
     if (!invoiceParams) {
+      setScreen('invoice');
       setVerification({ status: 'invalid' });
       return;
     }
 
+    setScreen('invoice');
     setVerification({ status: 'loading' });
     verifyInvoice(invoiceParams)
       .then((data) => setVerification({ status: 'success', data }))
-      .catch((error: Error) => setVerification({ status: 'error', message: error.message }));
+      .catch((error: Error) => {
+        showError(error.message);
+        fallbackToManualEntry({
+          iic: invoiceParams.iic,
+          dateTimeCreated: invoiceParams.dateTimeCreated || toLocalIsoString(new Date()),
+          totalPrice: 0,
+          seller: { name: '' },
+          items: [],
+        });
+      });
   };
 
   const handleClose = () => {
@@ -170,17 +186,7 @@ export default function App() {
         setIsProcessingReceipt(false);
         setIsReceiptScannerVisible(false);
 
-        if (qrParams) {
-          setScreen('invoice');
-          setVerification({ status: 'loading' });
-          verifyInvoice(qrParams)
-            .then((data) => setVerification({ status: 'success', data }))
-            .catch((error: Error) => setVerification({ status: 'error', message: error.message }));
-          return;
-        }
-
-        setSelectedInvoice(null);
-        setManualPrefill({
+        const receiptPrefill: InvoiceVerificationResult = {
           iic: parsed.iic ?? '',
           dateTimeCreated: parsed.dateTimeCreated ?? toLocalIsoString(new Date()),
           totalPrice: 0,
@@ -191,8 +197,21 @@ export default function App() {
             unitPriceBeforeVat: item.unitPrice,
             unitPriceAfterVat: item.unitPrice,
           })),
-        });
-        setScreen('manual');
+        };
+
+        if (qrParams) {
+          setScreen('invoice');
+          setVerification({ status: 'loading' });
+          verifyInvoice(qrParams)
+            .then((data) => setVerification({ status: 'success', data }))
+            .catch((error: Error) => {
+              showError(error.message);
+              fallbackToManualEntry(receiptPrefill);
+            });
+          return;
+        }
+
+        fallbackToManualEntry(receiptPrefill);
       })
       .catch((error: Error) => {
         setIsProcessingReceipt(false);
