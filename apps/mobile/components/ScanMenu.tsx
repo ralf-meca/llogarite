@@ -31,7 +31,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuPro
 
   return (
     <>
-      <Pressable style={styles.fabWrapper} onPress={() => setIsOpen((prev) => !prev)}>
+      <Pressable onPress={() => setIsOpen((prev) => !prev)}>
         <GlassView style={styles.fab}>
           <Ionicons name={isOpen ? 'close' : 'add'} size={28} color="#fff" />
         </GlassView>
@@ -56,11 +56,6 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuPro
 }
 
 const styles = StyleSheet.create({
-  fabWrapper: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-  },
   fab: {
     width: 56,
     height: 56,

@@ -1,13 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomNavBar } from './components/BottomNavBar';
+import { DashboardScreen } from './components/DashboardScreen';
 import { GlassView } from './components/GlassView';
 import { InvoiceScreen } from './components/InvoiceScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { ManualInvoiceScreen } from './components/ManualInvoiceScreen';
 import { QrScannerModal } from './components/QrScannerModal';
 import { ReceiptScannerModal } from './components/ReceiptScannerModal';
-import { ScanMenu } from './components/ScanMenu';
 import { ToastHost } from './components/ToastHost';
 import { UserAvatar } from './components/UserAvatar';
 import { UserMenuModal } from './components/UserMenuModal';
@@ -34,7 +35,7 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'loading' | 'auth' | 'home' | 'invoice' | 'detail' | 'manual';
+type Screen = 'loading' | 'auth' | 'dashboard' | 'list' | 'invoice' | 'detail' | 'manual';
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -64,7 +65,7 @@ export default function App() {
     getToken().then((token) => {
       if (token) {
         getUser().then(setUser);
-        setScreen('home');
+        setScreen('dashboard');
       } else {
         setScreen('auth');
       }
@@ -72,7 +73,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (screen === 'home') {
+    if (screen === 'dashboard' || screen === 'list') {
       loadSavedInvoices();
     }
   }, [screen, loadSavedInvoices]);
@@ -80,7 +81,7 @@ export default function App() {
   const handleAuthenticated = (auth: AuthResponse) => {
     Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
       setUser(auth.user);
-      setScreen('home');
+      setScreen('dashboard');
     });
   };
 
@@ -109,7 +110,7 @@ export default function App() {
   };
 
   const handleClose = () => {
-    setScreen('home');
+    setScreen('list');
     setVerification({ status: 'idle' });
     setSelectedInvoice(null);
     setManualPrefill(null);
@@ -242,7 +243,7 @@ export default function App() {
         <Text style={styles.statusText}>Duke u ngarkuar...</Text>
       ) : screen === 'auth' ? (
         <LoginScreen onAuthenticated={handleAuthenticated} />
-      ) : screen === 'home' ? (
+      ) : screen === 'dashboard' || screen === 'list' ? (
         <>
           <GlassView style={styles.headerRow}>
             <Text style={styles.title}>Llogarite</Text>
@@ -251,26 +252,33 @@ export default function App() {
             </Pressable>
           </GlassView>
 
-          <FlatList
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            data={savedInvoices}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable onPress={() => handleSelectInvoice(item)}>
-                <GlassView style={styles.savedRow}>
-                  <View>
-                    <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
-                    <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleString()}</Text>
-                  </View>
-                  <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
-                </GlassView>
-              </Pressable>
-            )}
-            ListEmptyComponent={<Text style={styles.emptyText}>Nuk ka fatura të ruajtura.</Text>}
-          />
+          {screen === 'dashboard' ? (
+            <DashboardScreen invoices={savedInvoices} />
+          ) : (
+            <FlatList
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              data={savedInvoices}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Pressable onPress={() => handleSelectInvoice(item)}>
+                  <GlassView style={styles.savedRow}>
+                    <View>
+                      <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
+                      <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleString()}</Text>
+                    </View>
+                    <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
+                  </GlassView>
+                </Pressable>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>Nuk ka fatura të ruajtura.</Text>}
+            />
+          )}
 
-          <ScanMenu
+          <BottomNavBar
+            activeScreen={screen}
+            onHome={() => setScreen('dashboard')}
+            onList={() => setScreen('list')}
             onScanQr={() => setIsScannerVisible(true)}
             onAddManually={() => {
               setSelectedInvoice(null);
