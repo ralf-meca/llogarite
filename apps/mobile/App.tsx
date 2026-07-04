@@ -1,23 +1,31 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BottomNavBar } from './components/BottomNavBar';
+import { BudgetScreen } from './components/BudgetScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { GlassView } from './components/GlassView';
 import { InvoiceScreen } from './components/InvoiceScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { ManualInvoiceScreen } from './components/ManualInvoiceScreen';
+import { MonthFilter } from './components/MonthFilter';
+import { MonthlyPaymentsScreen } from './components/MonthlyPaymentsScreen';
+import { PlaceholderScreen } from './components/PlaceholderScreen';
 import { QrScannerModal } from './components/QrScannerModal';
 import { ReceiptScannerModal } from './components/ReceiptScannerModal';
+import { ScanMenu } from './components/ScanMenu';
+import { SideDrawer, type DrawerScreen } from './components/SideDrawer';
 import { ToastHost } from './components/ToastHost';
-import { UserAvatar } from './components/UserAvatar';
 import { UserMenuModal } from './components/UserMenuModal';
 import { useToasts } from './hooks/useToasts';
 import type { AuthResponse, AuthUser } from './lib/authApi';
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from './lib/authStorage';
+import { categoryIcon } from './lib/categories';
+import { dominantCategory } from './lib/categorySpending';
 import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
 import { toLocalIsoString } from './lib/date';
+import { monthKeyOf } from './lib/monthlySpending';
 import { recognizeReceipt } from './lib/receiptOcr';
 import { parseReceipt, toQrParams } from './lib/receiptParser';
 import {
@@ -35,7 +43,9 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'loading' | 'auth' | 'dashboard' | 'list' | 'invoice' | 'detail' | 'manual';
+type Screen = 'loading' | 'auth' | DrawerScreen | 'invoice' | 'detail' | 'manual';
+
+const MAIN_SCREENS = new Set<Screen>(['dashboard', 'list', 'budget', 'monthlyPayments', 'projects', 'travel']);
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -43,6 +53,7 @@ export default function App() {
   const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
   const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
   const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [verification, setVerification] = useState<VerificationState>({ status: 'idle' });
   const [screen, setScreen] = useState<Screen>('loading');
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -50,6 +61,7 @@ export default function App() {
   const [manualPrefill, setManualPrefill] = useState<InvoiceVerificationResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const { toasts, showError, dismissToast } = useToasts();
 
   const loadSavedInvoices = useCallback(() => {
@@ -73,7 +85,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (screen === 'dashboard' || screen === 'list') {
+    if (screen === 'dashboard' || screen === 'list' || screen === 'budget') {
       loadSavedInvoices();
     }
   }, [screen, loadSavedInvoices]);
@@ -256,48 +268,79 @@ export default function App() {
       });
   };
 
+  const filteredInvoices =
+    selectedMonthKey === null
+      ? savedInvoices
+      : savedInvoices.filter((invoice) => monthKeyOf(invoice.data.dateTimeCreated) === selectedMonthKey);
+
   return (
     <View style={styles.container}>
       {screen === 'loading' ? (
         <Text style={styles.statusText}>Duke u ngarkuar...</Text>
       ) : screen === 'auth' ? (
         <LoginScreen onAuthenticated={handleAuthenticated} />
-      ) : screen === 'dashboard' || screen === 'list' ? (
+      ) : MAIN_SCREENS.has(screen) ? (
         <>
           <GlassView style={styles.headerRow}>
-            <Text style={styles.title}>Llogarite</Text>
-            <Pressable style={styles.userIconButton} onPress={() => setIsUserMenuVisible(true)}>
-              <UserAvatar user={user} size={30} />
+            <Pressable
+              style={styles.menuButton}
+              hitSlop={12}
+              onPress={() => setIsDrawerVisible(true)}
+            >
+              <Ionicons name="menu-outline" size={24} color="#1f2937" />
             </Pressable>
+            <Text style={styles.title}>Llogarite</Text>
+            <View style={styles.headerSpacer} />
           </GlassView>
 
           {screen === 'dashboard' ? (
             <DashboardScreen invoices={savedInvoices} />
-          ) : (
+          ) : screen === 'list' ? (
             <FlatList
               style={styles.list}
               contentContainerStyle={styles.listContent}
-              data={savedInvoices}
+              data={filteredInvoices}
               keyExtractor={(item) => item.id}
+              ListHeaderComponent={<MonthFilter value={selectedMonthKey} onChange={setSelectedMonthKey} />}
               renderItem={({ item }) => (
                 <Pressable onPress={() => handleSelectInvoice(item)}>
                   <GlassView style={styles.savedRow}>
-                    <View>
-                      <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
-                      <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleString()}</Text>
+                    <View style={styles.savedRowLeft}>
+                      <Ionicons name={categoryIcon(dominantCategory(item))} size={32} color="#4b5563" />
+                      <View>
+                        <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
+                        <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleDateString()}</Text>
+                      </View>
                     </View>
                     <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
                   </GlassView>
                 </Pressable>
               )}
-              ListEmptyComponent={<Text style={styles.emptyText}>Nuk ka fatura të ruajtura.</Text>}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                  {savedInvoices.length === 0 ? 'Nuk ka fatura të ruajtura.' : 'Nuk ka fatura për këtë muaj.'}
+                </Text>
+              }
+            />
+          ) : screen === 'budget' ? (
+            <BudgetScreen invoices={savedInvoices} />
+          ) : screen === 'monthlyPayments' ? (
+            <MonthlyPaymentsScreen />
+          ) : screen === 'projects' ? (
+            <PlaceholderScreen
+              title="Projektet"
+              icon="folder-outline"
+              message="Menaxhimi i projekteve së shpejti këtu."
+            />
+          ) : (
+            <PlaceholderScreen
+              title="Udhëtime"
+              icon="airplane-outline"
+              message="Planifikimi i udhëtimeve së shpejti këtu."
             />
           )}
 
-          <BottomNavBar
-            activeScreen={screen}
-            onHome={() => setScreen('dashboard')}
-            onList={() => setScreen('list')}
+          <ScanMenu
             onScanQr={() => setIsScannerVisible(true)}
             onAddManually={() => {
               setSelectedInvoice(null);
@@ -354,6 +397,23 @@ export default function App() {
         onLogout={handleLogout}
       />
 
+      <SideDrawer
+        visible={isDrawerVisible}
+        activeScreen={screen}
+        user={user}
+        onClose={() => setIsDrawerVisible(false)}
+        onNavigate={(target) => {
+          setIsDrawerVisible(false);
+          setSelectedInvoice(null);
+          setManualPrefill(null);
+          setScreen(target);
+        }}
+        onOpenAccount={() => {
+          setIsDrawerVisible(false);
+          setIsUserMenuVisible(true);
+        }}
+      />
+
       <StatusBar style="auto" />
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
@@ -368,20 +428,24 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginHorizontal: 24,
     paddingVertical: 14,
   },
   title: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
     textAlign: 'center',
   },
-  userIconButton: {
-    position: 'absolute',
-    right: 20,
+  menuButton: {
+    width: 32,
     padding: 4,
+    zIndex: 1,
+  },
+  headerSpacer: {
+    width: 32,
   },
   statusText: {
     textAlign: 'center',
@@ -405,6 +469,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
+  },
+  savedRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexShrink: 1,
   },
   savedSeller: {
     fontSize: 15,

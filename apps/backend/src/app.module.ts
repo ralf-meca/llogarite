@@ -3,7 +3,9 @@ import {ConfigModule, ConfigService} from '@nestjs/config';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {AppController} from './app.controller';
 import {AuthModule} from './auth/auth.module';
+import {BudgetModule} from './budget/budget.module';
 import {InvoicesModule} from './invoices/invoices.module';
+import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
 import {UsersModule} from './users/users.module';
 
 @Module({
@@ -27,6 +29,8 @@ import {UsersModule} from './users/users.module';
             inject: [ConfigService],
         }),
         InvoicesModule,
+        BudgetModule,
+        MonthlyPaymentsModule,
         UsersModule,
         AuthModule,
     ],

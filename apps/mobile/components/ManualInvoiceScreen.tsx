@@ -2,9 +2,11 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
-import { toLocalIsoString } from '../lib/date';
+import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
+import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
+import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -22,30 +24,12 @@ type ItemDraft = {
   name: string;
   quantity: string;
   unitPrice: string;
+  category: string;
+  categoryTouched: boolean;
 };
 
 function emptyItem(): ItemDraft {
-  return { name: '', quantity: '1', unitPrice: '' };
-}
-
-function todayLabel(): string {
-  return toDateLabel(new Date());
-}
-
-function toDateLabel(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}/${date.getFullYear()}`;
-}
-
-function parseDate(label: string): Date | null {
-  const match = label.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) {
-    return null;
-  }
-  const [, day, month, year] = match;
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-  return Number.isNaN(date.getTime()) ? null : date;
+  return { name: '', quantity: '1', unitPrice: '', category: DEFAULT_CATEGORY, categoryTouched: false };
 }
 
 function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
@@ -53,6 +37,8 @@ function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
     name: item.name,
     quantity: String(item.quantity),
     unitPrice: formatAmount(item.unitPriceAfterVat),
+    category: item.category ?? suggestCategory(item.name),
+    categoryTouched: Boolean(item.category),
   }));
 }
 
@@ -93,7 +79,7 @@ export function ManualInvoiceScreen({
       showError('Shkruaj emrin e shitësit.');
       return;
     }
-    const date = parseDate(dateLabel);
+    const date = parseDateLabel(dateLabel);
     if (!date) {
       showError('Data duhet të jetë në formatin DD/MM/VVVV.');
       return;
@@ -112,6 +98,7 @@ export function ManualInvoiceScreen({
         quantity,
         unitPriceBeforeVat: unitPrice,
         unitPriceAfterVat: unitPrice,
+        category: item.category,
       });
     }
 
@@ -154,6 +141,7 @@ export function ManualInvoiceScreen({
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
+            <View style={styles.categoryColumn} />
             <Text style={[styles.headerCell, styles.nameColumn]}>Artikulli</Text>
             <Text style={[styles.headerCell, styles.qtyColumn]}>Sasia</Text>
             <Text style={[styles.headerCell, styles.priceColumn]}>Çmimi</Text>
@@ -161,32 +149,46 @@ export function ManualInvoiceScreen({
           </View>
 
           {items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <GlassTextInput
-                style={[styles.cellInput, styles.nameColumn]}
-                placeholder="Emri"
-                value={item.name}
-                onChangeText={(value) => updateItem(index, { name: value })}
-              />
-              <GlassTextInput
-                style={[styles.cellInput, styles.qtyColumn]}
-                keyboardType="numeric"
-                value={item.quantity}
-                onChangeText={(value) => updateItem(index, { quantity: value })}
-              />
-              <GlassTextInput
-                style={[styles.cellInput, styles.priceColumn, styles.priceInput]}
-                keyboardType="numeric"
-                value={item.unitPrice}
-                onChangeText={(value) => updateItem(index, { unitPrice: formatAmountInput(value) })}
-              />
-              <Pressable
-                style={styles.removeColumn}
-                onPress={() => removeItem(index)}
-                disabled={items.length === 1}
-              >
-                {items.length > 1 && <Ionicons name="close-circle" size={18} color="#dc2626" />}
-              </Pressable>
+            <View key={index} style={styles.itemBlock}>
+              <View style={styles.itemRow}>
+                <View style={styles.categoryColumn}>
+                  <CategoryPicker
+                    value={item.category}
+                    onChange={(categoryId) => updateItem(index, { category: categoryId, categoryTouched: true })}
+                    iconOnly
+                  />
+                </View>
+                <GlassTextInput
+                  style={[styles.cellInput, styles.nameColumn]}
+                  placeholder="Emri"
+                  value={item.name}
+                  onChangeText={(value) =>
+                    updateItem(index, {
+                      name: value,
+                      ...(item.categoryTouched ? null : { category: suggestCategory(value) }),
+                    })
+                  }
+                />
+                <GlassTextInput
+                  style={[styles.cellInput, styles.qtyColumn]}
+                  keyboardType="numeric"
+                  value={item.quantity}
+                  onChangeText={(value) => updateItem(index, { quantity: value })}
+                />
+                <GlassTextInput
+                  style={[styles.cellInput, styles.priceColumn, styles.priceInput]}
+                  keyboardType="numeric"
+                  value={item.unitPrice}
+                  onChangeText={(value) => updateItem(index, { unitPrice: formatAmountInput(value) })}
+                />
+                <Pressable
+                  style={styles.removeColumn}
+                  onPress={() => removeItem(index)}
+                  disabled={items.length === 1}
+                >
+                  {items.length > 1 && <Ionicons name="close-circle" size={18} color="#dc2626" />}
+                </Pressable>
+              </View>
             </View>
           ))}
 
@@ -270,24 +272,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6b7280',
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  itemBlock: {
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+  },
+  categoryColumn: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cellInput: {
     borderWidth: 0,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#ffffff',
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 6,
     fontSize: 14,
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
   },
   nameColumn: {
-    flex: 3,
+    flex: 2.4,
   },
   qtyColumn: {
     flex: 1,

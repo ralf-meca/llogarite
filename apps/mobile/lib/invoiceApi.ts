@@ -39,6 +39,7 @@ export type InvoiceItem = {
   quantity: number;
   unitPriceBeforeVat: number;
   unitPriceAfterVat: number;
+  category?: string;
 };
 
 export type InvoiceSeller = {
