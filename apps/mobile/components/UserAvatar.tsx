@@ -1,5 +1,6 @@
 import { Image, StyleSheet, Text } from 'react-native';
 import type { AuthUser } from '../lib/authApi';
+import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type UserAvatarProps = {
@@ -25,16 +26,16 @@ export function UserAvatar({ user, size }: UserAvatarProps) {
 const styles = StyleSheet.create({
   image: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: colors.border,
   },
   fallback: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#2563eb',
+    borderWidth: 0,
+    backgroundColor: colors.primary,
   },
   initial: {
     fontWeight: '700',
-    color: '#1f2937',
+    color: colors.white,
   },
 });

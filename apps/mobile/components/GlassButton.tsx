@@ -1,6 +1,6 @@
-import { BlurView } from 'expo-blur';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { colors, radius } from '../lib/theme';
 
 type GlassButtonVariant = 'default' | 'accent' | 'danger';
 
@@ -13,16 +13,22 @@ type GlassButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const variantTint: Record<GlassButtonVariant, string> = {
-  default: 'rgba(255,255,255,0.3)',
-  accent: 'rgba(37,99,235,0.55)',
-  danger: 'rgba(248,113,113,0.45)',
+const variantBackground: Record<GlassButtonVariant, string> = {
+  default: colors.white,
+  accent: colors.primary,
+  danger: colors.white,
+};
+
+const variantBorderColor: Record<GlassButtonVariant, string> = {
+  default: colors.border,
+  accent: colors.primary,
+  danger: colors.danger,
 };
 
 const variantTextColor: Record<GlassButtonVariant, string> = {
-  default: '#1f2937',
-  accent: '#ffffff',
-  danger: '#dc2626',
+  default: colors.textDark,
+  accent: colors.white,
+  danger: colors.danger,
 };
 
 export function GlassButton({ label, onPress, disabled, variant = 'default', icon, style }: GlassButtonProps) {
@@ -30,35 +36,32 @@ export function GlassButton({ label, onPress, disabled, variant = 'default', ico
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [styles.wrapper, style, (pressed || disabled) && styles.pressed]}
+      style={({ pressed }) => [
+        styles.wrapper,
+        { backgroundColor: variantBackground[variant], borderColor: variantBorderColor[variant] },
+        style,
+        (pressed || disabled) && styles.pressed,
+      ]}
     >
-      <BlurView intensity={50} tint="light" style={[styles.blur, { backgroundColor: variantTint[variant] }]}>
-        {icon}
-        <Text style={[styles.label, { color: variantTextColor[variant] }]}>{label}</Text>
-      </BlurView>
+      {icon}
+      <Text style={[styles.label, { color: variantTextColor[variant] }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: 999,
-    boxShadow: '0px 3px 6px rgba(0,0,0,0.18)',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  blur: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
-    borderRadius: 999,
-    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderRadius: radius.pill,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   label: {
     fontWeight: '600',

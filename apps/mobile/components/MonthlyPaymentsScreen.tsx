@@ -15,6 +15,7 @@ import {
 } from '../lib/monthlyPaymentsApi';
 import { requestNotificationPermissions, scheduleMonthlyPaymentReminders } from '../lib/paymentNotifications';
 import { saveInvoice } from '../lib/savedInvoicesApi';
+import { colors } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -198,7 +199,7 @@ export function MonthlyPaymentsScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.title}>Pagesat mujore</Text>
           <Pressable style={styles.addButton} onPress={openAdd}>
-            <Ionicons name="add" size={22} color="#2563eb" />
+            <Ionicons name="add" size={22} color={colors.primary} />
           </Pressable>
         </View>
 

@@ -1,14 +1,52 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useToasts } from '../hooks/useToasts';
 import { login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
+import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
+import { LegalScreen } from './LegalScreen';
 import { ToastHost } from './ToastHost';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+type Slide = {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  caption: string;
+};
+
+const SLIDES: Slide[] = [
+  {
+    icon: 'qr-code-outline',
+    title: 'Skano faturat në sekonda',
+    caption: 'Skano kodin QR ose bëj një foto të faturës — pjesën tjetër e bëjmë ne.',
+  },
+  {
+    icon: 'people-outline',
+    title: 'Ndaj shpenzimet me shokë',
+    caption: 'Lidhu me shokët e tu dhe ndaj faturat e përbashkëta pa telashe.',
+  },
+  {
+    icon: 'pie-chart-outline',
+    title: 'Ndiq buxhetin tënd',
+    caption: 'Shiko ku shkojnë paratë e tua me grafikë të thjeshtë dhe të qartë.',
+  },
+];
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
   return (
@@ -46,11 +84,48 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [pagerHeight, setPagerHeight] = useState(0);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const [legalPage, setLegalPage] = useState<'privacy' | 'terms' | null>(null);
+  const fingerX = useRef(new Animated.Value(0)).current;
+  const fingerOpacity = useRef(new Animated.Value(0)).current;
+  const fingerScale = useRef(new Animated.Value(0.6)).current;
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
     GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSwipeHint(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!showSwipeHint) {
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(300),
+        Animated.parallel([
+          Animated.timing(fingerOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+          Animated.timing(fingerScale, { toValue: 1, duration: 150, useNativeDriver: true }),
+        ]),
+        Animated.delay(150),
+        Animated.timing(fingerX, { toValue: -42, duration: 650, useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(fingerOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+          Animated.timing(fingerScale, { toValue: 0.6, duration: 150, useNativeDriver: true }),
+        ]),
+        Animated.timing(fingerX, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(700),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showSwipeHint, fingerX, fingerOpacity, fingerScale]);
 
   const handleSubmit = () => {
     setIsSubmitting(true);
@@ -96,66 +171,135 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     setMode(mode === 'login' ? 'register' : 'login');
   };
 
+  const handleCarouselScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setActiveSlide(index);
+  };
+
+  if (legalPage) {
+    return <LegalScreen type={legalPage} onBack={() => setLegalPage(null)} />;
+  }
+
   return (
     <View style={styles.container}>
-      <GlassView style={styles.card}>
-        <Text style={styles.title}>Llogarite</Text>
+      <Text style={styles.brand}>Llogarite</Text>
 
-        <GlassTextInput
-          style={styles.input}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <GlassView style={styles.passwordContainer}>
-          <GlassTextInput
-            style={styles.passwordInput}
-            placeholder="Fjalëkalimi"
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((prev) => !prev)}
+      <View style={styles.pagerContainer} onLayout={(event) => setPagerHeight(event.nativeEvent.layout.height)}>
+        {pagerHeight > 0 && (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleCarouselScrollEnd}
+            style={{ height: pagerHeight }}
           >
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#6b7280" />
-          </Pressable>
-        </GlassView>
+            {SLIDES.map((slide) => (
+              <View key={slide.title} style={[styles.slide, { width: SCREEN_WIDTH, height: pagerHeight }]}>
+                <View style={styles.photoPlaceholder}>
+                  <Ionicons name={slide.icon} size={48} color={colors.white} />
+                </View>
+                <Text style={styles.slideTitle}>{slide.title}</Text>
+                <Text style={styles.slideCaption}>{slide.caption}</Text>
+                {showSwipeHint && (
+                  <View style={styles.swipeHintWrap}>
+                    <Text style={styles.swipeHintLabel}>Rrëshqit për të vazhduar</Text>
+                    <View style={styles.swipeHintTrack}>
+                      <Animated.View
+                        style={[
+                          styles.fingerIconWrap,
+                          { opacity: fingerOpacity, transform: [{ translateX: fingerX }, { scale: fingerScale }] },
+                        ]}
+                      >
+                        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={30} color={colors.white} />
+                      </Animated.View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ))}
 
-        <GlassButton
-          label={
-            isSubmitting
-              ? mode === 'login'
-                ? 'Duke u kyçur...'
-                : 'Duke u regjistruar...'
-              : mode === 'login'
-                ? 'Kyçu'
-                : 'Regjistrohu'
-          }
-          variant="accent"
-          style={styles.submitButton}
-          onPress={handleSubmit}
-          disabled={isSubmitting || isGoogleSubmitting}
-        />
+            <View style={[styles.authPage, { width: SCREEN_WIDTH, height: pagerHeight }]}>
+              <Text style={styles.formTitle}>{mode === 'login' ? 'Mirë se erdhe përsëri' : 'Krijo një llogari'}</Text>
 
-        <GlassButton
-          label="Vazhdo me Google"
-          icon={<GoogleLogo size={20} />}
-          style={styles.googleButton}
-          onPress={handleGoogleSignIn}
-          disabled={isSubmitting || isGoogleSubmitting}
-        />
-        {isGoogleSubmitting && <Text style={styles.googleLoadingText}>Duke u kyçur me Google...</Text>}
+              <GlassTextInput
+                style={styles.input}
+                placeholder="Email"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <GlassView style={styles.passwordContainer}>
+                <GlassTextInput
+                  style={styles.passwordInput}
+                  placeholder="Fjalëkalimi"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                >
+                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textMuted} />
+                </Pressable>
+              </GlassView>
 
-        <Pressable onPress={toggleMode}>
-          <Text style={styles.toggleText}>
-            {mode === 'login' ? 'Nuk ke llogari? Regjistrohu' : 'Ke llogari? Kyçu'}
-          </Text>
-        </Pressable>
-      </GlassView>
+              <GlassButton
+                label={
+                  isSubmitting
+                    ? mode === 'login'
+                      ? 'Duke u kyçur...'
+                      : 'Duke u regjistruar...'
+                    : mode === 'login'
+                      ? 'Kyçu'
+                      : 'Regjistrohu'
+                }
+                variant="accent"
+                style={styles.submitButton}
+                onPress={handleSubmit}
+                disabled={isSubmitting || isGoogleSubmitting}
+              />
+
+              <GlassButton
+                label="Vazhdo me Google"
+                icon={<GoogleLogo size={20} />}
+                style={styles.googleButton}
+                onPress={handleGoogleSignIn}
+                disabled={isSubmitting || isGoogleSubmitting}
+              />
+              {isGoogleSubmitting && <Text style={styles.googleLoadingText}>Duke u kyçur me Google...</Text>}
+
+              <Pressable onPress={toggleMode}>
+                <Text style={styles.toggleText}>
+                  {mode === 'login' ? 'Nuk ke llogari? Regjistrohu' : 'Ke llogari? Kyçu'}
+                </Text>
+              </Pressable>
+
+              <Text style={styles.disclaimerText}>
+                Duke u kyçur ose regjistruar, ti pranon{' '}
+                <Text style={styles.disclaimerLink} onPress={() => setLegalPage('terms')}>
+                  Kushtet e Përdorimit
+                </Text>{' '}
+                dhe{' '}
+                <Text style={styles.disclaimerLink} onPress={() => setLegalPage('privacy')}>
+                  Politikën e Privatësisë
+                </Text>{' '}
+                tona.
+              </Text>
+            </View>
+          </ScrollView>
+        )}
+
+        {activeSlide < SLIDES.length && (
+          <View style={styles.dotsRow}>
+            {SLIDES.map((slide, index) => (
+              <View key={slide.title} style={[styles.dot, index === activeSlide && styles.dotActive]} />
+            ))}
+            <Ionicons name="log-in-outline" size={14} color={colors.primarySubtle} />
+          </View>
+        )}
+      </View>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
@@ -165,18 +309,104 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    marginTop: -HEADER_INSET,
+    paddingTop: HEADER_INSET,
+    backgroundColor: colors.primary,
   },
-  card: {
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
+  brand: {
+    fontSize: 20,
     fontWeight: '600',
+    color: colors.white,
     textAlign: 'center',
-    marginBottom: 32,
-    color: '#1f2937',
+    paddingTop: 32,
+    paddingBottom: 12,
+  },
+  pagerContainer: {
+    flex: 1,
+  },
+  slide: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  photoPlaceholder: {
+    width: 140,
+    height: 140,
+    borderRadius: 24,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  slideTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.white,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  slideCaption: {
+    fontSize: 13,
+    color: colors.primarySubtle,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  swipeHintWrap: {
+    position: 'absolute',
+    bottom: 32,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 5,
+  },
+  swipeHintLabel: {
+    fontSize: 12,
+    color: colors.primarySubtle,
+  },
+  swipeHintTrack: {
+    width: 70,
+    height: 28,
+    justifyContent: 'center',
+  },
+  fingerIconWrap: {
+    position: 'absolute',
+    right: 0,
+  },
+  dotsRow: {
+    position: 'absolute',
+    bottom: 28,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primarySubtle,
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: colors.white,
+  },
+  authPage: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    justifyContent: 'center',
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textDark,
+    marginBottom: 20,
   },
   input: {
     marginBottom: 12,
@@ -203,12 +433,23 @@ const styles = StyleSheet.create({
   },
   googleLoadingText: {
     textAlign: 'center',
-    color: '#6b7280',
+    color: colors.textMuted,
     marginTop: 8,
   },
   toggleText: {
     textAlign: 'center',
-    color: '#2563eb',
+    color: colors.primary,
     marginTop: 16,
+  },
+  disclaimerText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  disclaimerLink: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

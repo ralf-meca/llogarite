@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Project } from '../lib/projectsApi';
+import { colors } from '../lib/theme';
 
 type ProjectPickerProps = {
   projects: Project[];
@@ -38,7 +39,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                   }}
                 >
                   <Text style={[styles.menuItemText, value === null && styles.menuItemTextActive]}>{NONE_LABEL}</Text>
-                  {value === null && <Ionicons name="checkmark" size={16} color="#2563eb" />}
+                  {value === null && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                 </Pressable>
                 {projects.map((project) => (
                   <Pressable
@@ -55,7 +56,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                     >
                       {project.name}
                     </Text>
-                    {value === project.id && <Ionicons name="checkmark" size={16} color="#2563eb" />}
+                    {value === project.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                   </Pressable>
                 ))}
                 {projects.length === 0 && <Text style={styles.emptyText}>Nuk ka projekte të krijuara.</Text>}
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   menuItemTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   emptyText: {
     textAlign: 'center',

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type ScanMenuProps = {
@@ -42,7 +43,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuPro
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <View style={styles.menuWrapper} pointerEvents="box-none">
-            <GlassView style={styles.menu} intensity={100}>
+            <GlassView style={styles.menu}>
               {MENU_ITEMS.map((item) => (
                 <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
                   <Ionicons name={item.icon} size={20} color="#1f2937" />
@@ -71,8 +72,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(37,99,235,0.55)',
-    borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.white,
   },
   backdrop: {
     flex: 1,
@@ -86,9 +88,6 @@ const styles = StyleSheet.create({
   menu: {
     minWidth: 220,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    boxShadow: '0px 6px 16px rgba(0,0,0,0.2)',
   },
   menuItem: {
     flexDirection: 'row',
@@ -100,6 +99,6 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.textDark,
   },
 });

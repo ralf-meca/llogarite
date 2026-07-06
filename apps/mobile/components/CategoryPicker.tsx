@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CATEGORIES, categoryIcon, categoryLabel } from '../lib/categories';
+import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type CategoryPickerProps = {
@@ -32,7 +33,7 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <View style={styles.menuWrapper} pointerEvents="box-none">
-            <GlassView style={styles.menu} intensity={100}>
+            <GlassView style={styles.menu}>
               <ScrollView bounces={false}>
                 {CATEGORIES.map((category) => (
                   <Pressable
@@ -47,13 +48,13 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
                       <Ionicons
                         name={category.icon}
                         size={18}
-                        color={category.id === value ? '#2563eb' : '#4b5563'}
+                        color={category.id === value ? colors.primary : '#4b5563'}
                       />
                       <Text style={[styles.menuItemText, category.id === value && styles.menuItemTextActive]}>
                         {category.label}
                       </Text>
                     </View>
-                    {category.id === value && <Ionicons name="checkmark" size={16} color="#2563eb" />}
+                    {category.id === value && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                   </Pressable>
                 ))}
               </ScrollView>
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 5,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: colors.primaryTint,
     borderRadius: 8,
   },
   triggerText: {
@@ -87,8 +88,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+    backgroundColor: colors.primaryTint,
   },
   backdrop: {
     flex: 1,
@@ -102,9 +102,6 @@ const styles = StyleSheet.create({
     minWidth: 240,
     maxHeight: 380,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    boxShadow: '0px 6px 16px rgba(0,0,0,0.2)',
   },
   menuItem: {
     flexDirection: 'row',
@@ -124,6 +121,6 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   menuItemTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
 });

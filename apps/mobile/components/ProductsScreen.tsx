@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { listProducts, type ProductSummary } from '../lib/productPrices';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { colors } from '../lib/theme';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   toggleTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   emptyText: {
     textAlign: 'center',

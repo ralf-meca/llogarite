@@ -9,6 +9,7 @@ import {
   yearlyChartPoints,
 } from '../lib/productPrices';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
 
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   toggleTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   chartWrapper: {
     alignItems: 'center',

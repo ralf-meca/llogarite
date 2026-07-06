@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
+import { colors, radius } from '../lib/theme';
 
 export function GlassTextInput(props: TextInputProps) {
   const [homeSelection, setHomeSelection] = useState<{ start: number; end: number } | undefined>({
@@ -15,7 +16,7 @@ export function GlassTextInput(props: TextInputProps) {
 
   return (
     <TextInput
-      placeholderTextColor="rgba(31,41,55,0.45)"
+      placeholderTextColor={colors.textMuted}
       {...props}
       selection={props.selection ?? homeSelection}
       onFocus={(event) => {
@@ -34,12 +35,12 @@ export function GlassTextInput(props: TextInputProps) {
 const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 14,
+    borderColor: colors.border,
+    borderRadius: radius.card - 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    color: '#1f2937',
+    backgroundColor: colors.primaryTint,
+    color: colors.textDark,
   },
 });

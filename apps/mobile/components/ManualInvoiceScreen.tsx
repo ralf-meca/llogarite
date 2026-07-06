@@ -8,6 +8,7 @@ import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../li
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
+import { colors } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
 import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addItemText: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 14,
   },

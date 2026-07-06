@@ -8,6 +8,7 @@ import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import { createProject, deleteProject, fetchProjects, updateProject, type Project } from '../lib/projectsApi';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { colors } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -145,7 +146,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
         <View style={styles.headerRow}>
           <Text style={styles.title}>Projektet</Text>
           <Pressable style={styles.addButton} onPress={openAdd}>
-            <Ionicons name="add" size={22} color="#2563eb" />
+            <Ionicons name="add" size={22} color={colors.primary} />
           </Pressable>
         </View>
 
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusBadgeOngoing: {
-    backgroundColor: 'rgba(37,99,235,0.12)',
+    backgroundColor: colors.primaryTint,
   },
   statusBadgeDone: {
     backgroundColor: 'rgba(107,114,128,0.12)',
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusTextOngoing: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   statusTextDone: {
     color: '#6b7280',

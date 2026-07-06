@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import type { Buddy } from '../lib/buddiesApi';
+import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 
 type BuddyPickerProps = {
@@ -44,7 +45,7 @@ export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps
                     <Ionicons
                       name={isSelected ? 'checkbox' : 'square-outline'}
                       size={20}
-                      color={isSelected ? '#2563eb' : '#9ca3af'}
+                      color={isSelected ? colors.primary : '#9ca3af'}
                     />
                   </Pressable>
                 );
@@ -120,6 +121,6 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   rowTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
 });

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AuthUser } from '../lib/authApi';
+import { colors } from '../lib/theme';
 import { UserAvatar } from './UserAvatar';
 
 export type DrawerScreen =
@@ -97,7 +98,7 @@ export function SideDrawer({
                   onPress={() => onNavigate(item.key)}
                 >
                   <View>
-                    <Ionicons name={item.icon} size={20} color={isActive ? '#2563eb' : '#4b5563'} />
+                    <Ionicons name={item.icon} size={20} color={isActive ? colors.primary : '#4b5563'} />
                     {item.key === 'buddies' && pendingBuddyRequests > 0 && <View style={styles.navBadgeDot} />}
                   </View>
                   <Text style={[styles.navItemText, isActive && styles.navItemTextActive]}>{item.label}</Text>
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   navItemActive: {
-    backgroundColor: 'rgba(37,99,235,0.1)',
+    backgroundColor: colors.primaryTint,
   },
   navItemText: {
     fontSize: 15,
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
   navItemTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   navBadgeDot: {
     position: 'absolute',

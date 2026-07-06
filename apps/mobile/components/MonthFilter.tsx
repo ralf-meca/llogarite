@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 
 type MonthFilterProps = {
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionRowActive: {
-    backgroundColor: 'rgba(37,99,235,0.1)',
+    backgroundColor: colors.primaryTint,
   },
   optionText: {
     fontSize: 14,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
   optionTextActive: {
-    color: '#2563eb',
+    color: colors.primary,
   },
   actions: {
     marginTop: 16,
