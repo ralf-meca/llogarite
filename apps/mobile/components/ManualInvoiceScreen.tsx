@@ -2,11 +2,13 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
+import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
-import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
+import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
+import { BuddyPicker } from './BuddyPicker';
 import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -60,12 +62,17 @@ export function ManualInvoiceScreen({
   );
   const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(initialData?.buddies ?? []);
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
     fetchProjects()
       .then(setProjects)
       .catch(() => setProjects([]));
+    fetchBuddies()
+      .then(setBuddies)
+      .catch(() => setBuddies([]));
   }, []);
 
   const total = items.reduce((sum, item) => {
@@ -73,6 +80,34 @@ export function ManualInvoiceScreen({
     const quantity = Number(item.quantity);
     return sum + (Number.isFinite(price) && Number.isFinite(quantity) ? price * quantity : 0);
   }, 0);
+
+  const shareAmount = total / (selectedBuddies.length + 1);
+
+  const toggleBuddy = (buddyId: string) => {
+    setSelectedBuddies((current) =>
+      current.some((buddy) => buddy.userId === buddyId)
+        ? current.filter((buddy) => buddy.userId !== buddyId)
+        : [...current, { userId: buddyId, paid: false }],
+    );
+  };
+
+  const setBuddyPaid = (buddyId: string, paid: boolean) => {
+    setSelectedBuddies((current) => current.map((buddy) => (buddy.userId === buddyId ? { ...buddy, paid } : buddy)));
+  };
+
+  const handleProjectChange = (newProjectId: string | null) => {
+    setProjectId(newProjectId);
+    const project = projects.find((candidate) => candidate.id === newProjectId);
+    if (!project || project.buddyIds.length === 0) {
+      return;
+    }
+    setSelectedBuddies((current) => {
+      const missing = project.buddyIds
+        .filter((buddyId) => !current.some((buddy) => buddy.userId === buddyId))
+        .map((buddyId) => ({ userId: buddyId, paid: false }));
+      return missing.length > 0 ? [...current, ...missing] : current;
+    });
+  };
 
   const updateItem = (index: number, patch: Partial<ItemDraft>) => {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -119,6 +154,7 @@ export function ManualInvoiceScreen({
       seller: { name: sellerName.trim() },
       items: parsedItems,
       projectId,
+      buddies: selectedBuddies,
     });
   };
 
@@ -151,8 +187,46 @@ export function ManualInvoiceScreen({
         />
 
         <View style={styles.projectRow}>
-          <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} />
+          <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
         </View>
+
+        <View style={styles.projectRow}>
+          <BuddyPicker
+            buddies={buddies}
+            selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
+            onToggle={toggleBuddy}
+          />
+        </View>
+
+        {selectedBuddies.length > 0 && (
+          <GlassView style={[styles.card, styles.buddiesCard]}>
+            <Text style={styles.buddiesTitle}>Ndarja e faturës ({formatAmount(shareAmount)} secili)</Text>
+            {selectedBuddies.map((buddy) => {
+              const info = buddies.find((candidate) => candidate.id === buddy.userId);
+              return (
+                <Pressable
+                  key={buddy.userId}
+                  style={styles.buddyRow}
+                  onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}
+                >
+                  <Text style={styles.buddyName} numberOfLines={1}>
+                    {info?.name ?? info?.email ?? 'Shok'}
+                  </Text>
+                  <View style={styles.buddyPaidToggle}>
+                    <Ionicons
+                      name={buddy.paid ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={buddy.paid ? '#10b981' : '#9ca3af'}
+                    />
+                    <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
+                      {buddy.paid ? 'Paguar' : 'Papaguar'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </GlassView>
+        )}
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
@@ -277,6 +351,42 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 20,
+  },
+  buddiesCard: {
+    marginBottom: 16,
+  },
+  buddiesTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  buddyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  buddyName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  buddyPaidToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  buddyPaidText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  buddyPaidTextOn: {
+    color: '#059669',
   },
   itemsHeader: {
     flexDirection: 'row',

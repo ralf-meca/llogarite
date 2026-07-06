@@ -32,6 +32,9 @@ export class MonthlyPayment {
     @Column({ type: 'varchar', nullable: true })
     lastPaidMonth: string | null;
 
+    @Column({ type: 'text', array: true, default: '{}' })
+    buddyIds: string[];
+
     @CreateDateColumn()
     createdAt: Date;
 }

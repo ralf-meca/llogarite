@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 
+export type ToastType = 'error' | 'success';
+
 export type ToastItem = {
   id: string;
   message: string;
+  type: ToastType;
 };
 
 const TOAST_DURATION_MS = 4000;
@@ -15,14 +18,17 @@ export function useToasts() {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const showError = useCallback(
-    (message: string) => {
+  const showToast = useCallback(
+    (message: string, type: ToastType) => {
       const id = String(nextId.current++);
-      setToasts((current) => [...current, { id, message }]);
+      setToasts((current) => [...current, { id, message, type }]);
       setTimeout(() => dismissToast(id), TOAST_DURATION_MS);
     },
     [dismissToast],
   );
 
-  return { toasts, showError, dismissToast };
+  const showError = useCallback((message: string) => showToast(message, 'error'), [showToast]);
+  const showSuccess = useCallback((message: string) => showToast(message, 'success'), [showToast]);
+
+  return { toasts, showError, showSuccess, dismissToast };
 }

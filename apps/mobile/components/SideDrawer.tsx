@@ -10,7 +10,8 @@ export type DrawerScreen =
   | 'budget'
   | 'monthlyPayments'
   | 'projects'
-  | 'products';
+  | 'products'
+  | 'buddies';
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get('window').width * 0.78);
 
@@ -21,18 +22,28 @@ const NAV_ITEMS: { key: DrawerScreen; icon: keyof typeof Ionicons.glyphMap; labe
   { key: 'monthlyPayments', icon: 'calendar-outline', label: 'Pagesat mujore' },
   { key: 'projects', icon: 'folder-outline', label: 'Projektet' },
   { key: 'products', icon: 'trending-up-outline', label: 'Çmimet' },
+  { key: 'buddies', icon: 'people-outline', label: 'Shokët e shpenzimeve' },
 ];
 
 type SideDrawerProps = {
   visible: boolean;
   activeScreen: string;
   user: AuthUser | null;
+  pendingBuddyRequests?: number;
   onClose: () => void;
   onNavigate: (screen: DrawerScreen) => void;
   onOpenAccount: () => void;
 };
 
-export function SideDrawer({ visible, activeScreen, user, onClose, onNavigate, onOpenAccount }: SideDrawerProps) {
+export function SideDrawer({
+  visible,
+  activeScreen,
+  user,
+  pendingBuddyRequests = 0,
+  onClose,
+  onNavigate,
+  onOpenAccount,
+}: SideDrawerProps) {
   const [isRendered, setIsRendered] = useState(visible);
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -85,7 +96,10 @@ export function SideDrawer({ visible, activeScreen, user, onClose, onNavigate, o
                   style={[styles.navItem, isActive && styles.navItemActive]}
                   onPress={() => onNavigate(item.key)}
                 >
-                  <Ionicons name={item.icon} size={20} color={isActive ? '#2563eb' : '#4b5563'} />
+                  <View>
+                    <Ionicons name={item.icon} size={20} color={isActive ? '#2563eb' : '#4b5563'} />
+                    {item.key === 'buddies' && pendingBuddyRequests > 0 && <View style={styles.navBadgeDot} />}
+                  </View>
                   <Text style={[styles.navItemText, isActive && styles.navItemTextActive]}>{item.label}</Text>
                 </Pressable>
               );
@@ -159,6 +173,15 @@ const styles = StyleSheet.create({
   },
   navItemTextActive: {
     color: '#2563eb',
+  },
+  navBadgeDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#dc2626',
   },
   accountRow: {
     flexDirection: 'row',

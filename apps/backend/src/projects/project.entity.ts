@@ -32,6 +32,9 @@ export class Project {
     @Column({ type: 'varchar', nullable: true })
     endDate: string | null;
 
+    @Column({ type: 'text', array: true, default: '{}' })
+    buddyIds: string[];
+
     @CreateDateColumn()
     createdAt: Date;
 }

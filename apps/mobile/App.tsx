@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BuddiesScreen } from './components/BuddiesScreen';
+import { BuddyDetailScreen } from './components/BuddyDetailScreen';
 import { BudgetScreen } from './components/BudgetScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { GlassView } from './components/GlassView';
@@ -26,6 +28,7 @@ import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from '.
 import { categoryIcon } from './lib/categories';
 import { dominantCategory } from './lib/categorySpending';
 import { formatAmount } from './lib/formatAmount';
+import { fetchBuddyRequests, type Buddy } from './lib/buddiesApi';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
 import { toLocalIsoString } from './lib/date';
 import { monthKeyOf } from './lib/monthlySpending';
@@ -47,9 +50,17 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'loading' | 'auth' | DrawerScreen | 'invoice' | 'detail' | 'manual' | 'productDetail';
+type Screen = 'loading' | 'auth' | DrawerScreen | 'invoice' | 'detail' | 'manual' | 'productDetail' | 'buddyDetail';
 
-const MAIN_SCREENS = new Set<Screen>(['dashboard', 'list', 'budget', 'monthlyPayments', 'projects', 'products']);
+const MAIN_SCREENS = new Set<Screen>([
+  'dashboard',
+  'list',
+  'budget',
+  'monthlyPayments',
+  'projects',
+  'products',
+  'buddies',
+]);
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -67,6 +78,9 @@ export default function App() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
+  const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
+  const [detailReturnScreen, setDetailReturnScreen] = useState<'list' | 'buddyDetail'>('list');
+  const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
   const { toasts, showError, dismissToast } = useToasts();
 
   const loadSavedInvoices = useCallback(() => {
@@ -94,6 +108,14 @@ export default function App() {
       loadSavedInvoices();
     }
   }, [screen, loadSavedInvoices]);
+
+  useEffect(() => {
+    if (MAIN_SCREENS.has(screen)) {
+      fetchBuddyRequests()
+        .then((requests) => setPendingBuddyRequests(requests.length))
+        .catch(() => {});
+    }
+  }, [screen]);
 
   const handleAuthenticated = (auth: AuthResponse) => {
     Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
@@ -157,9 +179,17 @@ export default function App() {
     }
   };
 
-  const handleSelectInvoice = (invoice: SavedInvoice) => {
+  const handleSelectInvoice = (invoice: SavedInvoice, returnTo: 'list' | 'buddyDetail' = 'list') => {
     setSelectedInvoice(invoice);
+    setDetailReturnScreen(returnTo);
     setScreen('detail');
+  };
+
+  const handleCloseDetail = () => {
+    setVerification({ status: 'idle' });
+    setSelectedInvoice(null);
+    setManualPrefill(null);
+    setScreen(detailReturnScreen);
   };
 
   const handleDelete = () => {
@@ -177,7 +207,7 @@ export default function App() {
             .then(() => {
               setIsDeleting(false);
               loadSavedInvoices();
-              handleClose();
+              handleCloseDetail();
             })
             .catch((error: Error) => {
               setIsDeleting(false);
@@ -338,12 +368,19 @@ export default function App() {
             <MonthlyPaymentsScreen />
           ) : screen === 'projects' ? (
             <ProjectsScreen invoices={savedInvoices} />
-          ) : (
+          ) : screen === 'products' ? (
             <ProductsScreen
               invoices={savedInvoices}
               onSelectProduct={(product) => {
                 setSelectedProduct(product);
                 setScreen('productDetail');
+              }}
+            />
+          ) : (
+            <BuddiesScreen
+              onSelectBuddy={(buddy) => {
+                setSelectedBuddy(buddy);
+                setScreen('buddyDetail');
               }}
             />
           )}
@@ -382,11 +419,26 @@ export default function App() {
             onBack={() => setScreen('products')}
           />
         )
+      ) : screen === 'buddyDetail' ? (
+        selectedBuddy && (
+          <BuddyDetailScreen
+            buddyId={selectedBuddy.id}
+            buddyName={selectedBuddy.name ?? selectedBuddy.email}
+            invoices={savedInvoices}
+            onBack={() => setScreen('buddies')}
+            onSelectInvoice={(invoiceId) => {
+              const invoice = savedInvoices.find((candidate) => candidate.id === invoiceId);
+              if (invoice) {
+                handleSelectInvoice(invoice, 'buddyDetail');
+              }
+            }}
+          />
+        )
       ) : (
         selectedInvoice && (
           <InvoiceScreen
             verification={{ status: 'success', data: selectedInvoice.data }}
-            onClose={handleClose}
+            onClose={handleCloseDetail}
             isDeleting={isDeleting}
             onDelete={handleDelete}
             onEdit={() => setScreen('manual')}
@@ -418,6 +470,7 @@ export default function App() {
         visible={isDrawerVisible}
         activeScreen={screen}
         user={user}
+        pendingBuddyRequests={pendingBuddyRequests}
         onClose={() => setIsDrawerVisible(false)}
         onNavigate={(target) => {
           setIsDrawerVisible(false);

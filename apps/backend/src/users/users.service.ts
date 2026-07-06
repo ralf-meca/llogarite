@@ -3,6 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 6;
+
+function generateCode(): string {
+    let code = '';
+    for (let i = 0; i < CODE_LENGTH; i++) {
+        code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    }
+    return code;
+}
+
 @Injectable()
 export class UsersService {
     constructor(
@@ -12,6 +23,30 @@ export class UsersService {
 
     findByEmail(email: string): Promise<User | null> {
         return this.usersRepository.findOne({ where: { email } });
+    }
+
+    findByCode(code: string): Promise<User | null> {
+        return this.usersRepository.findOne({ where: { code: code.toUpperCase() } });
+    }
+
+    async ensureCode(userId: string): Promise<string> {
+        const user = await this.usersRepository.findOne({ where: { id: userId } });
+        if (!user) {
+            throw new Error('User not found');
+        }
+        if (user.code) {
+            return user.code;
+        }
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const code = generateCode();
+            const existing = await this.usersRepository.findOne({ where: { code } });
+            if (!existing) {
+                await this.usersRepository.update(userId, { code });
+                return code;
+            }
+        }
+        throw new Error('Could not generate a unique code');
     }
 
     findByEmailWithPassword(email: string): Promise<User | null> {

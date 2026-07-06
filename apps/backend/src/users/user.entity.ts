@@ -20,6 +20,9 @@ export class User {
     @Column({ nullable: true })
     avatarUrl: string | null;
 
+    @Column({ unique: true, nullable: true })
+    code: string | null;
+
     @CreateDateColumn()
     createdAt: Date;
 }

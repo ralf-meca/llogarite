@@ -46,6 +46,11 @@ export type InvoiceSeller = {
   name: string;
 };
 
+export type InvoiceBuddy = {
+  userId: string;
+  paid: boolean;
+};
+
 export type InvoiceVerificationResult = {
   iic: string;
   dateTimeCreated: string;
@@ -54,6 +59,7 @@ export type InvoiceVerificationResult = {
   items: InvoiceItem[];
   projectId?: string | null;
   verified?: boolean;
+  buddies?: InvoiceBuddy[];
 };
 
 export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVerificationResult> {

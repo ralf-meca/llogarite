@@ -8,12 +8,14 @@ export type MonthlyPayment = {
   amount: number;
   dueDay: number;
   lastPaidMonth: string | null;
+  buddyIds: string[];
 };
 
 export type MonthlyPaymentInput = {
   name: string;
   amount: number;
   dueDay: number;
+  buddyIds: string[];
 };
 
 export async function fetchMonthlyPayments(): Promise<MonthlyPayment[]> {

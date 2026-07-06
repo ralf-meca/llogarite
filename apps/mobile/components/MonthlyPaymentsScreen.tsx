@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
+import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { suggestCategory } from '../lib/categories';
 import { parseDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
@@ -14,6 +15,7 @@ import {
 } from '../lib/monthlyPaymentsApi';
 import { requestNotificationPermissions, scheduleMonthlyPaymentReminders } from '../lib/paymentNotifications';
 import { saveInvoice } from '../lib/savedInvoicesApi';
+import { BuddyPicker } from './BuddyPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -28,10 +30,11 @@ type FormState = {
   name: string;
   amount: string;
   dueDay: string;
+  buddyIds: string[];
 };
 
 function emptyForm(): FormState {
-  return { name: '', amount: '', dueDay: '' };
+  return { name: '', amount: '', dueDay: '', buddyIds: [] };
 }
 
 export function MonthlyPaymentsScreen() {
@@ -44,7 +47,23 @@ export function MonthlyPaymentsScreen() {
   const [payDatePayment, setPayDatePayment] = useState<MonthlyPayment | null>(null);
   const [payDateLabel, setPayDateLabel] = useState('');
   const [isConfirmingPay, setIsConfirmingPay] = useState(false);
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
+
+  useEffect(() => {
+    fetchBuddies()
+      .then(setBuddies)
+      .catch(() => setBuddies([]));
+  }, []);
+
+  const toggleBuddy = (buddyId: string) => {
+    setForm((current) => ({
+      ...current,
+      buddyIds: current.buddyIds.includes(buddyId)
+        ? current.buddyIds.filter((id) => id !== buddyId)
+        : [...current.buddyIds, buddyId],
+    }));
+  };
 
   const load = () => {
     fetchMonthlyPayments()
@@ -73,7 +92,12 @@ export function MonthlyPaymentsScreen() {
 
   const openEdit = (payment: MonthlyPayment) => {
     setEditingId(payment.id);
-    setForm({ name: payment.name, amount: formatAmount(payment.amount), dueDay: String(payment.dueDay) });
+    setForm({
+      name: payment.name,
+      amount: formatAmount(payment.amount),
+      dueDay: String(payment.dueDay),
+      buddyIds: payment.buddyIds,
+    });
     setIsModalVisible(true);
   };
 
@@ -94,7 +118,7 @@ export function MonthlyPaymentsScreen() {
     }
 
     setIsSaving(true);
-    const payload = { name: form.name.trim(), amount, dueDay };
+    const payload = { name: form.name.trim(), amount, dueDay, buddyIds: form.buddyIds };
     const request = editingId ? updateMonthlyPayment(editingId, payload) : createMonthlyPayment(payload);
     request
       .then(() => {
@@ -154,6 +178,7 @@ export function MonthlyPaymentsScreen() {
             category: suggestCategory(payment.name),
           },
         ],
+        buddies: payment.buddyIds.map((userId) => ({ userId, paid: false })),
       }),
     ])
       .then(() => {
@@ -231,6 +256,9 @@ export function MonthlyPaymentsScreen() {
               value={form.dueDay}
               onChangeText={(value) => setForm((current) => ({ ...current, dueDay: value.replace(/[^0-9]/g, '') }))}
             />
+            <View style={styles.buddyRow}>
+              <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
+            </View>
             <GlassButton
               label={isSaving ? 'Duke ruajtur...' : 'Ruaj'}
               variant="accent"
@@ -378,6 +406,9 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  buddyRow: {
+    marginBottom: 16,
   },
   cancelText: {
     textAlign: 'center',

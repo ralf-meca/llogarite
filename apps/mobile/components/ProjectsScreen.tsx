@@ -3,10 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
+import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import { createProject, deleteProject, fetchProjects, updateProject, type Project } from '../lib/projectsApi';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { BuddyPicker } from './BuddyPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -21,10 +23,11 @@ type FormState = {
   details: string;
   budget: string;
   endDate: Date | null;
+  buddyIds: string[];
 };
 
 function emptyForm(): FormState {
-  return { name: '', details: '', budget: '', endDate: null };
+  return { name: '', details: '', budget: '', endDate: null, buddyIds: [] };
 }
 
 function isCompleted(project: Project): boolean {
@@ -44,6 +47,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
 
   const load = () => {
@@ -59,6 +63,21 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
   };
 
   useEffect(load, []);
+
+  useEffect(() => {
+    fetchBuddies()
+      .then(setBuddies)
+      .catch(() => setBuddies([]));
+  }, []);
+
+  const toggleBuddy = (buddyId: string) => {
+    setForm((current) => ({
+      ...current,
+      buddyIds: current.buddyIds.includes(buddyId)
+        ? current.buddyIds.filter((id) => id !== buddyId)
+        : [...current.buddyIds, buddyId],
+    }));
+  };
 
   const totalExpenses = (projectId: string): number =>
     invoices.reduce((sum, invoice) => (invoice.data.projectId === projectId ? sum + invoice.data.totalPrice : sum), 0);
@@ -76,6 +95,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
       details: project.details ?? '',
       budget: formatAmount(project.budget),
       endDate: project.endDate ? new Date(project.endDate) : null,
+      buddyIds: project.buddyIds,
     });
     setIsModalVisible(true);
   };
@@ -93,7 +113,13 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
     const endDate = form.endDate ? toLocalIsoString(form.endDate).slice(0, 10) : null;
 
     setIsSaving(true);
-    const payload = { name: form.name.trim(), details: form.details.trim() || null, budget, endDate };
+    const payload = {
+      name: form.name.trim(),
+      details: form.details.trim() || null,
+      budget,
+      endDate,
+      buddyIds: form.buddyIds,
+    };
     const request = editingId ? updateProject(editingId, payload) : createProject(payload);
     request
       .then(() => {
@@ -226,6 +252,9 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                   }}
                 />
               )}
+              <View style={styles.buddyRow}>
+                <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
+              </View>
               <GlassButton
                 label={isSaving ? 'Duke ruajtur...' : 'Ruaj'}
                 variant="accent"
@@ -401,6 +430,9 @@ const styles = StyleSheet.create({
   clearDateButton: {
     marginBottom: 12,
     padding: 4,
+  },
+  buddyRow: {
+    marginBottom: 16,
   },
   cancelText: {
     textAlign: 'center',

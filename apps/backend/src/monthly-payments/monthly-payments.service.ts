@@ -8,6 +8,7 @@ export type MonthlyPaymentPatch = Partial<{
     amount: number;
     dueDay: number;
     lastPaidMonth: string | null;
+    buddyIds: string[];
 }>;
 
 @Injectable()
@@ -34,6 +35,7 @@ export class MonthlyPaymentsService {
             amount: data.amount,
             dueDay: data.dueDay,
             lastPaidMonth: null,
+            buddyIds: data.buddyIds ?? [],
         });
         return this.monthlyPaymentsRepository.save(payment);
     }

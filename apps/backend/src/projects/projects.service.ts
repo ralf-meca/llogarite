@@ -8,6 +8,7 @@ export type ProjectPatch = Partial<{
     details: string | null;
     budget: number;
     endDate: string | null;
+    buddyIds: string[];
 }>;
 
 @Injectable()
@@ -31,6 +32,7 @@ export class ProjectsService {
             details: data.details ?? null,
             budget: data.budget,
             endDate: data.endDate ?? null,
+            buddyIds: data.buddyIds ?? [],
         });
         return this.projectsRepository.save(project);
     }

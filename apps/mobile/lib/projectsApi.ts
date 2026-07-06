@@ -8,6 +8,7 @@ export type Project = {
   details: string | null;
   budget: number;
   endDate: string | null;
+  buddyIds: string[];
 };
 
 export type ProjectInput = {
@@ -15,6 +16,7 @@ export type ProjectInput = {
   details: string | null;
   budget: number;
   endDate: string | null;
+  buddyIds: string[];
 };
 
 export async function fetchProjects(): Promise<Project[]> {
