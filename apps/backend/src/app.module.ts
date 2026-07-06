@@ -6,6 +6,7 @@ import {AuthModule} from './auth/auth.module';
 import {BudgetModule} from './budget/budget.module';
 import {InvoicesModule} from './invoices/invoices.module';
 import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
+import {ProjectsModule} from './projects/projects.module';
 import {UsersModule} from './users/users.module';
 
 @Module({
@@ -31,6 +32,7 @@ import {UsersModule} from './users/users.module';
         InvoicesModule,
         BudgetModule,
         MonthlyPaymentsModule,
+        ProjectsModule,
         UsersModule,
         AuthModule,
     ],

@@ -1,15 +1,17 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
+import { fetchProjects, type Project } from '../lib/projectsApi';
 import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
+import { ProjectPicker } from './ProjectPicker';
 import { ToastHost } from './ToastHost';
 
 type ManualInvoiceScreenProps = {
@@ -56,7 +58,15 @@ export function ManualInvoiceScreen({
   const [items, setItems] = useState<ItemDraft[]>(
     initialData && initialData.items.length > 0 ? toItemDrafts(initialData.items) : [emptyItem()],
   );
+  const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
+
+  useEffect(() => {
+    fetchProjects()
+      .then(setProjects)
+      .catch(() => setProjects([]));
+  }, []);
 
   const total = items.reduce((sum, item) => {
     const price = parseAmountInput(item.unitPrice);
@@ -108,6 +118,7 @@ export function ManualInvoiceScreen({
       totalPrice: parsedItems.reduce((sum, item) => sum + item.unitPriceAfterVat * item.quantity, 0),
       seller: { name: sellerName.trim() },
       items: parsedItems,
+      projectId,
     });
   };
 
@@ -138,6 +149,10 @@ export function ManualInvoiceScreen({
           value={dateLabel}
           onChangeText={setDateLabel}
         />
+
+        <View style={styles.projectRow}>
+          <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} />
+        </View>
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
@@ -256,6 +271,9 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  projectRow: {
+    marginBottom: 16,
   },
   card: {
     padding: 20,

@@ -15,13 +15,15 @@ export class InvoicesService {
         if (typeof iic !== 'string' || !iic) {
             throw new BadRequestException('iic is required');
         }
+        const projectId = typeof data.projectId === 'string' ? data.projectId : null;
+        const verified = data.verified === true;
 
         const existing = await this.invoicesRepository.findOne({ where: { userId, iic } });
         if (existing) {
             return existing;
         }
 
-        const invoice = this.invoicesRepository.create({ iic, data, userId });
+        const invoice = this.invoicesRepository.create({ iic, data, userId, projectId, verified });
         return this.invoicesRepository.save(invoice);
     }
 
@@ -34,8 +36,11 @@ export class InvoicesService {
         if (!invoice || invoice.userId !== userId) {
             throw new NotFoundException();
         }
-        await this.invoicesRepository.update(id, { data });
-        return { ...invoice, data };
+        const projectId = typeof data.projectId === 'string' ? data.projectId : null;
+        // Editing an invoice invalidates its official-verification status, regardless of
+        // what the client sends.
+        await this.invoicesRepository.update(id, { data, projectId, verified: false });
+        return { ...invoice, data, projectId, verified: false };
     }
 
     async remove(userId: string, id: string): Promise<void> {

@@ -4,7 +4,13 @@ import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, V
 import type { AuthUser } from '../lib/authApi';
 import { UserAvatar } from './UserAvatar';
 
-export type DrawerScreen = 'dashboard' | 'list' | 'budget' | 'monthlyPayments' | 'projects' | 'travel';
+export type DrawerScreen =
+  | 'dashboard'
+  | 'list'
+  | 'budget'
+  | 'monthlyPayments'
+  | 'projects'
+  | 'products';
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get('window').width * 0.78);
 
@@ -14,7 +20,7 @@ const NAV_ITEMS: { key: DrawerScreen; icon: keyof typeof Ionicons.glyphMap; labe
   { key: 'budget', icon: 'wallet-outline', label: 'Buxheti' },
   { key: 'monthlyPayments', icon: 'calendar-outline', label: 'Pagesat mujore' },
   { key: 'projects', icon: 'folder-outline', label: 'Projektet' },
-  { key: 'travel', icon: 'airplane-outline', label: 'Udhëtime' },
+  { key: 'products', icon: 'trending-up-outline', label: 'Çmimet' },
 ];
 
 type SideDrawerProps = {

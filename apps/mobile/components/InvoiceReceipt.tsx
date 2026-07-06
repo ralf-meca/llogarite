@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
 import type { InvoiceVerificationResult } from '../lib/invoiceApi';
 import { GlassView } from './GlassView';
+import { VerifiedBadge } from './VerifiedBadge';
 
 type InvoiceReceiptProps = {
   result: InvoiceVerificationResult;
@@ -11,7 +12,10 @@ export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
   return (
     <GlassView style={styles.card}>
       <Text style={styles.date}>{new Date(result.dateTimeCreated).toLocaleString()}</Text>
-      <Text style={styles.sellerName}>{result.seller.name}</Text>
+      <View style={styles.sellerRow}>
+        <Text style={styles.sellerName}>{result.seller.name}</Text>
+        {result.verified && <VerifiedBadge />}
+      </View>
 
       <View style={styles.itemsHeader}>
         <Text style={[styles.headerCell, styles.nameColumn]}>Artikulli</Text>
@@ -44,11 +48,16 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 13,
   },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
   sellerName: {
     fontSize: 18,
     fontWeight: '700',
-    marginTop: 4,
-    marginBottom: 16,
   },
   itemsHeader: {
     flexDirection: 'row',

@@ -52,6 +52,8 @@ export type InvoiceVerificationResult = {
   totalPrice: number;
   seller: InvoiceSeller;
   items: InvoiceItem[];
+  projectId?: string | null;
+  verified?: boolean;
 };
 
 export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVerificationResult> {

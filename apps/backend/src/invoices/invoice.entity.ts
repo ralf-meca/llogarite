@@ -7,6 +7,7 @@ import {
     PrimaryGeneratedColumn,
     Unique,
 } from 'typeorm';
+import { Project } from '../projects/project.entity';
 import { User } from '../users/user.entity';
 
 @Entity()
@@ -27,6 +28,16 @@ export class Invoice {
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'userId' })
     user: User;
+
+    @Column({ nullable: true })
+    projectId: string | null;
+
+    @ManyToOne(() => Project, { onDelete: 'SET NULL', nullable: true })
+    @JoinColumn({ name: 'projectId' })
+    project: Project | null;
+
+    @Column({ default: false })
+    verified: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

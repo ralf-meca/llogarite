@@ -10,13 +10,16 @@ import { LoginScreen } from './components/LoginScreen';
 import { ManualInvoiceScreen } from './components/ManualInvoiceScreen';
 import { MonthFilter } from './components/MonthFilter';
 import { MonthlyPaymentsScreen } from './components/MonthlyPaymentsScreen';
-import { PlaceholderScreen } from './components/PlaceholderScreen';
+import { ProductDetailScreen } from './components/ProductDetailScreen';
+import { ProductsScreen } from './components/ProductsScreen';
+import { ProjectsScreen } from './components/ProjectsScreen';
 import { QrScannerModal } from './components/QrScannerModal';
 import { ReceiptScannerModal } from './components/ReceiptScannerModal';
 import { ScanMenu } from './components/ScanMenu';
 import { SideDrawer, type DrawerScreen } from './components/SideDrawer';
 import { ToastHost } from './components/ToastHost';
 import { UserMenuModal } from './components/UserMenuModal';
+import { VerifiedBadge } from './components/VerifiedBadge';
 import { useToasts } from './hooks/useToasts';
 import type { AuthResponse, AuthUser } from './lib/authApi';
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from './lib/authStorage';
@@ -26,6 +29,7 @@ import { formatAmount } from './lib/formatAmount';
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from './lib/invoiceApi';
 import { toLocalIsoString } from './lib/date';
 import { monthKeyOf } from './lib/monthlySpending';
+import type { ProductSummary } from './lib/productPrices';
 import { recognizeReceipt } from './lib/receiptOcr';
 import { parseReceipt, toQrParams } from './lib/receiptParser';
 import {
@@ -43,9 +47,9 @@ export type VerificationState =
   | { status: 'success'; data: InvoiceVerificationResult }
   | { status: 'error'; message: string };
 
-type Screen = 'loading' | 'auth' | DrawerScreen | 'invoice' | 'detail' | 'manual';
+type Screen = 'loading' | 'auth' | DrawerScreen | 'invoice' | 'detail' | 'manual' | 'productDetail';
 
-const MAIN_SCREENS = new Set<Screen>(['dashboard', 'list', 'budget', 'monthlyPayments', 'projects', 'travel']);
+const MAIN_SCREENS = new Set<Screen>(['dashboard', 'list', 'budget', 'monthlyPayments', 'projects', 'products']);
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -62,6 +66,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
   const { toasts, showError, dismissToast } = useToasts();
 
   const loadSavedInvoices = useCallback(() => {
@@ -124,7 +129,7 @@ export default function App() {
     setScreen('invoice');
     setVerification({ status: 'loading' });
     verifyInvoice(invoiceParams)
-      .then((data) => setVerification({ status: 'success', data }))
+      .then((data) => setVerification({ status: 'success', data: { ...data, verified: true } }))
       .catch((error: Error) => {
         showError(error.message);
         fallbackToManualEntry({
@@ -215,7 +220,7 @@ export default function App() {
           setScreen('invoice');
           setVerification({ status: 'loading' });
           verifyInvoice(qrParams)
-            .then((data) => setVerification({ status: 'success', data }))
+            .then((data) => setVerification({ status: 'success', data: { ...data, verified: true } }))
             .catch((error: Error) => {
               showError(error.message);
               fallbackToManualEntry(receiptPrefill);
@@ -247,7 +252,7 @@ export default function App() {
         });
       return;
     }
-    setVerification({ status: 'success', data });
+    setVerification({ status: 'success', data: { ...data, verified: false } });
     setScreen('invoice');
   };
 
@@ -307,8 +312,13 @@ export default function App() {
                   <GlassView style={styles.savedRow}>
                     <View style={styles.savedRowLeft}>
                       <Ionicons name={categoryIcon(dominantCategory(item))} size={32} color="#4b5563" />
-                      <View>
-                        <Text style={styles.savedSeller}>{item.data.seller.name}</Text>
+                      <View style={styles.savedRowTextGroup}>
+                        <View style={styles.savedSellerRow}>
+                          <Text style={styles.savedSeller} numberOfLines={1}>
+                            {item.data.seller.name}
+                          </Text>
+                          {item.data.verified && <VerifiedBadge size={15} />}
+                        </View>
                         <Text style={styles.savedDate}>{new Date(item.data.dateTimeCreated).toLocaleDateString()}</Text>
                       </View>
                     </View>
@@ -327,16 +337,14 @@ export default function App() {
           ) : screen === 'monthlyPayments' ? (
             <MonthlyPaymentsScreen />
           ) : screen === 'projects' ? (
-            <PlaceholderScreen
-              title="Projektet"
-              icon="folder-outline"
-              message="Menaxhimi i projekteve së shpejti këtu."
-            />
+            <ProjectsScreen invoices={savedInvoices} />
           ) : (
-            <PlaceholderScreen
-              title="Udhëtime"
-              icon="airplane-outline"
-              message="Planifikimi i udhëtimeve së shpejti këtu."
+            <ProductsScreen
+              invoices={savedInvoices}
+              onSelectProduct={(product) => {
+                setSelectedProduct(product);
+                setScreen('productDetail');
+              }}
             />
           )}
 
@@ -365,6 +373,15 @@ export default function App() {
           onClose={handleClose}
           onConfirm={handleConfirm}
         />
+      ) : screen === 'productDetail' ? (
+        selectedProduct && (
+          <ProductDetailScreen
+            productKey={selectedProduct.key}
+            productName={selectedProduct.name}
+            invoices={savedInvoices}
+            onBack={() => setScreen('products')}
+          />
+        )
       ) : (
         selectedInvoice && (
           <InvoiceScreen
@@ -476,7 +493,16 @@ const styles = StyleSheet.create({
     gap: 12,
     flexShrink: 1,
   },
+  savedRowTextGroup: {
+    flexShrink: 1,
+  },
+  savedSellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   savedSeller: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     color: '#1f2937',
