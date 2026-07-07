@@ -12,6 +12,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { ManualInvoiceScreen } from "./components/ManualInvoiceScreen";
 import { MonthFilter } from "./components/MonthFilter";
 import { MonthlyPaymentsScreen } from "./components/MonthlyPaymentsScreen";
+import { PlansScreen } from "./components/PlansScreen";
 import { ProductDetailScreen } from "./components/ProductDetailScreen";
 import { ProductsScreen } from "./components/ProductsScreen";
 import { ProjectsScreen } from "./components/ProjectsScreen";
@@ -29,6 +30,7 @@ import { categoryIcon } from "./lib/categories";
 import { dominantCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
 import { fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
+import { showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
@@ -51,7 +53,16 @@ export type VerificationState =
     | { status: "success"; data: InvoiceVerificationResult }
     | { status: "error"; message: string };
 
-type Screen = "loading" | "auth" | DrawerScreen | "invoice" | "detail" | "manual" | "productDetail" | "buddyDetail";
+type Screen =
+    | "loading"
+    | "auth"
+    | DrawerScreen
+    | "invoice"
+    | "detail"
+    | "manual"
+    | "productDetail"
+    | "buddyDetail"
+    | "plans";
 
 const MAIN_SCREENS = new Set<Screen>([
     "dashboard",
@@ -62,6 +73,8 @@ const MAIN_SCREENS = new Set<Screen>([
     "products",
     "buddies",
 ]);
+
+const PREMIUM_SCREENS = new Set<DrawerScreen>(["projects", "products", "buddies"]);
 
 export default function App() {
     const [user, setUser] = useState<AuthUser | null>(null);
@@ -297,6 +310,9 @@ export default function App() {
                 setIsSaving(false);
                 loadSavedInvoices();
                 handleClose();
+                if (!user?.isPremium) {
+                    showInterstitialAd().catch(() => undefined);
+                }
             })
             .catch((error: Error) => {
                 setIsSaving(false);
@@ -421,6 +437,19 @@ export default function App() {
                     onClose={handleClose}
                     onConfirm={handleConfirm}
                 />
+            ) : screen === "plans" ? (
+                <PlansScreen
+                    isPremium={Boolean(user?.isPremium)}
+                    onBack={() => setScreen("dashboard")}
+                    onPremiumGranted={() => {
+                        if (!user) {
+                            return;
+                        }
+                        const updated = { ...user, isPremium: true };
+                        setUser(updated);
+                        saveUser(updated);
+                    }}
+                />
             ) : screen === "productDetail" ? (
                 selectedProduct && (
                     <ProductDetailScreen
@@ -481,12 +510,17 @@ export default function App() {
                 visible={isDrawerVisible}
                 activeScreen={screen}
                 user={user}
+                isPremium={Boolean(user?.isPremium)}
                 pendingBuddyRequests={pendingBuddyRequests}
                 onClose={() => setIsDrawerVisible(false)}
                 onNavigate={(target) => {
                     setIsDrawerVisible(false);
                     setSelectedInvoice(null);
                     setManualPrefill(null);
+                    if (PREMIUM_SCREENS.has(target) && !user?.isPremium) {
+                        setScreen("plans");
+                        return;
+                    }
                     setScreen(target);
                 }}
                 onOpenAccount={() => {

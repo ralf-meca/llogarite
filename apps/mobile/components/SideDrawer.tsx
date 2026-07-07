@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AuthUser } from '../lib/authApi';
@@ -16,20 +16,21 @@ export type DrawerScreen =
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get('window').width * 0.78);
 
-const NAV_ITEMS: { key: DrawerScreen; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+const NAV_ITEMS: { key: DrawerScreen; icon: keyof typeof Ionicons.glyphMap; label: string; premium?: boolean }[] = [
   { key: 'dashboard', icon: 'home-outline', label: 'Kryefaqja' },
   { key: 'list', icon: 'receipt-outline', label: 'Fatura të ruajtura' },
   { key: 'budget', icon: 'wallet-outline', label: 'Buxheti' },
   { key: 'monthlyPayments', icon: 'calendar-outline', label: 'Pagesat mujore' },
-  { key: 'projects', icon: 'folder-outline', label: 'Projektet' },
-  { key: 'products', icon: 'trending-up-outline', label: 'Çmimet' },
-  { key: 'buddies', icon: 'people-outline', label: 'Shokët e shpenzimeve' },
+  { key: 'projects', icon: 'folder-outline', label: 'Projektet', premium: true },
+  { key: 'products', icon: 'trending-up-outline', label: 'Çmimet', premium: true },
+  { key: 'buddies', icon: 'people-outline', label: 'Shokët e shpenzimeve', premium: true },
 ];
 
 type SideDrawerProps = {
   visible: boolean;
   activeScreen: string;
   user: AuthUser | null;
+  isPremium: boolean;
   pendingBuddyRequests?: number;
   onClose: () => void;
   onNavigate: (screen: DrawerScreen) => void;
@@ -40,6 +41,7 @@ export function SideDrawer({
   visible,
   activeScreen,
   user,
+  isPremium,
   pendingBuddyRequests = 0,
   onClose,
   onNavigate,
@@ -91,6 +93,7 @@ export function SideDrawer({
           <ScrollView style={styles.navList} contentContainerStyle={styles.navListContent}>
             {NAV_ITEMS.map((item) => {
               const isActive = activeScreen === item.key;
+              const isLocked = Boolean(item.premium) && !isPremium;
               return (
                 <Pressable
                   key={item.key}
@@ -98,10 +101,23 @@ export function SideDrawer({
                   onPress={() => onNavigate(item.key)}
                 >
                   <View>
-                    <Ionicons name={item.icon} size={20} color={isActive ? colors.primary : '#4b5563'} />
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={isLocked ? colors.textMuted : isActive ? colors.primary : '#4b5563'}
+                    />
                     {item.key === 'buddies' && pendingBuddyRequests > 0 && <View style={styles.navBadgeDot} />}
                   </View>
-                  <Text style={[styles.navItemText, isActive && styles.navItemTextActive]}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.navItemText,
+                      isActive && styles.navItemTextActive,
+                      isLocked && styles.navItemTextLocked,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {isLocked && <MaterialCommunityIcons name="crown-outline" size={16} color={colors.primary} />}
                 </Pressable>
               );
             })}
@@ -174,6 +190,9 @@ const styles = StyleSheet.create({
   },
   navItemTextActive: {
     color: colors.primary,
+  },
+  navItemTextLocked: {
+    color: colors.textMuted,
   },
   navBadgeDot: {
     position: 'absolute',

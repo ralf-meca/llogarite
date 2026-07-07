@@ -8,6 +8,7 @@ export type AuthUser = {
   hasPassword: boolean;
   name: string | null;
   avatarUrl: string | null;
+  isPremium: boolean;
 };
 
 export type AuthResponse = {

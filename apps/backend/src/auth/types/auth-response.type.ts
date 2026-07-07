@@ -6,5 +6,6 @@ export type AuthResponse = {
         hasPassword: boolean;
         name: string | null;
         avatarUrl: string | null;
+        isPremium: boolean;
     };
 };

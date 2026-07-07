@@ -25,6 +25,14 @@ export class UsersService {
         return this.usersRepository.findOne({ where: { email } });
     }
 
+    findById(id: string): Promise<User | null> {
+        return this.usersRepository.findOne({ where: { id } });
+    }
+
+    async setPremium(id: string, isPremium: boolean): Promise<void> {
+        await this.usersRepository.update(id, { isPremium });
+    }
+
     findByCode(code: string): Promise<User | null> {
         return this.usersRepository.findOne({ where: { code: code.toUpperCase() } });
     }
@@ -52,7 +60,15 @@ export class UsersService {
     findByEmailWithPassword(email: string): Promise<User | null> {
         return this.usersRepository.findOne({
             where: { email },
-            select: { id: true, email: true, passwordHash: true, name: true, avatarUrl: true, createdAt: true },
+            select: {
+                id: true,
+                email: true,
+                passwordHash: true,
+                name: true,
+                avatarUrl: true,
+                isPremium: true,
+                createdAt: true,
+            },
         });
     }
 
@@ -73,6 +89,7 @@ export class UsersService {
                 googleId: true,
                 name: true,
                 avatarUrl: true,
+                isPremium: true,
                 createdAt: true,
             },
         });

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -91,11 +92,24 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const fingerX = useRef(new Animated.Value(0)).current;
   const fingerOpacity = useRef(new Animated.Value(0)).current;
   const fingerScale = useRef(new Animated.Value(0.6)).current;
+  const googleSpin = useRef(new Animated.Value(0)).current;
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
     GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
   }, []);
+
+  useEffect(() => {
+    if (!isGoogleSubmitting) {
+      googleSpin.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(googleSpin, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isGoogleSubmitting, googleSpin]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSwipeHint(true), 5000);
@@ -147,8 +161,8 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       return;
     }
     setIsGoogleSubmitting(true);
-    GoogleSignin.signOut()
-      .catch(() => null)
+    const clearPreviousSession = GoogleSignin.hasPreviousSignIn() ? GoogleSignin.signOut().catch(() => null) : null;
+    Promise.resolve(clearPreviousSession)
       .then(() => GoogleSignin.hasPlayServices())
       .then(() => GoogleSignin.signIn())
       .then((response) => {
@@ -262,13 +276,24 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               />
 
               <GlassButton
-                label="Vazhdo me Google"
-                icon={<GoogleLogo size={20} />}
+                label={isGoogleSubmitting ? 'Duke u kyçur me Google...' : 'Vazhdo me Google'}
+                icon={
+                  <Animated.View
+                    style={{
+                      transform: [
+                        {
+                          rotate: googleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }),
+                        },
+                      ],
+                    }}
+                  >
+                    <GoogleLogo size={20} />
+                  </Animated.View>
+                }
                 style={styles.googleButton}
                 onPress={handleGoogleSignIn}
                 disabled={isSubmitting || isGoogleSubmitting}
               />
-              {isGoogleSubmitting && <Text style={styles.googleLoadingText}>Duke u kyçur me Google...</Text>}
 
               <Pressable onPress={toggleMode}>
                 <Text style={styles.toggleText}>
@@ -430,11 +455,6 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     marginTop: 12,
-  },
-  googleLoadingText: {
-    textAlign: 'center',
-    color: colors.textMuted,
-    marginTop: 8,
   },
   toggleText: {
     textAlign: 'center',

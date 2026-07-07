@@ -114,6 +114,7 @@ export class AuthService {
                 hasPassword: Boolean(user.passwordHash),
                 name: user.name ?? null,
                 avatarUrl: user.avatarUrl ?? null,
+                isPremium: Boolean(user.isPremium),
             },
         };
     }

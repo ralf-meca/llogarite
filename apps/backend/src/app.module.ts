@@ -5,6 +5,7 @@ import {AppController} from './app.controller';
 import {AuthModule} from './auth/auth.module';
 import {BuddiesModule} from './buddies/buddies.module';
 import {BudgetModule} from './budget/budget.module';
+import {DiscountCodesModule} from './discount-codes/discount-codes.module';
 import {InvoicesModule} from './invoices/invoices.module';
 import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
 import {ProjectsModule} from './projects/projects.module';
@@ -35,6 +36,7 @@ import {UsersModule} from './users/users.module';
         MonthlyPaymentsModule,
         ProjectsModule,
         BuddiesModule,
+        DiscountCodesModule,
         UsersModule,
         AuthModule,
     ],
