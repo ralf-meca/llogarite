@@ -9,6 +9,7 @@ import {
   sendBuddyRequest,
   type Buddy,
 } from '../lib/buddiesApi';
+import { useTranslation } from '../lib/i18n';
 import { fetchMyCode } from '../lib/usersApi';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -20,6 +21,7 @@ type BuddiesScreenProps = {
 };
 
 export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
+  const { t } = useTranslation();
   const [myCode, setMyCode] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -46,7 +48,7 @@ export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
 
   const handleSendRequest = () => {
     if (!codeInput.trim()) {
-      showError('Shkruaj kodin e shokut.');
+      showError(t('buddies.codeRequired'));
       return;
     }
     setIsSending(true);
@@ -54,7 +56,7 @@ export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
       .then(() => {
         setIsSending(false);
         setCodeInput('');
-        showSuccess('Kërkesa u dërgua.');
+        showSuccess(t('buddies.requestSent'));
       })
       .catch((error: Error) => {
         setIsSending(false);
@@ -71,25 +73,25 @@ export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Shokët e shpenzimeve</Text>
+        <Text style={styles.title}>{t('buddies.title')}</Text>
 
         <GlassView style={styles.card}>
-          <Text style={styles.cardLabel}>Kodi yt</Text>
+          <Text style={styles.cardLabel}>{t('buddies.myCode')}</Text>
           <Text style={styles.myCode}>{myCode ?? '...'}</Text>
-          <Text style={styles.cardHint}>Jepja këtë kod dikujt për t'u bërë shok shpenzimesh.</Text>
+          <Text style={styles.cardHint}>{t('buddies.myCodeHint')}</Text>
         </GlassView>
 
         <GlassView style={styles.card}>
-          <Text style={styles.cardLabel}>Shto shok me kod</Text>
+          <Text style={styles.cardLabel}>{t('buddies.addWithCode')}</Text>
           <GlassTextInput
             style={styles.input}
-            placeholder="Shkruaj kodin"
+            placeholder={t('buddies.codePlaceholder')}
             autoCapitalize="characters"
             value={codeInput}
             onChangeText={setCodeInput}
           />
           <GlassButton
-            label={isSending ? 'Duke dërguar...' : 'Dërgo kërkesë'}
+            label={isSending ? t('buddies.sending') : t('buddies.sendRequest')}
             variant="accent"
             onPress={handleSendRequest}
             disabled={isSending}
@@ -98,7 +100,7 @@ export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
 
         {requests.length > 0 && (
           <GlassView style={styles.card}>
-            <Text style={styles.cardLabel}>Kërkesa në pritje</Text>
+            <Text style={styles.cardLabel}>{t('buddies.pendingRequests')}</Text>
             {requests.map((request) => (
               <View key={request.connectionId} style={styles.requestRow}>
                 <Text style={styles.requestName} numberOfLines={1}>
@@ -123,8 +125,8 @@ export function BuddiesScreen({ onSelectBuddy }: BuddiesScreenProps) {
           </GlassView>
         )}
 
-        <Text style={styles.sectionTitle}>Shokët e mi</Text>
-        {!isLoading && buddies.length === 0 && <Text style={styles.emptyText}>Nuk ke shokë shpenzimesh ende.</Text>}
+        <Text style={styles.sectionTitle}>{t('buddies.myBuddies')}</Text>
+        {!isLoading && buddies.length === 0 && <Text style={styles.emptyText}>{t('buddies.noBuddiesYet')}</Text>}
         {buddies.map((buddy) => (
           <Pressable key={buddy.connectionId} onPress={() => onSelectBuddy(buddy)}>
             <GlassView style={styles.row}>

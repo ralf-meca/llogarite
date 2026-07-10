@@ -11,7 +11,9 @@ import { InvoiceScreen } from "./components/InvoiceScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { ManualInvoiceScreen } from "./components/ManualInvoiceScreen";
 import { MonthFilter } from "./components/MonthFilter";
+import { LanguageProvider } from "./components/LanguageProvider";
 import { MonthlyPaymentsScreen } from "./components/MonthlyPaymentsScreen";
+import { OnboardingGuide, type OnboardingStep } from "./components/OnboardingGuide";
 import { PlansScreen } from "./components/PlansScreen";
 import { ProductDetailScreen } from "./components/ProductDetailScreen";
 import { ProductsScreen } from "./components/ProductsScreen";
@@ -34,6 +36,8 @@ import { showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
+import { useTranslation } from "./lib/i18n";
+import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import { HEADER_INSET, colors, radius } from "./lib/theme";
 import type { ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
@@ -76,7 +80,26 @@ const MAIN_SCREENS = new Set<Screen>([
 
 const PREMIUM_SCREENS = new Set<DrawerScreen>(["projects", "products", "buddies"]);
 
-export default function App() {
+type OnboardingStepConfig = OnboardingStep & { screen: DrawerScreen };
+
+const ONBOARDING_STEPS: OnboardingStepConfig[] = [
+    { screen: "dashboard", titleKey: "onboarding.step1Title", messageKey: "onboarding.step1Message" },
+    { screen: "list", titleKey: "onboarding.step2Title", messageKey: "onboarding.step2Message" },
+    {
+        screen: "list",
+        titleKey: "onboarding.step3Title",
+        messageKey: "onboarding.step3Message",
+        highlightFab: true,
+    },
+    { screen: "budget", titleKey: "onboarding.step4Title", messageKey: "onboarding.step4Message" },
+    { screen: "monthlyPayments", titleKey: "onboarding.step5Title", messageKey: "onboarding.step5Message" },
+    { screen: "projects", titleKey: "onboarding.step6Title", messageKey: "onboarding.step6Message", premium: true },
+    { screen: "products", titleKey: "onboarding.step7Title", messageKey: "onboarding.step7Message", premium: true },
+    { screen: "buddies", titleKey: "onboarding.step8Title", messageKey: "onboarding.step8Message", premium: true },
+];
+
+function AppContent() {
+    const { t } = useTranslation();
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isScannerVisible, setIsScannerVisible] = useState(false);
     const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
@@ -95,6 +118,8 @@ export default function App() {
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
     const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail">("list");
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
+    const [isOnboarding, setIsOnboarding] = useState(false);
+    const [onboardingStep, setOnboardingStep] = useState(0);
     const { toasts, showError, dismissToast } = useToasts();
 
     const loadSavedInvoices = useCallback(() => {
@@ -106,16 +131,32 @@ export default function App() {
             });
     }, [showError]);
 
+    const startOnboardingIfNeeded = useCallback(() => {
+        hasCompletedOnboarding().then((completed) => {
+            if (!completed) {
+                setIsOnboarding(true);
+                setOnboardingStep(0);
+            }
+        });
+    }, []);
+
     useEffect(() => {
         getToken().then((token) => {
             if (token) {
                 getUser().then(setUser);
                 setScreen("dashboard");
+                startOnboardingIfNeeded();
             } else {
                 setScreen("auth");
             }
         });
-    }, []);
+    }, [startOnboardingIfNeeded]);
+
+    useEffect(() => {
+        if (isOnboarding) {
+            setScreen(ONBOARDING_STEPS[onboardingStep].screen);
+        }
+    }, [isOnboarding, onboardingStep]);
 
     useEffect(() => {
         if (screen === "dashboard" || screen === "list" || screen === "budget") {
@@ -135,6 +176,7 @@ export default function App() {
         Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
             setUser(auth.user);
             setScreen("dashboard");
+            startOnboardingIfNeeded();
         });
     };
 
@@ -143,6 +185,31 @@ export default function App() {
             setSavedInvoices([]);
             setUser(null);
             setScreen("auth");
+        });
+    };
+
+    const finishOnboarding = () => {
+        setIsOnboarding(false);
+        setOnboardingCompleted();
+        setScreen("dashboard");
+    };
+
+    const handleOnboardingNext = () => {
+        if (onboardingStep === ONBOARDING_STEPS.length - 1) {
+            finishOnboarding();
+            return;
+        }
+        setOnboardingStep((current) => current + 1);
+    };
+
+    const handleOnboardingBack = () => {
+        setOnboardingStep((current) => Math.max(0, current - 1));
+    };
+
+    const handleRestartOnboarding = () => {
+        resetOnboarding().then(() => {
+            setIsOnboarding(true);
+            setOnboardingStep(0);
         });
     };
 
@@ -210,10 +277,10 @@ export default function App() {
         if (!selectedInvoice) {
             return;
         }
-        Alert.alert("Fshi faturën?", "Ky veprim nuk mund të kthehet.", [
-            { text: "Anulo", style: "cancel" },
+        Alert.alert(t("app.deleteInvoiceTitle"), t("app.deleteInvoiceMessage"), [
+            { text: t("common.cancel"), style: "cancel" },
             {
-                text: "Fshi",
+                text: t("common.delete"),
                 style: "destructive",
                 onPress: () => {
                     setIsDeleting(true);
@@ -241,7 +308,7 @@ export default function App() {
                     parsed = parseReceipt(result);
                 } catch (parseError) {
                     console.log("[OCR parse error]", parseError);
-                    throw new Error("Nuk u përpunuan dot të dhënat e faturës. Provo përsëri.");
+                    throw new Error(t("app.receiptParseError"));
                 }
                 const qrParams = toQrParams(parsed);
                 setIsProcessingReceipt(false);
@@ -328,7 +395,7 @@ export default function App() {
     return (
         <View style={styles.container}>
             {screen === "loading" ? (
-                <Text style={styles.statusText}>Duke u ngarkuar...</Text>
+                <Text style={styles.statusText}>{t("common.loading")}</Text>
             ) : screen === "auth" ? (
                 <LoginScreen onAuthenticated={handleAuthenticated} />
             ) : MAIN_SCREENS.has(screen) ? (
@@ -383,8 +450,8 @@ export default function App() {
                                 ListEmptyComponent={
                                     <Text style={styles.emptyText}>
                                         {savedInvoices.length === 0
-                                            ? "Nuk ka fatura të ruajtura."
-                                            : "Nuk ka fatura për këtë muaj."}
+                                            ? t("app.noInvoicesSaved")
+                                            : t("app.noInvoicesThisMonth")}
                                     </Text>
                                 }
                             />
@@ -504,7 +571,22 @@ export default function App() {
                 user={user}
                 onClose={() => setIsUserMenuVisible(false)}
                 onLogout={handleLogout}
+                onRestartTour={() => {
+                    setIsUserMenuVisible(false);
+                    handleRestartOnboarding();
+                }}
             />
+
+            {isOnboarding && MAIN_SCREENS.has(screen) && (
+                <OnboardingGuide
+                    step={ONBOARDING_STEPS[onboardingStep]}
+                    stepIndex={onboardingStep}
+                    totalSteps={ONBOARDING_STEPS.length}
+                    onNext={handleOnboardingNext}
+                    onBack={handleOnboardingBack}
+                    onSkip={finishOnboarding}
+                />
+            )}
 
             <SideDrawer
                 visible={isDrawerVisible}
@@ -532,6 +614,14 @@ export default function App() {
             <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" ? "light" : "auto"} />
             <ToastHost toasts={toasts} onDismiss={dismissToast} />
         </View>
+    );
+}
+
+export default function App() {
+    return (
+        <LanguageProvider>
+            <AppContent />
+        </LanguageProvider>
     );
 }
 

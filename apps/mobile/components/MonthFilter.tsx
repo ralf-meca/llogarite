@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 
@@ -9,19 +10,19 @@ type MonthFilterProps = {
   onChange: (key: string | null) => void;
 };
 
-const MONTH_NAMES = [
-  'Janar',
-  'Shkurt',
-  'Mars',
-  'Prill',
-  'Maj',
-  'Qershor',
-  'Korrik',
-  'Gusht',
-  'Shtator',
-  'Tetor',
-  'Nëntor',
-  'Dhjetor',
+const MONTH_KEYS: TranslationKey[] = [
+  'monthFilter.january',
+  'monthFilter.february',
+  'monthFilter.march',
+  'monthFilter.april',
+  'monthFilter.may',
+  'monthFilter.june',
+  'monthFilter.july',
+  'monthFilter.august',
+  'monthFilter.september',
+  'monthFilter.october',
+  'monthFilter.november',
+  'monthFilter.december',
 ];
 
 const YEAR_RANGE = 6;
@@ -53,6 +54,7 @@ function defaultSelection(value: string | null): { month: number; year: number }
 }
 
 export function MonthFilter({ value, onChange }: MonthFilterProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingMonth, setPendingMonth] = useState(() => defaultSelection(value).month);
   const [pendingYear, setPendingYear] = useState(() => defaultSelection(value).year);
@@ -74,7 +76,9 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
     setIsOpen(false);
   };
 
-  const selectedLabel = value ? `${MONTH_NAMES[parseKey(value).month]} ${parseKey(value).year}` : 'Të gjitha muajt';
+  const selectedLabel = value
+    ? `${t(MONTH_KEYS[parseKey(value).month])} ${parseKey(value).year}`
+    : t('monthFilter.allMonths');
 
   return (
     <>
@@ -89,17 +93,19 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.title}>Zgjidh muajin</Text>
+            <Text style={styles.title}>{t('monthFilter.selectMonth')}</Text>
 
             <View style={styles.columns}>
               <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
-                {MONTH_NAMES.map((name, index) => (
+                {MONTH_KEYS.map((key, index) => (
                   <Pressable
-                    key={name}
+                    key={key}
                     style={[styles.optionRow, pendingMonth === index && styles.optionRowActive]}
                     onPress={() => setPendingMonth(index)}
                   >
-                    <Text style={[styles.optionText, pendingMonth === index && styles.optionTextActive]}>{name}</Text>
+                    <Text style={[styles.optionText, pendingMonth === index && styles.optionTextActive]}>
+                      {t(key)}
+                    </Text>
                   </Pressable>
                 ))}
               </ScrollView>
@@ -119,9 +125,9 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
 
             <View style={styles.actions}>
               <Pressable onPress={clear}>
-                <Text style={styles.clearText}>Të gjitha muajt</Text>
+                <Text style={styles.clearText}>{t('monthFilter.allMonths')}</Text>
               </Pressable>
-              <GlassButton label="Zbato" variant="accent" onPress={apply} />
+              <GlassButton label={t('monthFilter.apply')} variant="accent" onPress={apply} />
             </View>
           </Pressable>
         </Pressable>

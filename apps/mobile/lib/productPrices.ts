@@ -1,4 +1,7 @@
+import type { Language } from './i18n';
 import type { SavedInvoice } from './savedInvoicesApi';
+
+const LOCALE_BY_LANGUAGE: Record<Language, string> = { sq: 'sq-AL', en: 'en-US' };
 
 export type ProductSummary = {
   key: string;
@@ -96,7 +99,7 @@ export function monthlyChartPoints(records: PriceRecord[]): ChartPoint[] {
     }));
 }
 
-export function yearlyChartPoints(records: PriceRecord[]): ChartPoint[] {
+export function yearlyChartPoints(records: PriceRecord[], language: Language = 'sq'): ChartPoint[] {
   const cursor = new Date();
   cursor.setDate(1);
   cursor.setHours(0, 0, 0, 0);
@@ -120,7 +123,7 @@ export function yearlyChartPoints(records: PriceRecord[]): ChartPoint[] {
     const prices = byMonth.get(key);
     if (prices && prices.length > 0) {
       points.push({
-        label: cursor.toLocaleDateString('sq-AL', { month: 'short' }),
+        label: cursor.toLocaleDateString(LOCALE_BY_LANGUAGE[language], { month: 'short' }),
         value: prices.reduce((sum, price) => sum + price, 0) / prices.length,
       });
     }

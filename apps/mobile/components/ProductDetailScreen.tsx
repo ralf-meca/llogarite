@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import {
   getProductRecords,
   last30DaysStats,
@@ -25,13 +26,14 @@ type ChartRange = 'monthly' | 'yearly';
 const CHART_WIDTH = Dimensions.get('window').width - 88;
 
 export function ProductDetailScreen({ productKey, productName, invoices, onBack }: ProductDetailScreenProps) {
+  const { t, language } = useTranslation();
   const [range, setRange] = useState<ChartRange>('monthly');
 
   const records = useMemo(() => getProductRecords(invoices, productKey), [invoices, productKey]);
   const stats = useMemo(() => last30DaysStats(records), [records]);
   const points = useMemo(
-    () => (range === 'monthly' ? monthlyChartPoints(records) : yearlyChartPoints(records)),
-    [records, range],
+    () => (range === 'monthly' ? monthlyChartPoints(records) : yearlyChartPoints(records, language)),
+    [records, range, language],
   );
 
   return (
@@ -49,18 +51,18 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
         <View style={styles.statsRow}>
           <GlassView style={styles.statCard}>
             <Text style={styles.statValue}>{formatAmount(stats.average)}</Text>
-            <Text style={styles.statLabel}>Mesatarja</Text>
+            <Text style={styles.statLabel}>{t('productDetail.average')}</Text>
           </GlassView>
           <GlassView style={styles.statCard}>
             <Text style={styles.statValue}>{formatAmount(stats.lowest)}</Text>
-            <Text style={styles.statLabel}>Më e ulëta</Text>
+            <Text style={styles.statLabel}>{t('productDetail.lowest')}</Text>
           </GlassView>
           <GlassView style={styles.statCard}>
             <Text style={styles.statValue}>{formatAmount(stats.highest)}</Text>
-            <Text style={styles.statLabel}>Më e larta</Text>
+            <Text style={styles.statLabel}>{t('productDetail.highest')}</Text>
           </GlassView>
         </View>
-        <Text style={styles.statsHint}>Bazuar në 30 ditët e fundit</Text>
+        <Text style={styles.statsHint}>{t('productDetail.basedOnLast30Days')}</Text>
 
         <GlassView style={styles.chartCard}>
           <View style={styles.toggleRow}>
@@ -68,13 +70,17 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
               style={[styles.toggleButton, range === 'monthly' && styles.toggleButtonActive]}
               onPress={() => setRange('monthly')}
             >
-              <Text style={[styles.toggleText, range === 'monthly' && styles.toggleTextActive]}>Mujor</Text>
+              <Text style={[styles.toggleText, range === 'monthly' && styles.toggleTextActive]}>
+                {t('productDetail.monthly')}
+              </Text>
             </Pressable>
             <Pressable
               style={[styles.toggleButton, range === 'yearly' && styles.toggleButtonActive]}
               onPress={() => setRange('yearly')}
             >
-              <Text style={[styles.toggleText, range === 'yearly' && styles.toggleTextActive]}>Vjetor</Text>
+              <Text style={[styles.toggleText, range === 'yearly' && styles.toggleTextActive]}>
+                {t('productDetail.yearly')}
+              </Text>
             </Pressable>
           </View>
           <View style={styles.chartWrapper}>

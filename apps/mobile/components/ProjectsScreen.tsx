@@ -6,6 +6,7 @@ import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import { createProject, deleteProject, fetchProjects, updateProject, type Project } from '../lib/projectsApi';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
@@ -41,6 +42,7 @@ function isCompleted(project: Project): boolean {
 }
 
 export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -104,11 +106,11 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
   const handleSubmit = () => {
     const budget = parseAmountInput(form.budget);
     if (!form.name.trim()) {
-      showError('Shkruaj emrin e projektit.');
+      showError(t('projects.nameRequired'));
       return;
     }
     if (!Number.isFinite(budget) || budget < 0) {
-      showError('Shkruaj një buxhet të vlefshëm.');
+      showError(t('projects.invalidBudget'));
       return;
     }
     const endDate = form.endDate ? toLocalIsoString(form.endDate).slice(0, 10) : null;
@@ -144,14 +146,14 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Projektet</Text>
+          <Text style={styles.title}>{t('projects.title')}</Text>
           <Pressable style={styles.addButton} onPress={openAdd}>
             <Ionicons name="add" size={22} color={colors.primary} />
           </Pressable>
         </View>
 
         {!isLoading && projects.length === 0 && (
-          <Text style={styles.emptyText}>Nuk ka projekte. Shto një me butonin +.</Text>
+          <Text style={styles.emptyText}>{t('projects.empty')}</Text>
         )}
 
         {projects.map((project) => {
@@ -170,23 +172,23 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
 
                 <View style={[styles.statusBadge, completed ? styles.statusBadgeDone : styles.statusBadgeOngoing]}>
                   <Text style={[styles.statusText, completed ? styles.statusTextDone : styles.statusTextOngoing]}>
-                    {completed ? 'E përfunduar' : 'Në vazhdim'}
+                    {completed ? t('projects.completed') : t('projects.ongoing')}
                   </Text>
                 </View>
 
                 {project.details && <Text style={styles.details}>{project.details}</Text>}
 
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Buxheti</Text>
+                  <Text style={styles.metaLabel}>{t('projects.budget')}</Text>
                   <Text style={styles.metaValue}>{formatAmount(project.budget)}</Text>
                 </View>
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Shpenzimet</Text>
+                  <Text style={styles.metaLabel}>{t('projects.expenses')}</Text>
                   <Text style={styles.metaValue}>{formatAmount(totalExpenses(project.id))}</Text>
                 </View>
                 {project.endDate && (
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Data e përfundimit</Text>
+                    <Text style={styles.metaLabel}>{t('projects.endDate')}</Text>
                     <Text style={styles.metaValue}>{toDateLabel(new Date(project.endDate))}</Text>
                   </View>
                 )}
@@ -200,23 +202,23 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
         <Pressable style={styles.backdrop} onPress={() => setIsModalVisible(false)}>
           <Pressable style={styles.formCard} onPress={(event) => event.stopPropagation()}>
             <ScrollView>
-              <Text style={styles.formTitle}>{editingId ? 'Ndrysho projektin' : 'Shto projekt'}</Text>
+              <Text style={styles.formTitle}>{editingId ? t('projects.editProject') : t('projects.addProject')}</Text>
               <GlassTextInput
                 style={styles.input}
-                placeholder="Emri i projektit"
+                placeholder={t('projects.namePlaceholder')}
                 value={form.name}
                 onChangeText={(value) => setForm((current) => ({ ...current, name: value }))}
               />
               <GlassTextInput
                 style={[styles.input, styles.detailsInput]}
-                placeholder="Detajet (opsionale)"
+                placeholder={t('projects.detailsPlaceholder')}
                 multiline
                 value={form.details}
                 onChangeText={(value) => setForm((current) => ({ ...current, details: value }))}
               />
               <GlassTextInput
                 style={styles.input}
-                placeholder="Buxheti"
+                placeholder={t('projects.budgetPlaceholder')}
                 keyboardType="numeric"
                 value={form.budget}
                 onChangeText={(value) => setForm((current) => ({ ...current, budget: formatAmountInput(value) }))}
@@ -228,7 +230,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                 >
                   <Ionicons name="calendar-outline" size={16} color="#6b7280" />
                   <Text style={form.endDate ? styles.dateText : styles.datePlaceholder}>
-                    {form.endDate ? toDateLabel(form.endDate) : 'Data e përfundimit (opsionale)'}
+                    {form.endDate ? toDateLabel(form.endDate) : t('projects.endDatePlaceholder')}
                   </Text>
                 </Pressable>
                 {form.endDate && (
@@ -257,13 +259,13 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                 <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
               </View>
               <GlassButton
-                label={isSaving ? 'Duke ruajtur...' : 'Ruaj'}
+                label={isSaving ? t('common.saving') : t('common.save')}
                 variant="accent"
                 onPress={handleSubmit}
                 disabled={isSaving}
               />
               <Pressable onPress={() => setIsModalVisible(false)}>
-                <Text style={styles.cancelText}>Anulo</Text>
+                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
               </Pressable>
             </ScrollView>
           </Pressable>

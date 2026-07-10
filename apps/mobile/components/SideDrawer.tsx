@@ -2,7 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AuthUser } from '../lib/authApi';
+import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { colors } from '../lib/theme';
+import { LanguageSwitch } from './LanguageSwitch';
 import { UserAvatar } from './UserAvatar';
 
 export type DrawerScreen =
@@ -16,14 +18,19 @@ export type DrawerScreen =
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get('window').width * 0.78);
 
-const NAV_ITEMS: { key: DrawerScreen; icon: keyof typeof Ionicons.glyphMap; label: string; premium?: boolean }[] = [
-  { key: 'dashboard', icon: 'home-outline', label: 'Kryefaqja' },
-  { key: 'list', icon: 'receipt-outline', label: 'Fatura të ruajtura' },
-  { key: 'budget', icon: 'wallet-outline', label: 'Buxheti' },
-  { key: 'monthlyPayments', icon: 'calendar-outline', label: 'Pagesat mujore' },
-  { key: 'projects', icon: 'folder-outline', label: 'Projektet', premium: true },
-  { key: 'products', icon: 'trending-up-outline', label: 'Çmimet', premium: true },
-  { key: 'buddies', icon: 'people-outline', label: 'Shokët e shpenzimeve', premium: true },
+const NAV_ITEMS: {
+  key: DrawerScreen;
+  icon: keyof typeof Ionicons.glyphMap;
+  labelKey: TranslationKey;
+  premium?: boolean;
+}[] = [
+  { key: 'dashboard', icon: 'home-outline', labelKey: 'drawer.dashboard' },
+  { key: 'list', icon: 'receipt-outline', labelKey: 'drawer.list' },
+  { key: 'budget', icon: 'wallet-outline', labelKey: 'drawer.budget' },
+  { key: 'monthlyPayments', icon: 'calendar-outline', labelKey: 'drawer.monthlyPayments' },
+  { key: 'projects', icon: 'folder-outline', labelKey: 'drawer.projects', premium: true },
+  { key: 'products', icon: 'trending-up-outline', labelKey: 'drawer.products', premium: true },
+  { key: 'buddies', icon: 'people-outline', labelKey: 'drawer.buddies', premium: true },
 ];
 
 type SideDrawerProps = {
@@ -47,6 +54,7 @@ export function SideDrawer({
   onNavigate,
   onOpenAccount,
 }: SideDrawerProps) {
+  const { t } = useTranslation();
   const [isRendered, setIsRendered] = useState(visible);
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -115,13 +123,17 @@ export function SideDrawer({
                       isLocked && styles.navItemTextLocked,
                     ]}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </Text>
                   {isLocked && <MaterialCommunityIcons name="crown-outline" size={16} color={colors.primary} />}
                 </Pressable>
               );
             })}
           </ScrollView>
+
+          <View style={styles.languageSwitchWrapper}>
+            <LanguageSwitch />
+          </View>
 
           <Pressable style={styles.accountRow} onPress={onOpenAccount}>
             <UserAvatar user={user} size={40} />
@@ -202,6 +214,10 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#dc2626',
+  },
+  languageSwitchWrapper: {
+    alignItems: 'center',
+    paddingBottom: 16,
   },
   accountRow: {
     flexDirection: 'row',

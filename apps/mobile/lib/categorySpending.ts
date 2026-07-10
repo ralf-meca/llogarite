@@ -1,4 +1,4 @@
-import { categoryLabel, DEFAULT_CATEGORY } from './categories';
+import { DEFAULT_CATEGORY } from './categories';
 import type { SavedInvoice } from './savedInvoicesApi';
 
 export type CategorySpending = {
@@ -19,7 +19,7 @@ export function groupByCategory(invoices: SavedInvoice[]): CategorySpending[] {
   }
 
   return Array.from(totals.entries())
-    .map(([key, total]) => ({ key, label: categoryLabel(key), total }))
+    .map(([key, total]) => ({ key, label: key, total }))
     .sort((a, b) => b.total - a.total);
 }
 

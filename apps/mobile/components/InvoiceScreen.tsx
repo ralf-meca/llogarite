@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
+import { useTranslation } from '../lib/i18n';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 import { InvoiceReceipt } from './InvoiceReceipt';
@@ -24,6 +25,7 @@ export function InvoiceScreen({
   onDelete,
   onEdit,
 }: InvoiceScreenProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {onEdit ? (
@@ -49,11 +51,11 @@ export function InvoiceScreen({
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {verification.status === 'invalid' && (
-          <Text style={styles.errorText}>Nuk u lexuan dot të dhënat e faturës nga ky kod QR.</Text>
+          <Text style={styles.errorText}>{t('invoice.invalidQr')}</Text>
         )}
-        {verification.status === 'loading' && <Text>Duke verifikuar faturën...</Text>}
+        {verification.status === 'loading' && <Text>{t('invoice.verifying')}</Text>}
         {verification.status === 'error' && (
-          <Text style={styles.errorText}>Verifikimi dështoi: {verification.message}</Text>
+          <Text style={styles.errorText}>{t('invoice.verificationFailed', { message: verification.message })}</Text>
         )}
         {verification.status === 'success' && <InvoiceReceipt result={verification.data} />}
       </ScrollView>
@@ -62,7 +64,7 @@ export function InvoiceScreen({
         <View style={styles.footer}>
           {onConfirm && (
             <GlassButton
-              label={isSaving ? 'Duke ruajtur...' : 'Konfirmo'}
+              label={isSaving ? t('common.saving') : t('common.confirm')}
               variant="accent"
               onPress={onConfirm}
               disabled={isSaving}
@@ -70,7 +72,7 @@ export function InvoiceScreen({
           )}
           {onDelete && (
             <GlassButton
-              label={isDeleting ? 'Duke fshirë...' : 'Fshi'}
+              label={isDeleting ? t('common.deleting') : t('common.delete')}
               variant="danger"
               style={styles.deleteButton}
               onPress={onDelete}

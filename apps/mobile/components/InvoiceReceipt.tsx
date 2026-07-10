@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import type { InvoiceVerificationResult } from '../lib/invoiceApi';
 import { GlassView } from './GlassView';
 import { VerifiedBadge } from './VerifiedBadge';
@@ -8,20 +9,25 @@ type InvoiceReceiptProps = {
   result: InvoiceVerificationResult;
 };
 
+const LOCALE_BY_LANGUAGE = { sq: 'sq-AL', en: 'en-US' } as const;
+
 export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
+  const { t, language } = useTranslation();
   return (
     <GlassView style={styles.card}>
-      <Text style={styles.date}>{new Date(result.dateTimeCreated).toLocaleString()}</Text>
+      <Text style={styles.date}>
+        {new Date(result.dateTimeCreated).toLocaleString(LOCALE_BY_LANGUAGE[language])}
+      </Text>
       <View style={styles.sellerRow}>
         <Text style={styles.sellerName}>{result.seller.name}</Text>
         {result.verified && <VerifiedBadge />}
       </View>
 
       <View style={styles.itemsHeader}>
-        <Text style={[styles.headerCell, styles.nameColumn]}>Artikulli</Text>
-        <Text style={[styles.headerCell, styles.qtyColumn]}>Sasia</Text>
-        <Text style={[styles.headerCell, styles.priceColumn]}>Çmimi</Text>
-        <Text style={[styles.headerCell, styles.priceColumn]}>Me TVSH</Text>
+        <Text style={[styles.headerCell, styles.nameColumn]}>{t('invoiceReceipt.itemColumn')}</Text>
+        <Text style={[styles.headerCell, styles.qtyColumn]}>{t('invoiceReceipt.quantityColumn')}</Text>
+        <Text style={[styles.headerCell, styles.priceColumn]}>{t('invoiceReceipt.priceColumn')}</Text>
+        <Text style={[styles.headerCell, styles.priceColumn]}>{t('invoiceReceipt.priceWithVatColumn')}</Text>
       </View>
       {result.items.map((item, index) => (
         <View key={index} style={styles.itemRow}>
@@ -33,7 +39,7 @@ export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
       ))}
 
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Totali</Text>
+        <Text style={styles.totalLabel}>{t('invoiceReceipt.total')}</Text>
         <Text style={styles.totalValue}>{formatAmount(result.totalPrice)}</Text>
       </View>
     </GlassView>

@@ -1,6 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRef } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from '../lib/i18n';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 
@@ -12,6 +13,7 @@ type ReceiptScannerModalProps = {
 };
 
 export function ReceiptScannerModal({ visible, isProcessing, onClose, onCaptured }: ReceiptScannerModalProps) {
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
@@ -33,14 +35,14 @@ export function ReceiptScannerModal({ visible, isProcessing, onClose, onCaptured
             <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="back" />
             <View style={styles.instructionWrapper} pointerEvents="none">
               <GlassView tint="dark" style={styles.instructionCard}>
-                <Text style={styles.instructionText}>Fotografo faturën e plotë, qartë dhe pa hije.</Text>
+                <Text style={styles.instructionText}>{t('receiptScanner.instruction')}</Text>
               </GlassView>
             </View>
             <View style={styles.footer}>
               {isProcessing ? (
                 <GlassView tint="dark" style={styles.processingCard}>
                   <ActivityIndicator color="#fff" />
-                  <Text style={styles.processingText}>Duke lexuar faturën...</Text>
+                  <Text style={styles.processingText}>{t('receiptScanner.processing')}</Text>
                 </GlassView>
               ) : (
                 <Pressable onPress={handleCapture} style={styles.captureButtonWrapper}>
@@ -52,14 +54,14 @@ export function ReceiptScannerModal({ visible, isProcessing, onClose, onCaptured
         ) : (
           <View style={styles.permissionContainer}>
             <GlassView tint="dark" style={styles.permissionCard}>
-              <Text style={styles.permissionText}>Nevojitet qasje në kamerë për të fotografuar faturën.</Text>
-              <GlassButton label="Jep leje" variant="accent" onPress={requestPermission} />
+              <Text style={styles.permissionText}>{t('receiptScanner.cameraPermission')}</Text>
+              <GlassButton label={t('common.grantPermission')} variant="accent" onPress={requestPermission} />
             </GlassView>
           </View>
         )}
         <Pressable onPress={onClose} style={styles.closeButtonWrapper} disabled={isProcessing}>
           <GlassView tint="dark" style={styles.closeButton}>
-            <Text style={styles.buttonText}>Mbyll</Text>
+            <Text style={styles.buttonText}>{t('common.close')}</Text>
           </GlassView>
         </Pressable>
       </View>

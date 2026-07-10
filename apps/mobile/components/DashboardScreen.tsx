@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchBudget } from '../lib/budgetApi';
+import { CATEGORIES, categoryLabelKey } from '../lib/categories';
 import { groupByCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import { currentMonthTotal, groupByMonth } from '../lib/monthlySpending';
 import { toPieSegments } from '../lib/pieSegments';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
@@ -11,6 +13,8 @@ import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
 import { PieChart } from './PieChart';
 import { ProgressBar } from './ProgressBar';
+
+const CATEGORY_IDS = new Set<string>(CATEGORIES.map((category) => category.id));
 
 const PALETTE = [colors.primary, '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#06b6d4', '#a3a3a3'];
 const CHART_WIDTH = Dimensions.get('window').width - 88;
@@ -30,6 +34,7 @@ type DashboardScreenProps = {
 };
 
 export function DashboardScreen({ invoices }: DashboardScreenProps) {
+  const { t, language } = useTranslation();
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
   const [categorySelection, setCategorySelection] = useState<number | null>(null);
 
@@ -43,23 +48,29 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
   const budgetRatio = budgetTarget && budgetTarget > 0 ? monthSpent / budgetTarget : 0;
 
   const totalSpent = invoices.reduce((sum, invoice) => sum + invoice.data.totalPrice, 0);
-  const monthlyPoints = [...groupByMonth(invoices)]
+  const monthlyPoints = [...groupByMonth(invoices, language)]
     .sort((a, b) => (a.key < b.key ? -1 : 1))
     .map((entry) => ({ label: entry.label, value: entry.total }));
 
-  const categorySegments = toPieSegments(groupByCategory(invoices)).map((segment, index) => ({
-    ...segment,
-    color: PALETTE[index % PALETTE.length],
-  }));
+  const categorySegments = toPieSegments(groupByCategory(invoices), t('categories.te_tjera')).map(
+    (segment, index) => ({
+      ...segment,
+      label: CATEGORY_IDS.has(segment.label) ? t(categoryLabelKey(segment.label)) : segment.label,
+      color: PALETTE[index % PALETTE.length],
+    }),
+  );
   const categoryChartTotal = categorySegments.reduce((sum, segment) => sum + segment.total, 0);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       {budgetTarget !== null && (
         <GlassView style={styles.budgetCard}>
-          <Text style={styles.chartTitle}>Buxheti i muajit</Text>
+          <Text style={styles.chartTitle}>{t('dashboard.monthlyBudget')}</Text>
           <Text style={styles.budgetAmount}>
-            {formatAmount(monthSpent)} <Text style={styles.budgetTarget}>nga {formatAmount(budgetTarget)}</Text>
+            {formatAmount(monthSpent)}{' '}
+            <Text style={styles.budgetTarget}>
+              {t('dashboard.of')} {formatAmount(budgetTarget)}
+            </Text>
           </Text>
           <View style={styles.budgetProgressWrapper}>
             <ProgressBar ratio={budgetRatio} />
@@ -70,21 +81,21 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
       <View style={styles.statsRow}>
         <GlassView style={styles.statCard}>
           <Text style={styles.statValue}>{formatAmount(totalSpent)}</Text>
-          <Text style={styles.statLabel}>Shpenzime gjithsej</Text>
+          <Text style={styles.statLabel}>{t('dashboard.totalSpent')}</Text>
         </GlassView>
         <GlassView style={styles.statCard}>
           <Text style={styles.statValue}>{invoices.length}</Text>
-          <Text style={styles.statLabel}>Fatura të ruajtura</Text>
+          <Text style={styles.statLabel}>{t('dashboard.savedInvoices')}</Text>
         </GlassView>
       </View>
 
       {invoices.length === 0 ? (
-        <Text style={styles.emptyText}>Nuk ka fatura për të shfaqur statistika.</Text>
+        <Text style={styles.emptyText}>{t('dashboard.noInvoicesForStats')}</Text>
       ) : (
         <>
           {categorySegments.length > 0 && (
             <GlassView style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Shpenzimet sipas kategorisë</Text>
+              <Text style={styles.chartTitle}>{t('dashboard.spendingByCategory')}</Text>
               <View style={styles.chartRow}>
                 <PieChart
                   segments={categorySegments.map((segment) => ({
@@ -121,7 +132,7 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
           )}
 
           <GlassView style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Shpenzimet sipas muajit</Text>
+            <Text style={styles.chartTitle}>{t('dashboard.spendingByMonth')}</Text>
             <View style={styles.lineChartWrapper}>
               <LineChart points={monthlyPoints} width={CHART_WIDTH} height={180} />
             </View>

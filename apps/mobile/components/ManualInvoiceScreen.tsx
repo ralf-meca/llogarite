@@ -6,6 +6,7 @@ import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
 import { colors } from '../lib/theme';
@@ -54,6 +55,7 @@ export function ManualInvoiceScreen({
   onClose,
   onSubmit,
 }: ManualInvoiceScreenProps) {
+  const { t } = useTranslation();
   const [sellerName, setSellerName] = useState(initialData?.seller.name ?? '');
   const [dateLabel, setDateLabel] = useState(
     initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
@@ -122,12 +124,12 @@ export function ManualInvoiceScreen({
 
   const handleSubmit = () => {
     if (!sellerName.trim()) {
-      showError('Shkruaj emrin e shitësit.');
+      showError(t('manualInvoice.sellerRequired'));
       return;
     }
     const date = parseDateLabel(dateLabel);
     if (!date) {
-      showError('Data duhet të jetë në formatin DD/MM/VVVV.');
+      showError(t('manualInvoice.invalidDate'));
       return;
     }
 
@@ -136,7 +138,7 @@ export function ManualInvoiceScreen({
       const quantity = Number(item.quantity);
       const unitPrice = parseAmountInput(item.unitPrice);
       if (!item.name.trim() || !Number.isFinite(quantity) || !Number.isFinite(unitPrice)) {
-        showError('Plotëso saktë të gjithë artikujt (emri, sasia dhe çmimi).');
+        showError(t('manualInvoice.invalidItems'));
         return;
       }
       parsedItems.push({
@@ -172,17 +174,17 @@ export function ManualInvoiceScreen({
       </Pressable>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{isEditing ? 'Ndrysho faturën' : 'Shto faturë manualisht'}</Text>
+        <Text style={styles.title}>{isEditing ? t('manualInvoice.editTitle') : t('manualInvoice.addTitle')}</Text>
 
         <GlassTextInput
           style={styles.input}
-          placeholder="Emri i shitësit"
+          placeholder={t('manualInvoice.sellerPlaceholder')}
           value={sellerName}
           onChangeText={setSellerName}
         />
         <GlassTextInput
           style={styles.input}
-          placeholder="Data (DD/MM/VVVV)"
+          placeholder={t('manualInvoice.datePlaceholder')}
           value={dateLabel}
           onChangeText={setDateLabel}
         />
@@ -201,7 +203,9 @@ export function ManualInvoiceScreen({
 
         {selectedBuddies.length > 0 && (
           <GlassView style={[styles.card, styles.buddiesCard]}>
-            <Text style={styles.buddiesTitle}>Ndarja e faturës ({formatAmount(shareAmount)} secili)</Text>
+            <Text style={styles.buddiesTitle}>
+              {t('manualInvoice.splitLabel', { amount: formatAmount(shareAmount) })}
+            </Text>
             {selectedBuddies.map((buddy) => {
               const info = buddies.find((candidate) => candidate.id === buddy.userId);
               return (
@@ -211,7 +215,7 @@ export function ManualInvoiceScreen({
                   onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}
                 >
                   <Text style={styles.buddyName} numberOfLines={1}>
-                    {info?.name ?? info?.email ?? 'Shok'}
+                    {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                   </Text>
                   <View style={styles.buddyPaidToggle}>
                     <Ionicons
@@ -220,7 +224,7 @@ export function ManualInvoiceScreen({
                       color={buddy.paid ? '#10b981' : '#9ca3af'}
                     />
                     <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
-                      {buddy.paid ? 'Paguar' : 'Papaguar'}
+                      {buddy.paid ? t('manualInvoice.paid') : t('manualInvoice.unpaid')}
                     </Text>
                   </View>
                 </Pressable>
@@ -232,9 +236,9 @@ export function ManualInvoiceScreen({
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
             <View style={styles.categoryColumn} />
-            <Text style={[styles.headerCell, styles.nameColumn]}>Artikulli</Text>
-            <Text style={[styles.headerCell, styles.qtyColumn]}>Sasia</Text>
-            <Text style={[styles.headerCell, styles.priceColumn]}>Çmimi</Text>
+            <Text style={[styles.headerCell, styles.nameColumn]}>{t('manualInvoice.itemColumn')}</Text>
+            <Text style={[styles.headerCell, styles.qtyColumn]}>{t('manualInvoice.quantityColumn')}</Text>
+            <Text style={[styles.headerCell, styles.priceColumn]}>{t('manualInvoice.priceColumn')}</Text>
             <View style={styles.removeColumn} />
           </View>
 
@@ -250,7 +254,7 @@ export function ManualInvoiceScreen({
                 </View>
                 <GlassTextInput
                   style={[styles.cellInput, styles.nameColumn]}
-                  placeholder="Emri"
+                  placeholder={t('common.name')}
                   value={item.name}
                   onChangeText={(value) =>
                     updateItem(index, {
@@ -283,11 +287,11 @@ export function ManualInvoiceScreen({
           ))}
 
           <Pressable onPress={addItem} style={styles.addItemButton}>
-            <Text style={styles.addItemText}>+ Shto artikull</Text>
+            <Text style={styles.addItemText}>{t('manualInvoice.addItem')}</Text>
           </Pressable>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Totali</Text>
+            <Text style={styles.totalLabel}>{t('manualInvoice.total')}</Text>
             <Text style={styles.totalValue}>{formatAmount(total)}</Text>
           </View>
         </GlassView>
@@ -295,7 +299,7 @@ export function ManualInvoiceScreen({
 
       <View style={styles.footer}>
         <GlassButton
-          label={isSaving ? 'Duke ruajtur...' : isEditing ? 'Ruaj ndryshimet' : 'Vazhdo'}
+          label={isSaving ? t('common.saving') : isEditing ? t('manualInvoice.saveChanges') : t('manualInvoice.continue')}
           variant="accent"
           onPress={handleSubmit}
           disabled={isSaving}

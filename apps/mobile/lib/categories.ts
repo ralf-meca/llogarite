@@ -1,4 +1,5 @@
 import type { Ionicons } from '@expo/vector-icons';
+import type { TranslationKey } from './i18n';
 
 export type CategoryId =
   | 'ushqime'
@@ -10,23 +11,23 @@ export type CategoryId =
   | 'argetim'
   | 'te_tjera';
 
-export type Category = { id: CategoryId; label: string; icon: keyof typeof Ionicons.glyphMap };
+export type Category = { id: CategoryId; labelKey: TranslationKey; icon: keyof typeof Ionicons.glyphMap };
 
 export const CATEGORIES: Category[] = [
-  { id: 'ushqime', label: 'Ushqime & Pije', icon: 'restaurant-outline' },
-  { id: 'higjene', label: 'Higjenë & Kozmetikë', icon: 'sparkles-outline' },
-  { id: 'shtepi', label: 'Shtëpi & Pastrim', icon: 'home-outline' },
-  { id: 'veshje', label: 'Veshje & Aksesorë', icon: 'shirt-outline' },
-  { id: 'transport', label: 'Transport & Karburant', icon: 'car-outline' },
-  { id: 'shendetesi', label: 'Shëndet & Farmaci', icon: 'medkit-outline' },
-  { id: 'argetim', label: 'Argëtim & Shërbime', icon: 'ticket-outline' },
-  { id: 'te_tjera', label: 'Të tjera', icon: 'ellipsis-horizontal-circle-outline' },
+  { id: 'ushqime', labelKey: 'categories.ushqime', icon: 'restaurant-outline' },
+  { id: 'higjene', labelKey: 'categories.higjene', icon: 'sparkles-outline' },
+  { id: 'shtepi', labelKey: 'categories.shtepi', icon: 'home-outline' },
+  { id: 'veshje', labelKey: 'categories.veshje', icon: 'shirt-outline' },
+  { id: 'transport', labelKey: 'categories.transport', icon: 'car-outline' },
+  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: 'medkit-outline' },
+  { id: 'argetim', labelKey: 'categories.argetim', icon: 'ticket-outline' },
+  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: 'ellipsis-horizontal-circle-outline' },
 ];
 
 export const DEFAULT_CATEGORY: CategoryId = 'te_tjera';
 
-export function categoryLabel(id: string | null | undefined): string {
-  return CATEGORIES.find((category) => category.id === id)?.label ?? categoryLabel(DEFAULT_CATEGORY);
+export function categoryLabelKey(id: string | null | undefined): TranslationKey {
+  return CATEGORIES.find((category) => category.id === id)?.labelKey ?? categoryLabelKey(DEFAULT_CATEGORY);
 }
 
 export function categoryIcon(id: string | null | undefined): keyof typeof Ionicons.glyphMap {

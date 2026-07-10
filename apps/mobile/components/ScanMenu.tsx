@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
@@ -11,12 +12,13 @@ type ScanMenuProps = {
 };
 
 const MENU_ITEMS = [
-  { key: 'qr', icon: 'qr-code-outline', label: 'Skano kodin QR' },
-  { key: 'receipt', icon: 'scan-outline', label: 'Skano faturën' },
-  { key: 'manual', icon: 'create-outline', label: 'Shto manualisht' },
+  { key: 'qr', icon: 'qr-code-outline', labelKey: 'scanMenu.scanQr' },
+  { key: 'receipt', icon: 'scan-outline', labelKey: 'scanMenu.scanReceipt' },
+  { key: 'manual', icon: 'create-outline', labelKey: 'scanMenu.addManually' },
 ] as const;
 
 export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSelect = (key: (typeof MENU_ITEMS)[number]['key']) => {
@@ -47,7 +49,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuPro
               {MENU_ITEMS.map((item) => (
                 <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
                   <Ionicons name={item.icon} size={20} color="#1f2937" />
-                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  <Text style={styles.menuItemText}>{t(item.labelKey)}</Text>
                 </Pressable>
               ))}
             </GlassView>

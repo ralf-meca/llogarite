@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CATEGORIES, categoryIcon, categoryLabel } from '../lib/categories';
+import { CATEGORIES, categoryIcon, categoryLabelKey } from '../lib/categories';
+import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
@@ -12,6 +13,7 @@ type CategoryPickerProps = {
 };
 
 export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -24,7 +26,7 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
         <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
           <Ionicons name={categoryIcon(value)} size={13} color="#374151" />
           <Text style={styles.triggerText} numberOfLines={1}>
-            {categoryLabel(value)}
+            {t(categoryLabelKey(value))}
           </Text>
           <Ionicons name="chevron-down" size={12} color="#6b7280" />
         </Pressable>
@@ -51,7 +53,7 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
                         color={category.id === value ? colors.primary : '#4b5563'}
                       />
                       <Text style={[styles.menuItemText, category.id === value && styles.menuItemTextActive]}>
-                        {category.label}
+                        {t(category.labelKey)}
                       </Text>
                     </View>
                     {category.id === value && <Ionicons name="checkmark" size={16} color={colors.primary} />}

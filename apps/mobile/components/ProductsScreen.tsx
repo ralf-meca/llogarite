@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from '../lib/i18n';
 import { listProducts, type ProductSummary } from '../lib/productPrices';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
@@ -13,6 +14,7 @@ type ProductsScreenProps = {
 };
 
 export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
@@ -26,11 +28,11 @@ export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProp
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Çmimet e produkteve</Text>
+        <Text style={styles.title}>{t('products.title')}</Text>
 
         <GlassTextInput
           style={styles.search}
-          placeholder="Kërko produktin..."
+          placeholder={t('products.searchPlaceholder')}
           value={search}
           onChangeText={setSearch}
         />
@@ -40,13 +42,15 @@ export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProp
             style={[styles.toggleButton, !verifiedOnly && styles.toggleButtonActive]}
             onPress={() => setVerifiedOnly(false)}
           >
-            <Text style={[styles.toggleText, !verifiedOnly && styles.toggleTextActive]}>Të gjitha</Text>
+            <Text style={[styles.toggleText, !verifiedOnly && styles.toggleTextActive]}>{t('products.all')}</Text>
           </Pressable>
           <Pressable
             style={[styles.toggleButton, verifiedOnly && styles.toggleButtonActive]}
             onPress={() => setVerifiedOnly(true)}
           >
-            <Text style={[styles.toggleText, verifiedOnly && styles.toggleTextActive]}>Të verifikuara</Text>
+            <Text style={[styles.toggleText, verifiedOnly && styles.toggleTextActive]}>
+              {t('products.verifiedOnly')}
+            </Text>
           </Pressable>
         </View>
 
@@ -54,9 +58,9 @@ export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProp
           <Text style={styles.emptyText}>
             {products.length === 0
               ? verifiedOnly
-                ? 'Nuk ka produkte nga fatura të verifikuara.'
-                : 'Nuk ka produkte të regjistruara ende.'
-              : 'Asnjë produkt nuk u gjet.'}
+                ? t('products.emptyVerified')
+                : t('products.emptyNone')
+              : t('products.noneFound')}
           </Text>
         )}
 

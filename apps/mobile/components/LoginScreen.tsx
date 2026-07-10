@@ -16,10 +16,12 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { useToasts } from '../hooks/useToasts';
 import { login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
+import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
+import { LanguageSwitch } from './LanguageSwitch';
 import { LegalScreen } from './LegalScreen';
 import { ToastHost } from './ToastHost';
 
@@ -27,26 +29,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Slide = {
   icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  caption: string;
+  titleKey: TranslationKey;
+  captionKey: TranslationKey;
 };
 
 const SLIDES: Slide[] = [
-  {
-    icon: 'qr-code-outline',
-    title: 'Skano faturat në sekonda',
-    caption: 'Skano kodin QR ose bëj një foto të faturës — pjesën tjetër e bëjmë ne.',
-  },
-  {
-    icon: 'people-outline',
-    title: 'Ndaj shpenzimet me shokë',
-    caption: 'Lidhu me shokët e tu dhe ndaj faturat e përbashkëta pa telashe.',
-  },
-  {
-    icon: 'pie-chart-outline',
-    title: 'Ndiq buxhetin tënd',
-    caption: 'Shiko ku shkojnë paratë e tua me grafikë të thjeshtë dhe të qartë.',
-  },
+  { icon: 'qr-code-outline', titleKey: 'login.slide1Title', captionKey: 'login.slide1Caption' },
+  { icon: 'people-outline', titleKey: 'login.slide2Title', captionKey: 'login.slide2Caption' },
+  { icon: 'pie-chart-outline', titleKey: 'login.slide3Title', captionKey: 'login.slide3Caption' },
 ];
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
@@ -79,6 +69,7 @@ type LoginScreenProps = {
 type Mode = 'login' | 'register';
 
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -157,7 +148,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   const handleGoogleSignIn = () => {
     if (!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
-      showError('Kyçja me Google nuk është konfiguruar.');
+      showError(t('login.googleNotConfigured'));
       return;
     }
     setIsGoogleSubmitting(true);
@@ -196,7 +187,11 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.brand}>Llogarite</Text>
+      <View style={styles.topBar}>
+        <View style={styles.topBarSide} />
+        <Text style={styles.brand}>Llogarite</Text>
+        <View style={styles.topBarSide}>{activeSlide < SLIDES.length && <LanguageSwitch />}</View>
+      </View>
 
       <View style={styles.pagerContainer} onLayout={(event) => setPagerHeight(event.nativeEvent.layout.height)}>
         {pagerHeight > 0 && (
@@ -208,15 +203,15 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             style={{ height: pagerHeight }}
           >
             {SLIDES.map((slide) => (
-              <View key={slide.title} style={[styles.slide, { width: SCREEN_WIDTH, height: pagerHeight }]}>
+              <View key={slide.titleKey} style={[styles.slide, { width: SCREEN_WIDTH, height: pagerHeight }]}>
                 <View style={styles.photoPlaceholder}>
                   <Ionicons name={slide.icon} size={48} color={colors.white} />
                 </View>
-                <Text style={styles.slideTitle}>{slide.title}</Text>
-                <Text style={styles.slideCaption}>{slide.caption}</Text>
+                <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
+                <Text style={styles.slideCaption}>{t(slide.captionKey)}</Text>
                 {showSwipeHint && (
                   <View style={styles.swipeHintWrap}>
-                    <Text style={styles.swipeHintLabel}>Rrëshqit për të vazhduar</Text>
+                    <Text style={styles.swipeHintLabel}>{t('login.swipeHint')}</Text>
                     <View style={styles.swipeHintTrack}>
                       <Animated.View
                         style={[
@@ -233,11 +228,13 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             ))}
 
             <View style={[styles.authPage, { width: SCREEN_WIDTH, height: pagerHeight }]}>
-              <Text style={styles.formTitle}>{mode === 'login' ? 'Mirë se erdhe përsëri' : 'Krijo një llogari'}</Text>
+              <Text style={styles.formTitle}>
+                {mode === 'login' ? t('login.welcomeBack') : t('login.createAccount')}
+              </Text>
 
               <GlassTextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={t('login.emailPlaceholder')}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
@@ -246,7 +243,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               <GlassView style={styles.passwordContainer}>
                 <GlassTextInput
                   style={styles.passwordInput}
-                  placeholder="Fjalëkalimi"
+                  placeholder={t('login.passwordPlaceholder')}
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
@@ -263,11 +260,11 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 label={
                   isSubmitting
                     ? mode === 'login'
-                      ? 'Duke u kyçur...'
-                      : 'Duke u regjistruar...'
+                      ? t('login.signingIn')
+                      : t('login.registering')
                     : mode === 'login'
-                      ? 'Kyçu'
-                      : 'Regjistrohu'
+                      ? t('login.signIn')
+                      : t('login.register')
                 }
                 variant="accent"
                 style={styles.submitButton}
@@ -276,7 +273,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               />
 
               <GlassButton
-                label={isGoogleSubmitting ? 'Duke u kyçur me Google...' : 'Vazhdo me Google'}
+                label={isGoogleSubmitting ? t('login.signingInWithGoogle') : t('login.continueWithGoogle')}
                 icon={
                   <Animated.View
                     style={{
@@ -296,21 +293,19 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               />
 
               <Pressable onPress={toggleMode}>
-                <Text style={styles.toggleText}>
-                  {mode === 'login' ? 'Nuk ke llogari? Regjistrohu' : 'Ke llogari? Kyçu'}
-                </Text>
+                <Text style={styles.toggleText}>{mode === 'login' ? t('login.noAccount') : t('login.hasAccount')}</Text>
               </Pressable>
 
               <Text style={styles.disclaimerText}>
-                Duke u kyçur ose regjistruar, ti pranon{' '}
+                {t('login.disclaimerAgree')}{' '}
                 <Text style={styles.disclaimerLink} onPress={() => setLegalPage('terms')}>
-                  Kushtet e Përdorimit
+                  {t('login.termsLink')}
                 </Text>{' '}
-                dhe{' '}
+                {t('login.and')}{' '}
                 <Text style={styles.disclaimerLink} onPress={() => setLegalPage('privacy')}>
-                  Politikën e Privatësisë
-                </Text>{' '}
-                tona.
+                  {t('login.privacyLink')}
+                </Text>
+                .
               </Text>
             </View>
           </ScrollView>
@@ -319,7 +314,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         {activeSlide < SLIDES.length && (
           <View style={styles.dotsRow}>
             {SLIDES.map((slide, index) => (
-              <View key={slide.title} style={[styles.dot, index === activeSlide && styles.dotActive]} />
+              <View key={slide.titleKey} style={[styles.dot, index === activeSlide && styles.dotActive]} />
             ))}
             <Ionicons name="log-in-outline" size={14} color={colors.primarySubtle} />
           </View>
@@ -338,13 +333,24 @@ const styles = StyleSheet.create({
     paddingTop: HEADER_INSET,
     backgroundColor: colors.primary,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 32,
+    paddingBottom: 12,
+  },
+  topBarSide: {
+    width: 64,
+    alignItems: 'flex-end',
+  },
   brand: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
     color: colors.white,
     textAlign: 'center',
-    paddingTop: 32,
-    paddingBottom: 12,
   },
   pagerContainer: {
     flex: 1,

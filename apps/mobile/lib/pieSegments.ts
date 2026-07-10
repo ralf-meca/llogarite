@@ -1,9 +1,8 @@
 export type PieSegmentInput = { label: string; total: number };
 
 const PIE_SEGMENT_LIMIT = 6;
-const OTHER_LABEL = 'Të tjera';
 
-export function toPieSegments(items: PieSegmentInput[]): PieSegmentInput[] {
+export function toPieSegments(items: PieSegmentInput[], otherLabel: string): PieSegmentInput[] {
   const merged = new Map<string, number>();
   for (const item of items) {
     merged.set(item.label, (merged.get(item.label) ?? 0) + item.total);
@@ -18,5 +17,5 @@ export function toPieSegments(items: PieSegmentInput[]): PieSegmentInput[] {
   }
   const top = sorted.slice(0, PIE_SEGMENT_LIMIT);
   const rest = sorted.slice(PIE_SEGMENT_LIMIT).reduce((sum, item) => sum + item.total, 0);
-  return [...top, { label: OTHER_LABEL, total: rest }];
+  return [...top, { label: otherLabel, total: rest }];
 }

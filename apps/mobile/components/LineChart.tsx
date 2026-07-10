@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 import { formatAmount } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import type { ChartPoint } from '../lib/productPrices';
 import { colors } from '../lib/theme';
 
@@ -25,12 +26,13 @@ function pickLabelIndices(count: number): number[] {
 }
 
 export function LineChart({ points, width = 300, height = 200, color = colors.primary }: LineChartProps) {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (points.length === 0) {
     return (
       <View style={[styles.empty, { width, height }]}>
-        <Text style={styles.emptyText}>Nuk ka të dhëna për këtë periudhë.</Text>
+        <Text style={styles.emptyText}>{t('common.noDataForPeriod')}</Text>
       </View>
     );
   }

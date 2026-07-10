@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Alert, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from '../lib/i18n';
 
 type VerifiedBadgeProps = {
   size?: number;
 };
 
 export function VerifiedBadge({ size = 28 }: VerifiedBadgeProps) {
+  const { t } = useTranslation();
   const badgeSize = Math.round(size * 0.5);
   const badgeOffset = -badgeSize * 0.2;
   const pulse = useRef(new Animated.Value(0)).current;
@@ -31,9 +33,7 @@ export function VerifiedBadge({ size = 28 }: VerifiedBadgeProps) {
     <Pressable
       style={[styles.wrapper, { width: size, height: size }]}
       hitSlop={8}
-      onPress={() =>
-        Alert.alert('E verifikuar', 'Kjo informacion është zyrtar, i konfirmuar nga Autoriteti Tatimor.')
-      }
+      onPress={() => Alert.alert(t('verifiedBadge.title'), t('verifiedBadge.message'))}
     >
       <Animated.View
         style={[

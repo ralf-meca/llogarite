@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { changePassword, type AuthUser } from '../lib/authApi';
+import { useTranslation } from '../lib/i18n';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -14,11 +15,13 @@ type UserMenuModalProps = {
   user: AuthUser | null;
   onClose: () => void;
   onLogout: () => void;
+  onRestartTour: () => void;
 };
 
 type MenuView = 'menu' | 'changePassword' | 'changePasswordSuccess';
 
-export function UserMenuModal({ visible, user, onClose, onLogout }: UserMenuModalProps) {
+export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour }: UserMenuModalProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<MenuView>('menu');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -35,7 +38,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout }: UserMenuModa
 
   const handleSubmitPasswordChange = () => {
     if (newPassword !== confirmPassword) {
-      showError('Fjalëkalimet e reja nuk përputhen.');
+      showError(t('userMenu.passwordsDontMatch'));
       return;
     }
     setIsSubmitting(true);
@@ -67,9 +70,13 @@ export function UserMenuModal({ visible, user, onClose, onLogout }: UserMenuModa
                 {(user?.hasPassword ?? true) && (
                   <Pressable style={styles.menuItem} onPress={() => setView('changePassword')}>
                     <Ionicons name="key-outline" size={20} color="#1f2937" />
-                    <Text style={styles.menuItemText}>Ndrysho fjalëkalimin</Text>
+                    <Text style={styles.menuItemText}>{t('userMenu.changePassword')}</Text>
                   </Pressable>
                 )}
+                <Pressable style={styles.menuItem} onPress={onRestartTour}>
+                  <Ionicons name="help-circle-outline" size={20} color="#1f2937" />
+                  <Text style={styles.menuItemText}>{t('userMenu.restartTour')}</Text>
+                </Pressable>
                 <Pressable
                   style={styles.menuItem}
                   onPress={() => {
@@ -78,51 +85,51 @@ export function UserMenuModal({ visible, user, onClose, onLogout }: UserMenuModa
                   }}
                 >
                   <Ionicons name="log-out-outline" size={20} color="#dc2626" />
-                  <Text style={[styles.menuItemText, styles.logoutText]}>Dil</Text>
+                  <Text style={[styles.menuItemText, styles.logoutText]}>{t('userMenu.logout')}</Text>
                 </Pressable>
               </>
             )}
 
             {view === 'changePassword' && (
               <>
-                <Text style={styles.title}>Ndrysho fjalëkalimin</Text>
+                <Text style={styles.title}>{t('userMenu.changePasswordTitle')}</Text>
                 <GlassTextInput
                   style={styles.input}
-                  placeholder="Fjalëkalimi aktual"
+                  placeholder={t('userMenu.currentPasswordPlaceholder')}
                   secureTextEntry
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
                 />
                 <GlassTextInput
                   style={styles.input}
-                  placeholder="Fjalëkalimi i ri"
+                  placeholder={t('userMenu.newPasswordPlaceholder')}
                   secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
                 />
                 <GlassTextInput
                   style={styles.input}
-                  placeholder="Konfirmo fjalëkalimin e ri"
+                  placeholder={t('userMenu.confirmNewPasswordPlaceholder')}
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                 />
                 <GlassButton
-                  label={isSubmitting ? 'Duke ruajtur...' : 'Ruaj'}
+                  label={isSubmitting ? t('common.saving') : t('common.save')}
                   variant="accent"
                   onPress={handleSubmitPasswordChange}
                   disabled={isSubmitting}
                 />
                 <Pressable onPress={() => setView('menu')}>
-                  <Text style={styles.backText}>Anulo</Text>
+                  <Text style={styles.backText}>{t('common.cancel')}</Text>
                 </Pressable>
               </>
             )}
 
             {view === 'changePasswordSuccess' && (
               <>
-                <Text style={styles.title}>Fjalëkalimi u ndryshua.</Text>
-                <GlassButton label="Mbyll" variant="accent" onPress={onClose} />
+                <Text style={styles.title}>{t('userMenu.passwordChanged')}</Text>
+                <GlassButton label={t('common.close')} variant="accent" onPress={onClose} />
               </>
             )}
           </GlassView>

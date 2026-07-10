@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import type { Buddy } from '../lib/buddiesApi';
+import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 
@@ -12,11 +13,12 @@ type BuddyPickerProps = {
 };
 
 export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const selectedBuddies = buddies.filter((buddy) => selectedIds.includes(buddy.id));
   const label =
     selectedBuddies.length === 0
-      ? 'Shto shok shpenzimesh'
+      ? t('buddyPicker.addBuddy')
       : selectedBuddies.map((buddy) => buddy.name ?? buddy.email).join(', ');
 
   return (
@@ -32,9 +34,9 @@ export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.title}>Shokët e shpenzimeve</Text>
+            <Text style={styles.title}>{t('buddyPicker.title')}</Text>
             <ScrollView style={styles.list} bounces={false}>
-              {buddies.length === 0 && <Text style={styles.emptyText}>Nuk ke shokë shpenzimesh ende.</Text>}
+              {buddies.length === 0 && <Text style={styles.emptyText}>{t('buddies.noBuddiesYet')}</Text>}
               {buddies.map((buddy) => {
                 const isSelected = selectedIds.includes(buddy.id);
                 return (
@@ -51,7 +53,7 @@ export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps
                 );
               })}
             </ScrollView>
-            <GlassButton label="Mbyll" variant="accent" onPress={() => setIsOpen(false)} />
+            <GlassButton label={t('common.close')} variant="accent" onPress={() => setIsOpen(false)} />
           </Pressable>
         </Pressable>
       </Modal>

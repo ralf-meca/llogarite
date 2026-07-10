@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import { useTranslation } from '../lib/i18n';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 
@@ -15,6 +16,7 @@ const FRAME_SIZE = 260;
 const FRAME_RADIUS = 24;
 
 export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalProps) {
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [hasScanned, setHasScanned] = useState(false);
   const { width, height } = Dimensions.get('window');
@@ -68,14 +70,14 @@ export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalPr
         ) : (
           <View style={styles.permissionContainer}>
             <GlassView tint="dark" style={styles.permissionCard}>
-              <Text style={styles.permissionText}>Nevojitet qasje në kamerë për të skanuar kodet QR.</Text>
-              <GlassButton label="Jep leje" variant="accent" onPress={requestPermission} />
+              <Text style={styles.permissionText}>{t('qrScanner.cameraPermission')}</Text>
+              <GlassButton label={t('common.grantPermission')} variant="accent" onPress={requestPermission} />
             </GlassView>
           </View>
         )}
         <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
           <GlassView tint="dark" style={styles.closeButton}>
-            <Text style={styles.buttonText}>Mbyll</Text>
+            <Text style={styles.buttonText}>{t('common.close')}</Text>
           </GlassView>
         </Pressable>
       </View>

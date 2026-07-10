@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { buddyInvoiceShares, unpaidTotal } from '../lib/buddyExpenses';
 import { formatAmount } from '../lib/formatAmount';
+import { useTranslation } from '../lib/i18n';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { GlassView } from './GlassView';
 
@@ -14,7 +15,10 @@ type BuddyDetailScreenProps = {
   onSelectInvoice: (invoiceId: string) => void;
 };
 
+const LOCALE_BY_LANGUAGE = { sq: 'sq-AL', en: 'en-US' } as const;
+
 export function BuddyDetailScreen({ buddyId, buddyName, invoices, onBack, onSelectInvoice }: BuddyDetailScreenProps) {
+  const { t, language } = useTranslation();
   const shares = useMemo(() => buddyInvoiceShares(invoices, buddyId), [invoices, buddyId]);
   const unpaidShares = shares.filter((share) => !share.paid);
   const total = unpaidTotal(shares);
@@ -32,12 +36,12 @@ export function BuddyDetailScreen({ buddyId, buddyName, invoices, onBack, onSele
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <GlassView style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Papaguar gjithsej</Text>
+          <Text style={styles.totalLabel}>{t('buddyDetail.totalUnpaid')}</Text>
           <Text style={styles.totalValue}>{formatAmount(total)}</Text>
         </GlassView>
 
-        <Text style={styles.sectionTitle}>Faturat e papaguara</Text>
-        {unpaidShares.length === 0 && <Text style={styles.emptyText}>Nuk ka fatura të papaguara.</Text>}
+        <Text style={styles.sectionTitle}>{t('buddyDetail.unpaidInvoices')}</Text>
+        {unpaidShares.length === 0 && <Text style={styles.emptyText}>{t('buddyDetail.noUnpaidInvoices')}</Text>}
         {unpaidShares.map((share) => (
           <Pressable key={share.invoiceId} onPress={() => onSelectInvoice(share.invoiceId)}>
             <GlassView style={styles.row}>
@@ -45,7 +49,9 @@ export function BuddyDetailScreen({ buddyId, buddyName, invoices, onBack, onSele
                 <Text style={styles.rowSeller} numberOfLines={1}>
                   {share.sellerName}
                 </Text>
-                <Text style={styles.rowDate}>{new Date(share.dateTimeCreated).toLocaleDateString()}</Text>
+                <Text style={styles.rowDate}>
+                  {new Date(share.dateTimeCreated).toLocaleDateString(LOCALE_BY_LANGUAGE[language])}
+                </Text>
               </View>
               <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
             </GlassView>

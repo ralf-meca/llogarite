@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from '../lib/i18n';
 import type { Project } from '../lib/projectsApi';
 import { colors } from '../lib/theme';
 
@@ -10,11 +11,11 @@ type ProjectPickerProps = {
   onChange: (projectId: string | null) => void;
 };
 
-const NONE_LABEL = 'Pa projekt';
-
 export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const selectedLabel = value === null ? NONE_LABEL : projects.find((project) => project.id === value)?.name ?? NONE_LABEL;
+  const noneLabel = t('projectPicker.none');
+  const selectedLabel = value === null ? noneLabel : projects.find((project) => project.id === value)?.name ?? noneLabel;
 
   return (
     <>
@@ -38,7 +39,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                     setIsOpen(false);
                   }}
                 >
-                  <Text style={[styles.menuItemText, value === null && styles.menuItemTextActive]}>{NONE_LABEL}</Text>
+                  <Text style={[styles.menuItemText, value === null && styles.menuItemTextActive]}>{noneLabel}</Text>
                   {value === null && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                 </Pressable>
                 {projects.map((project) => (
@@ -59,7 +60,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                     {value === project.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                   </Pressable>
                 ))}
-                {projects.length === 0 && <Text style={styles.emptyText}>Nuk ka projekte të krijuara.</Text>}
+                {projects.length === 0 && <Text style={styles.emptyText}>{t('projectPicker.empty')}</Text>}
               </ScrollView>
             </View>
           </View>

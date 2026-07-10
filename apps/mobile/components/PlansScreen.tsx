@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { redeemDiscountCode } from '../lib/discountCodesApi';
+import { useTranslation } from '../lib/i18n';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -36,6 +37,7 @@ function FeatureRow({ label, included }: FeatureRowProps) {
 }
 
 export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreenProps) {
+  const { t } = useTranslation();
   const [code, setCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number | null>(null);
@@ -51,10 +53,10 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
         setIsRedeeming(false);
         setDiscountPercent(result.discountPercent);
         if (result.isPremium) {
-          showSuccess('Premium u aktivizua!');
+          showSuccess(t('plans.premiumActivated'));
           onPremiumGranted();
         } else {
-          showSuccess(`Kodi u aplikua: ${result.discountPercent}% zbritje.`);
+          showSuccess(t('plans.codeApplied', { percent: result.discountPercent }));
         }
       })
       .catch((error: Error) => {
@@ -72,58 +74,58 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color={colors.textDark} />
         </Pressable>
-        <Text style={styles.title}>Planet</Text>
+        <Text style={styles.title}>{t('plans.title')}</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.plansRow}>
           <GlassView style={styles.planCard}>
-            <Text style={styles.planName}>Falas</Text>
+            <Text style={styles.planName}>{t('plans.freePlan')}</Text>
             <Text style={styles.planPrice}>0€</Text>
-            <Text style={styles.planPeriod}>përgjithmonë</Text>
+            <Text style={styles.planPeriod}>{t('plans.forever')}</Text>
             <View style={styles.featureList}>
-              <FeatureRow label="Skano dhe ruaj fatura" included />
-              <FeatureRow label="Buxheti dhe pagesat mujore" included />
-              <FeatureRow label="Projektet" included={false} />
-              <FeatureRow label="Ndjekja e çmimeve" included={false} />
-              <FeatureRow label="Shokët e shpenzimeve" included={false} />
-              <FeatureRow label="Pa reklama" included={false} />
+              <FeatureRow label={t('plans.featureScanSave')} included />
+              <FeatureRow label={t('plans.featureBudget')} included />
+              <FeatureRow label={t('plans.featureProjects')} included={false} />
+              <FeatureRow label={t('plans.featurePrices')} included={false} />
+              <FeatureRow label={t('plans.featureBuddies')} included={false} />
+              <FeatureRow label={t('plans.featureNoAds')} included={false} />
             </View>
           </GlassView>
 
           <View style={styles.planCardPremiumWrapper}>
             <View style={styles.premiumBadge}>
               <MaterialCommunityIcons name="crown" size={13} color={colors.white} />
-              <Text style={styles.premiumBadgeText}>Premium</Text>
+              <Text style={styles.premiumBadgeText}>{t('plans.premiumPlan')}</Text>
             </View>
             <GlassView style={[styles.planCard, styles.planCardPremium]}>
-              <Text style={styles.planName}>Premium</Text>
+              <Text style={styles.planName}>{t('plans.premiumPlan')}</Text>
               <Text style={styles.planPrice}>
                 {discountedPrice ?? PREMIUM_MONTHLY_PRICE}€
                 {discountedPrice !== null && discountedPrice !== PREMIUM_MONTHLY_PRICE && (
                   <Text style={styles.planPriceOriginal}> {PREMIUM_MONTHLY_PRICE}€</Text>
                 )}
               </Text>
-              <Text style={styles.planPeriod}>në muaj</Text>
+              <Text style={styles.planPeriod}>{t('plans.perMonth')}</Text>
               <View style={styles.featureList}>
-                <FeatureRow label="Çdo gjë nga plani Falas" included />
-                <FeatureRow label="Projektet" included />
-                <FeatureRow label="Ndjekja e çmimeve" included />
-                <FeatureRow label="Shokët e shpenzimeve" included />
-                <FeatureRow label="Pa reklama" included />
+                <FeatureRow label={t('plans.featureEverythingFree')} included />
+                <FeatureRow label={t('plans.featureProjects')} included />
+                <FeatureRow label={t('plans.featurePrices')} included />
+                <FeatureRow label={t('plans.featureBuddies')} included />
+                <FeatureRow label={t('plans.featureNoAds')} included />
               </View>
 
               {isPremium ? (
                 <View style={styles.activeBadge}>
                   <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                  <Text style={styles.activeBadgeText}>Plani aktual</Text>
+                  <Text style={styles.activeBadgeText}>{t('plans.currentPlan')}</Text>
                 </View>
               ) : (
                 <GlassButton
-                  label="Bli Premium"
+                  label={t('plans.buyPremium')}
                   variant="accent"
                   style={styles.buyButton}
-                  onPress={() => showError('Pagesat do të aktivizohen së shpejti.')}
+                  onPress={() => showError(t('plans.paymentsComingSoon'))}
                 />
               )}
             </GlassView>
@@ -132,17 +134,17 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
 
         {!isPremium && (
           <GlassView style={styles.codeCard}>
-            <Text style={styles.codeTitle}>Ke një kod referimi?</Text>
+            <Text style={styles.codeTitle}>{t('plans.haveReferralCode')}</Text>
             <View style={styles.codeRow}>
               <GlassTextInput
                 style={styles.codeInput}
-                placeholder="Kodi i zbritjes"
+                placeholder={t('plans.codePlaceholder')}
                 autoCapitalize="characters"
                 value={code}
                 onChangeText={setCode}
               />
               <GlassButton
-                label={isRedeeming ? '...' : 'Apliko'}
+                label={isRedeeming ? '...' : t('plans.apply')}
                 variant="accent"
                 style={styles.codeButton}
                 onPress={handleApplyCode}
