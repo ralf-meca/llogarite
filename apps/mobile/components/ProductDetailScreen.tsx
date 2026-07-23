@@ -5,8 +5,8 @@ import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
   getProductRecords,
-  last30DaysStats,
   monthlyChartPoints,
+  priceStats,
   yearlyChartPoints,
 } from '../lib/productPrices';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
@@ -30,7 +30,7 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
   const [range, setRange] = useState<ChartRange>('monthly');
 
   const records = useMemo(() => getProductRecords(invoices, productKey), [invoices, productKey]);
-  const stats = useMemo(() => last30DaysStats(records), [records]);
+  const stats = useMemo(() => priceStats(records), [records]);
   const points = useMemo(
     () => (range === 'monthly' ? monthlyChartPoints(records) : yearlyChartPoints(records, language)),
     [records, range, language],
@@ -56,13 +56,23 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
           <GlassView style={styles.statCard}>
             <Text style={styles.statValue}>{formatAmount(stats.lowest)}</Text>
             <Text style={styles.statLabel}>{t('productDetail.lowest')}</Text>
+            {stats.lowestSeller && (
+              <Text style={styles.statSeller} numberOfLines={1}>
+                {t('productDetail.at', { seller: stats.lowestSeller })}
+              </Text>
+            )}
           </GlassView>
           <GlassView style={styles.statCard}>
             <Text style={styles.statValue}>{formatAmount(stats.highest)}</Text>
             <Text style={styles.statLabel}>{t('productDetail.highest')}</Text>
+            {stats.highestSeller && (
+              <Text style={styles.statSeller} numberOfLines={1}>
+                {t('productDetail.at', { seller: stats.highestSeller })}
+              </Text>
+            )}
           </GlassView>
         </View>
-        <Text style={styles.statsHint}>{t('productDetail.basedOnLast30Days')}</Text>
+        <Text style={styles.statsHint}>{t('productDetail.basedOnAllPurchases')}</Text>
 
         <GlassView style={styles.chartCard}>
           <View style={styles.toggleRow}>
@@ -139,6 +149,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6b7280',
     marginTop: 4,
+    textAlign: 'center',
+  },
+  statSeller: {
+    fontSize: 10,
+    color: '#9ca3af',
+    marginTop: 2,
     textAlign: 'center',
   },
   statsHint: {

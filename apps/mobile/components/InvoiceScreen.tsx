@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
 import { useTranslation } from '../lib/i18n';
+import type { InvoiceItem } from '../lib/invoiceApi';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 import { InvoiceReceipt } from './InvoiceReceipt';
@@ -14,6 +15,7 @@ type InvoiceScreenProps = {
   isDeleting?: boolean;
   onDelete?: () => void;
   onEdit?: () => void;
+  onSelectItem?: (item: InvoiceItem) => void;
 };
 
 export function InvoiceScreen({
@@ -24,6 +26,7 @@ export function InvoiceScreen({
   isDeleting,
   onDelete,
   onEdit,
+  onSelectItem,
 }: InvoiceScreenProps) {
   const { t } = useTranslation();
   return (
@@ -57,7 +60,9 @@ export function InvoiceScreen({
         {verification.status === 'error' && (
           <Text style={styles.errorText}>{t('invoice.verificationFailed', { message: verification.message })}</Text>
         )}
-        {verification.status === 'success' && <InvoiceReceipt result={verification.data} />}
+        {verification.status === 'success' && (
+          <InvoiceReceipt result={verification.data} onSelectItem={onSelectItem} />
+        )}
       </ScrollView>
 
       {verification.status === 'success' && (onConfirm || onDelete) && (

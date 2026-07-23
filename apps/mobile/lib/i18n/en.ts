@@ -146,7 +146,8 @@ export const en = {
   'productDetail.average': 'Average',
   'productDetail.lowest': 'Lowest',
   'productDetail.highest': 'Highest',
-  'productDetail.basedOnLast30Days': 'Based on the last 30 days',
+  'productDetail.at': 'at {seller}',
+  'productDetail.basedOnAllPurchases': 'Based on all recorded purchases',
   'productDetail.monthly': 'Monthly',
   'productDetail.yearly': 'Yearly',
 
@@ -230,7 +231,9 @@ export const en = {
 
   'scanMenu.scanQr': 'Scan QR code',
   'scanMenu.scanReceipt': 'Scan invoice',
+  'scanMenu.uploadFromGallery': 'Upload from gallery',
   'scanMenu.addManually': 'Add manually',
+  'scanMenu.galleryPermissionDenied': 'Photo library access is needed to upload an invoice image.',
 
   'plans.title': 'Plans',
   'plans.freePlan': 'Free',

@@ -148,7 +148,8 @@ export const sq: Record<keyof typeof en, string> = {
   'productDetail.average': 'Mesatarja',
   'productDetail.lowest': 'Më e ulëta',
   'productDetail.highest': 'Më e larta',
-  'productDetail.basedOnLast30Days': 'Bazuar në 30 ditët e fundit',
+  'productDetail.at': 'te {seller}',
+  'productDetail.basedOnAllPurchases': 'Bazuar në të gjitha blerjet e regjistruara',
   'productDetail.monthly': 'Mujor',
   'productDetail.yearly': 'Vjetor',
 
@@ -232,7 +233,9 @@ export const sq: Record<keyof typeof en, string> = {
 
   'scanMenu.scanQr': 'Skano kodin QR',
   'scanMenu.scanReceipt': 'Skano faturën',
+  'scanMenu.uploadFromGallery': 'Ngarko nga galeria',
   'scanMenu.addManually': 'Shto manualisht',
+  'scanMenu.galleryPermissionDenied': 'Nevojitet qasje në galeri për të ngarkuar një imazh fature.',
 
   'plans.title': 'Planet',
   'plans.freePlan': 'Falas',

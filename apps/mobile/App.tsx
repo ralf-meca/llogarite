@@ -1,7 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import { scanFromURLAsync } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
@@ -39,7 +42,7 @@ import { monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import { HEADER_INSET, colors, radius } from "./lib/theme";
-import type { ProductSummary } from "./lib/productPrices";
+import { normalizeKey, type ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
 import {
@@ -115,6 +118,7 @@ function AppContent() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
+    const [productDetailReturnScreen, setProductDetailReturnScreen] = useState<"products" | "detail">("products");
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
     const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail">("list");
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
@@ -299,8 +303,7 @@ function AppContent() {
         ]);
     };
 
-    const handleReceiptCaptured = (photoUri: string) => {
-        setIsProcessingReceipt(true);
+    const runOcrFallback = (photoUri: string) => {
         recognizeReceipt(photoUri)
             .then((result) => {
                 let parsed;
@@ -345,6 +348,58 @@ function AppContent() {
                 setIsProcessingReceipt(false);
                 showError(error.message);
             });
+    };
+
+    const handleReceiptCaptured = (photoUri: string) => {
+        setIsProcessingReceipt(true);
+
+        scanFromURLAsync(photoUri, ["qr"])
+            .then((results) => {
+                const qrData = results[0]?.data;
+                const invoiceParams = qrData ? parseInvoiceQrUrl(qrData) : null;
+
+                if (!invoiceParams) {
+                    runOcrFallback(photoUri);
+                    return;
+                }
+
+                setIsProcessingReceipt(false);
+                setIsReceiptScannerVisible(false);
+                setScreen("invoice");
+                setVerification({ status: "loading" });
+                verifyInvoice(invoiceParams)
+                    .then((data) => setVerification({ status: "success", data: { ...data, verified: true } }))
+                    .catch((error: Error) => {
+                        showError(error.message);
+                        fallbackToManualEntry({
+                            iic: invoiceParams.iic,
+                            dateTimeCreated: invoiceParams.dateTimeCreated || toLocalIsoString(new Date()),
+                            totalPrice: 0,
+                            seller: { name: "" },
+                            items: [],
+                        });
+                    });
+            })
+            .catch(() => runOcrFallback(photoUri));
+    };
+
+    const handleUploadFromGallery = () => {
+        ImagePicker.requestMediaLibraryPermissionsAsync()
+            .then((permission) => {
+                if (!permission.granted) {
+                    showError(t("scanMenu.galleryPermissionDenied"));
+                    return;
+                }
+                return ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ["images"],
+                    quality: 1,
+                }).then((result) => {
+                    if (!result.canceled && result.assets[0]) {
+                        handleReceiptCaptured(result.assets[0].uri);
+                    }
+                });
+            })
+            .catch((error: Error) => showError(error.message));
     };
 
     const handleManualSubmit = (data: InvoiceVerificationResult) => {
@@ -466,6 +521,7 @@ function AppContent() {
                                 invoices={savedInvoices}
                                 onSelectProduct={(product) => {
                                     setSelectedProduct(product);
+                                    setProductDetailReturnScreen("products");
                                     setScreen("productDetail");
                                 }}
                             />
@@ -487,6 +543,7 @@ function AppContent() {
                             setScreen("manual");
                         }}
                         onScanReceipt={() => setIsReceiptScannerVisible(true)}
+                        onUploadFromGallery={handleUploadFromGallery}
                     />
                 </View>
             ) : screen === "manual" ? (
@@ -523,7 +580,7 @@ function AppContent() {
                         productKey={selectedProduct.key}
                         productName={selectedProduct.name}
                         invoices={savedInvoices}
-                        onBack={() => setScreen("products")}
+                        onBack={() => setScreen(productDetailReturnScreen)}
                     />
                 )
             ) : screen === "buddyDetail" ? (
@@ -549,6 +606,11 @@ function AppContent() {
                         isDeleting={isDeleting}
                         onDelete={handleDelete}
                         onEdit={() => setScreen("manual")}
+                        onSelectItem={(item) => {
+                            setSelectedProduct({ key: normalizeKey(item.name), name: item.name });
+                            setProductDetailReturnScreen("detail");
+                            setScreen("productDetail");
+                        }}
                     />
                 )
             )}
@@ -565,6 +627,15 @@ function AppContent() {
                 onClose={() => setIsReceiptScannerVisible(false)}
                 onCaptured={handleReceiptCaptured}
             />
+
+            <Modal visible={isProcessingReceipt && !isReceiptScannerVisible} transparent animationType="fade">
+                <View style={styles.processingOverlay}>
+                    <View style={styles.processingCard}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                        <Text style={styles.processingText}>{t("receiptScanner.processing")}</Text>
+                    </View>
+                </View>
+            </Modal>
 
             <UserMenuModal
                 visible={isUserMenuVisible}
@@ -619,9 +690,11 @@ function AppContent() {
 
 export default function App() {
     return (
-        <LanguageProvider>
-            <AppContent />
-        </LanguageProvider>
+        <KeyboardProvider>
+            <LanguageProvider>
+                <AppContent />
+            </LanguageProvider>
+        </KeyboardProvider>
     );
 }
 
@@ -630,6 +703,25 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingTop: HEADER_INSET,
         backgroundColor: colors.white,
+    },
+    processingOverlay: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    processingCard: {
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 24,
+        paddingHorizontal: 32,
+        borderRadius: 20,
+        backgroundColor: colors.white,
+    },
+    processingText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: colors.textDark,
     },
     mainWrapper: {
         flex: 1,

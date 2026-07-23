@@ -11,12 +11,15 @@ export type ProductSummary = {
 export type PriceRecord = {
   date: Date;
   price: number;
+  sellerName: string;
 };
 
 export type PriceStats = {
   average: number;
   lowest: number;
+  lowestSeller: string | null;
   highest: number;
+  highestSeller: string | null;
   count: number;
 };
 
@@ -25,7 +28,7 @@ export type ChartPoint = {
   value: number;
 };
 
-function normalizeKey(name: string): string {
+export function normalizeKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
@@ -58,7 +61,7 @@ export function getProductRecords(invoices: SavedInvoice[], productKey: string):
     const date = new Date(invoice.data.dateTimeCreated);
     for (const item of invoice.data.items) {
       if (normalizeKey(item.name) === productKey) {
-        records.push({ date, price: item.unitPriceAfterVat });
+        records.push({ date, price: item.unitPriceAfterVat, sellerName: invoice.data.seller.name });
       }
     }
   }
@@ -72,19 +75,21 @@ function daysAgo(days: number): Date {
   return date;
 }
 
-export function last30DaysStats(records: PriceRecord[]): PriceStats {
-  const cutoff = daysAgo(30);
-  const recent = records.filter((record) => record.date.getTime() >= cutoff.getTime());
-
-  if (recent.length === 0) {
-    return { average: 0, lowest: 0, highest: 0, count: 0 };
+export function priceStats(records: PriceRecord[]): PriceStats {
+  if (records.length === 0) {
+    return { average: 0, lowest: 0, lowestSeller: null, highest: 0, highestSeller: null, count: 0 };
   }
 
-  const prices = recent.map((record) => record.price);
+  const prices = records.map((record) => record.price);
+  const lowestRecord = records.reduce((min, record) => (record.price < min.price ? record : min));
+  const highestRecord = records.reduce((max, record) => (record.price > max.price ? record : max));
+
   return {
     average: prices.reduce((sum, price) => sum + price, 0) / prices.length,
-    lowest: Math.min(...prices),
-    highest: Math.max(...prices),
+    lowest: lowestRecord.price,
+    lowestSeller: lowestRecord.sellerName,
+    highest: highestRecord.price,
+    highestSeller: highestRecord.sellerName,
     count: prices.length,
   };
 }

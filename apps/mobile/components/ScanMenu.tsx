@@ -9,15 +9,17 @@ type ScanMenuProps = {
   onScanQr: () => void;
   onAddManually: () => void;
   onScanReceipt: () => void;
+  onUploadFromGallery: () => void;
 };
 
 const MENU_ITEMS = [
   { key: 'qr', icon: 'qr-code-outline', labelKey: 'scanMenu.scanQr' },
   { key: 'receipt', icon: 'scan-outline', labelKey: 'scanMenu.scanReceipt' },
+  { key: 'gallery', icon: 'image-outline', labelKey: 'scanMenu.uploadFromGallery' },
   { key: 'manual', icon: 'create-outline', labelKey: 'scanMenu.addManually' },
 ] as const;
 
-export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuProps) {
+export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromGallery }: ScanMenuProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -27,6 +29,8 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt }: ScanMenuPro
       onScanQr();
     } else if (key === 'manual') {
       onAddManually();
+    } else if (key === 'gallery') {
+      onUploadFromGallery();
     } else {
       onScanReceipt();
     }

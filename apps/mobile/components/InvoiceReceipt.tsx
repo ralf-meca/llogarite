@@ -1,17 +1,18 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import type { InvoiceVerificationResult } from '../lib/invoiceApi';
+import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { GlassView } from './GlassView';
 import { VerifiedBadge } from './VerifiedBadge';
 
 type InvoiceReceiptProps = {
   result: InvoiceVerificationResult;
+  onSelectItem?: (item: InvoiceItem) => void;
 };
 
 const LOCALE_BY_LANGUAGE = { sq: 'sq-AL', en: 'en-US' } as const;
 
-export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
+export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
   const { t, language } = useTranslation();
   return (
     <GlassView style={styles.card}>
@@ -30,12 +31,17 @@ export function InvoiceReceipt({ result }: InvoiceReceiptProps) {
         <Text style={[styles.headerCell, styles.priceColumn]}>{t('invoiceReceipt.priceWithVatColumn')}</Text>
       </View>
       {result.items.map((item, index) => (
-        <View key={index} style={styles.itemRow}>
+        <Pressable
+          key={index}
+          style={({ pressed }) => [styles.itemRow, onSelectItem && pressed && styles.itemRowPressed]}
+          onPress={onSelectItem ? () => onSelectItem(item) : undefined}
+          disabled={!onSelectItem}
+        >
           <Text style={[styles.cell, styles.nameColumn]}>{item.name}</Text>
           <Text style={[styles.cell, styles.qtyColumn]}>{item.quantity}</Text>
           <Text style={[styles.cell, styles.priceColumn]}>{formatAmount(item.unitPriceBeforeVat)}</Text>
           <Text style={[styles.cell, styles.priceColumn]}>{formatAmount(item.unitPriceAfterVat)}</Text>
-        </View>
+        </Pressable>
       ))}
 
       <View style={styles.totalRow}>
@@ -81,6 +87,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
+  },
+  itemRowPressed: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
   cell: {
     fontSize: 14,

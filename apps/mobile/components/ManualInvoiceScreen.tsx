@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
@@ -173,7 +174,7 @@ export function ManualInvoiceScreen({
         </GlassView>
       </Pressable>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
         <Text style={styles.title}>{isEditing ? t('manualInvoice.editTitle') : t('manualInvoice.addTitle')}</Text>
 
         <GlassTextInput
@@ -295,7 +296,7 @@ export function ManualInvoiceScreen({
             <Text style={styles.totalValue}>{formatAmount(total)}</Text>
           </View>
         </GlassView>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View style={styles.footer}>
         <GlassButton
