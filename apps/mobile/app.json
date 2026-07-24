@@ -15,7 +15,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.rmtech.llogarite",
+      "package": "com.llogarite.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
