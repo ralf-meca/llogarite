@@ -45,7 +45,9 @@
           "photosPermission": "Llogarite needs access to your photos so you can upload an invoice image."
         }
       ],
-      "./plugins/withWindowsNinjaFix"
+      "./plugins/withWindowsNinjaFix",
+      "./plugins/withReleaseMatchingFallbacks",
+      "./plugins/withMonorepoMetroRoot"
     ],
     "extra": {
       "eas": {

@@ -1,0 +1,32 @@
+diff --git a/node_modules/@expo/cli/build/src/utils/filePath.js b/node_modules/@expo/cli/build/src/utils/filePath.js
+index 68eed16..f7a315d 100644
+--- a/node_modules/@expo/cli/build/src/utils/filePath.js
++++ b/node_modules/@expo/cli/build/src/utils/filePath.js
+@@ -23,6 +23,13 @@ function _fs() {
+     };
+     return data;
+ }
++function _path() {
++    const data = /*#__PURE__*/ _interop_require_default(require("path"));
++    _path = function() {
++        return data;
++    };
++    return data;
++}
+ function _interop_require_default(obj) {
+     return obj && obj.__esModule ? obj : {
+         default: obj
+@@ -33,7 +40,12 @@ function resolveRealEntryFilePath(projectRoot, entryFile) {
+     if (projectRoot.startsWith('/private/var') && entryFile.startsWith('/var')) {
+         return _fs().default.realpathSync(entryFile);
+     }
+-    return entryFile;
++    // patch-package: entryFile is sometimes passed as a bare relative path
++    // (e.g. "index.ts" from react-native-gradle-plugin's BundleHermesCTask,
++    // which always relativizes against `root`). Downstream Metro resolution
++    // for this codepath doesn't reliably resolve that relative path against
++    // projectRoot, so always anchor it explicitly here instead.
++    return _path().default.isAbsolute(entryFile) ? entryFile : _path().default.resolve(projectRoot, entryFile);
+ }
+ function toPosixPath(filePath) {
+     return filePath.replace(REGEXP_REPLACE_SLASHES, '/');
