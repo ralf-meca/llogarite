@@ -47,7 +47,8 @@
       ],
       "./plugins/withWindowsNinjaFix",
       "./plugins/withReleaseMatchingFallbacks",
-      "./plugins/withMonorepoMetroRoot"
+      "./plugins/withMonorepoMetroRoot",
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "eas": {
