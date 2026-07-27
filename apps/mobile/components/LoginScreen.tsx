@@ -2,9 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
-  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -83,24 +83,11 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const fingerX = useRef(new Animated.Value(0)).current;
   const fingerOpacity = useRef(new Animated.Value(0)).current;
   const fingerScale = useRef(new Animated.Value(0.6)).current;
-  const googleSpin = useRef(new Animated.Value(0)).current;
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
     GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
   }, []);
-
-  useEffect(() => {
-    if (!isGoogleSubmitting) {
-      googleSpin.setValue(0);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.timing(googleSpin, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [isGoogleSubmitting, googleSpin]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSwipeHint(true), 5000);
@@ -190,7 +177,9 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       <View style={styles.topBar}>
         <View style={styles.topBarSide} />
         <Text style={styles.brand}>Llogarite</Text>
-        <View style={styles.topBarSide}>{activeSlide < SLIDES.length && <LanguageSwitch />}</View>
+        <View style={styles.topBarSide}>
+          <LanguageSwitch />
+        </View>
       </View>
 
       <View style={styles.pagerContainer} onLayout={(event) => setPagerHeight(event.nativeEvent.layout.height)}>
@@ -272,25 +261,23 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 disabled={isSubmitting || isGoogleSubmitting}
               />
 
-              <GlassButton
-                label={isGoogleSubmitting ? t('login.signingInWithGoogle') : t('login.continueWithGoogle')}
-                icon={
-                  <Animated.View
-                    style={{
-                      transform: [
-                        {
-                          rotate: googleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }),
-                        },
-                      ],
-                    }}
-                  >
-                    <GoogleLogo size={20} />
-                  </Animated.View>
-                }
-                style={styles.googleButton}
+              <Pressable
                 onPress={handleGoogleSignIn}
                 disabled={isSubmitting || isGoogleSubmitting}
-              />
+                style={({ pressed }) => [
+                  styles.googleButton,
+                  (pressed || isSubmitting || isGoogleSubmitting) && styles.googleButtonPressed,
+                ]}
+              >
+                {isGoogleSubmitting ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <GoogleLogo size={20} />
+                )}
+                <Text style={styles.googleLabelText} numberOfLines={1}>
+                  {isGoogleSubmitting ? t('login.signingInWithGoogle') : t('login.continueWithGoogle')}
+                </Text>
+              </Pressable>
 
               <Pressable onPress={toggleMode}>
                 <Text style={styles.toggleText}>{mode === 'login' ? t('login.noAccount') : t('login.hasAccount')}</Text>
@@ -460,7 +447,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+  },
+  googleButtonPressed: {
+    opacity: 0.7,
+  },
+  googleLabelText: {
+    fontWeight: '600',
+    fontSize: 16,
+    color: colors.textDark,
   },
   toggleText: {
     textAlign: 'center',
