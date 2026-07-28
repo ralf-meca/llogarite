@@ -1,12 +1,29 @@
 import { Image, StyleSheet, Text } from 'react-native';
-import type { AuthUser } from '../lib/authApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
+type AvatarPerson = {
+  name: string | null;
+  email: string;
+  avatarUrl: string | null;
+};
+
 type UserAvatarProps = {
-  user: AuthUser | null;
+  user: AvatarPerson | null;
   size: number;
 };
+
+function getInitials(name: string | null | undefined, email: string | undefined): string {
+  const source = name?.trim();
+  if (source) {
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length > 1) {
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+    return parts[0].charAt(0).toUpperCase();
+  }
+  return (email?.trim().charAt(0) ?? '?').toUpperCase();
+}
 
 export function UserAvatar({ user, size }: UserAvatarProps) {
   const dimensionStyle = { width: size, height: size, borderRadius: size / 2 };
@@ -15,10 +32,10 @@ export function UserAvatar({ user, size }: UserAvatarProps) {
     return <Image source={{ uri: user.avatarUrl }} style={[styles.image, dimensionStyle]} />;
   }
 
-  const initial = (user?.name ?? user?.email ?? '?').trim().charAt(0).toUpperCase();
+  const initials = getInitials(user?.name, user?.email);
   return (
     <GlassView style={[dimensionStyle, styles.fallback]}>
-      <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
+      <Text style={[styles.initial, { fontSize: size * 0.36 }]}>{initials}</Text>
     </GlassView>
   );
 }
@@ -32,10 +49,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 0,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryTint,
   },
   initial: {
     fontWeight: '700',
-    color: colors.white,
+    color: colors.primary,
   },
 });

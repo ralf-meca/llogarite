@@ -23,6 +23,9 @@ export class User {
     @Column({ unique: true, nullable: true })
     code: string | null;
 
+    @Column({ nullable: true })
+    pushToken: string | null;
+
     @Column({ default: false })
     isPremium: boolean;
 

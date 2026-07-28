@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_CHARS = '0123456789';
 const CODE_LENGTH = 6;
 
 function generateCode(): string {
@@ -31,6 +31,10 @@ export class UsersService {
 
     async setPremium(id: string, isPremium: boolean): Promise<void> {
         await this.usersRepository.update(id, { isPremium });
+    }
+
+    async updatePushToken(id: string, pushToken: string | null): Promise<void> {
+        await this.usersRepository.update(id, { pushToken });
     }
 
     findByCode(code: string): Promise<User | null> {

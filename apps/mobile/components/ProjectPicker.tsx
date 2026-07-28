@@ -75,6 +75,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#374151',
-    maxWidth: 180,
+    flexShrink: 1,
   },
   backdrop: {
     flex: 1,

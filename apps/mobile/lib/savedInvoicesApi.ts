@@ -10,6 +10,21 @@ export type SavedInvoice = {
   createdAt: string;
 };
 
+export type OwedInvoiceOwner = {
+  id: string;
+  name: string | null;
+  email: string;
+  avatarUrl: string | null;
+};
+
+export type OwedInvoice = {
+  id: string;
+  iic: string;
+  data: InvoiceVerificationResult;
+  createdAt: string;
+  user: OwedInvoiceOwner;
+};
+
 export async function saveInvoice(data: InvoiceVerificationResult): Promise<SavedInvoice> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
@@ -36,6 +51,30 @@ export async function fetchSavedInvoices(): Promise<SavedInvoice[]> {
   return response.json();
 }
 
+export async function fetchOwedInvoices(): Promise<OwedInvoice[]> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/invoices/owed-by-me`, { headers: await authHeaders() });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Marrja e faturave dështoi. Provo përsëri.'));
+  }
+  return response.json();
+}
+
+export async function notifyInvoicePaid(id: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/invoices/${id}/notify-paid`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Njoftimi dështoi. Provo përsëri.'));
+  }
+}
+
 export async function updateInvoice(id: string, data: InvoiceVerificationResult): Promise<SavedInvoice> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
@@ -44,6 +83,21 @@ export async function updateInvoice(id: string, data: InvoiceVerificationResult)
     method: 'PATCH',
     headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Ndryshimi dështoi. Provo përsëri.'));
+  }
+  return response.json();
+}
+
+export async function setBuddyPaid(id: string, buddyUserId: string, paid: boolean): Promise<SavedInvoice> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/invoices/${id}/buddy-paid`, {
+    method: 'PATCH',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ buddyUserId, paid }),
   });
   if (!response.ok) {
     throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Ndryshimi dështoi. Provo përsëri.'));

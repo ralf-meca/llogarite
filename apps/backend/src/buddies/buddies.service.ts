@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { BuddyConnection } from './buddy-connection.entity';
@@ -19,6 +20,7 @@ export class BuddiesService {
         @InjectRepository(BuddyConnection)
         private readonly connectionsRepository: Repository<BuddyConnection>,
         private readonly usersService: UsersService,
+        private readonly notificationsService: NotificationsService,
     ) {}
 
     async sendRequest(userId: string, code: string): Promise<BuddyConnection> {
@@ -47,6 +49,7 @@ export class BuddiesService {
                 requesterId: userId,
                 addresseeId: target.id,
             });
+            await this.notifyBuddyRequest(userId, target);
             return { ...existing, status: 'pending', requesterId: userId, addresseeId: target.id };
         }
 
@@ -55,7 +58,18 @@ export class BuddiesService {
             addresseeId: target.id,
             status: 'pending',
         });
-        return this.connectionsRepository.save(connection);
+        const saved = await this.connectionsRepository.save(connection);
+        await this.notifyBuddyRequest(userId, target);
+        return saved;
+    }
+
+    private async notifyBuddyRequest(requesterId: string, target: User): Promise<void> {
+        const requester = await this.usersService.findById(requesterId);
+        await this.notificationsService.send(target.pushToken, {
+            title: 'Kërkesë e re',
+            body: `${requester?.name ?? requester?.email ?? 'Dikush'} dëshiron të shtohet si shok shpenzimesh.`,
+            data: { type: 'buddy_request' },
+        });
     }
 
     async listIncomingRequests(userId: string): Promise<BuddySummary[]> {

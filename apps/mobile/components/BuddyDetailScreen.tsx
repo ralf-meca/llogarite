@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { buddyInvoiceShares, unpaidTotal } from '../lib/buddyExpenses';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { buddyInvoiceShares, unpaidTotal, type BuddyInvoiceShare } from '../lib/buddyExpenses';
+import { toDateLabel } from '../lib/date';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { setBuddyPaid, type SavedInvoice } from '../lib/savedInvoicesApi';
+import { colors, radius } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type BuddyDetailScreenProps = {
@@ -13,15 +15,43 @@ type BuddyDetailScreenProps = {
   invoices: SavedInvoice[];
   onBack: () => void;
   onSelectInvoice: (invoiceId: string) => void;
+  onInvoicesChanged: () => void;
 };
 
-const LOCALE_BY_LANGUAGE = { sq: 'sq-AL', en: 'en-US' } as const;
-
-export function BuddyDetailScreen({ buddyId, buddyName, invoices, onBack, onSelectInvoice }: BuddyDetailScreenProps) {
-  const { t, language } = useTranslation();
+export function BuddyDetailScreen({
+  buddyId,
+  buddyName,
+  invoices,
+  onBack,
+  onSelectInvoice,
+  onInvoicesChanged,
+}: BuddyDetailScreenProps) {
+  const { t } = useTranslation();
+  const [markingId, setMarkingId] = useState<string | null>(null);
   const shares = useMemo(() => buddyInvoiceShares(invoices, buddyId), [invoices, buddyId]);
   const unpaidShares = shares.filter((share) => !share.paid);
   const total = unpaidTotal(shares);
+
+  const handleMarkPaid = (share: BuddyInvoiceShare) => {
+    Alert.alert(t('buddyDetail.confirmMarkPaidTitle'), t('buddyDetail.confirmMarkPaidMessage', { seller: share.sellerName }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        onPress: () => {
+          setMarkingId(share.invoiceId);
+          setBuddyPaid(share.invoiceId, buddyId, true)
+            .then(() => {
+              setMarkingId(null);
+              onInvoicesChanged();
+            })
+            .catch((error: Error) => {
+              setMarkingId(null);
+              Alert.alert(t('buddyDetail.markPaidErrorTitle'), error.message);
+            });
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
@@ -42,21 +72,36 @@ export function BuddyDetailScreen({ buddyId, buddyName, invoices, onBack, onSele
 
         <Text style={styles.sectionTitle}>{t('buddyDetail.unpaidInvoices')}</Text>
         {unpaidShares.length === 0 && <Text style={styles.emptyText}>{t('buddyDetail.noUnpaidInvoices')}</Text>}
-        {unpaidShares.map((share) => (
-          <Pressable key={share.invoiceId} onPress={() => onSelectInvoice(share.invoiceId)}>
-            <GlassView style={styles.row}>
-              <View style={styles.rowMain}>
+        {unpaidShares.map((share) => {
+          const isMarking = markingId === share.invoiceId;
+          return (
+            <GlassView key={share.invoiceId} style={styles.row}>
+              <Pressable style={styles.rowLeft} onPress={() => onSelectInvoice(share.invoiceId)}>
                 <Text style={styles.rowSeller} numberOfLines={1}>
                   {share.sellerName}
                 </Text>
                 <Text style={styles.rowDate}>
-                  {new Date(share.dateTimeCreated).toLocaleDateString(LOCALE_BY_LANGUAGE[language])}
+                  {toDateLabel(new Date(share.dateTimeCreated))}
                 </Text>
+              </Pressable>
+              <View style={styles.rowRight}>
+                <Pressable onPress={() => onSelectInvoice(share.invoiceId)}>
+                  <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.markPaidButton, pressed && styles.markPaidButtonPressed]}
+                  onPress={() => handleMarkPaid(share)}
+                  disabled={isMarking}
+                >
+                  <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
+                  <Text style={styles.markPaidButtonText}>
+                    {isMarking ? t('common.saving') : t('buddyDetail.markPaid')}
+                  </Text>
+                </Pressable>
               </View>
-              <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
             </GlassView>
-          </Pressable>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -119,12 +164,17 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     padding: 16,
+    gap: 12,
   },
-  rowMain: {
+  rowLeft: {
     flex: 1,
+  },
+  rowRight: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   rowSeller: {
     fontSize: 15,
@@ -140,5 +190,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#dc2626',
+  },
+  markPaidButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+  },
+  markPaidButtonPressed: {
+    opacity: 0.6,
+  },
+  markPaidButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });

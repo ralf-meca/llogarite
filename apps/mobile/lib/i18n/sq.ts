@@ -157,6 +157,7 @@ export const sq: Record<keyof typeof en, string> = {
   'buddies.myCode': 'Kodi yt',
   'buddies.myCodeHint': "Jepja këtë kod dikujt për t'u bërë shok shpenzimesh.",
   'buddies.addWithCode': 'Shto shok me kod',
+  'buddies.addFriend': 'Shto shok',
   'buddies.codePlaceholder': 'Shkruaj kodin',
   'buddies.sendRequest': 'Dërgo kërkesë',
   'buddies.sending': 'Duke dërguar...',
@@ -165,10 +166,20 @@ export const sq: Record<keyof typeof en, string> = {
   'buddies.myBuddies': 'Shokët e mi',
   'buddies.noBuddiesYet': 'Nuk ke shokë shpenzimesh ende.',
   'buddies.codeRequired': 'Shkruaj kodin e shokut.',
+  'buddies.tabOwedToMe': 'Më detyrohen',
+  'buddies.tabOwedByMe': 'Unë detyrohem',
+  'buddies.noOwedToMe': 'Asnjë shok nuk ka fatura të papaguara.',
+  'buddies.noOwedByMe': 'Nuk ke fatura të papaguara.',
+  'buddies.notifyPaid': 'Njofto si e paguar',
+  'buddies.notifySent': 'Shoku yt u njoftua.',
 
   'buddyDetail.totalUnpaid': 'Papaguar gjithsej',
   'buddyDetail.unpaidInvoices': 'Faturat e papaguara',
   'buddyDetail.noUnpaidInvoices': 'Nuk ka fatura të papaguara.',
+  'buddyDetail.confirmMarkPaidTitle': 'Të shënohet e paguar?',
+  'buddyDetail.confirmMarkPaidMessage': 'Të shënohet fatura nga {seller} si e paguar?',
+  'buddyDetail.markPaidErrorTitle': 'Ndryshimi dështoi',
+  'buddyDetail.markPaid': 'Shëno si e paguar',
 
   'manualInvoice.editTitle': 'Ndrysho faturën',
   'manualInvoice.addTitle': 'Shto faturë manualisht',
@@ -225,6 +236,7 @@ export const sq: Record<keyof typeof en, string> = {
   'projectPicker.empty': 'Nuk ka projekte të krijuara.',
 
   'buddyPicker.addBuddy': 'Shto shok shpenzimesh',
+  'buddyPicker.selectedCount': '{count} të zgjedhur',
   'buddyPicker.title': 'Shokët e shpenzimeve',
   'buddyPicker.empty': 'Nuk ke shokë shpenzimesh ende.',
 

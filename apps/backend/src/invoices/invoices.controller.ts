@@ -19,6 +19,11 @@ export class InvoicesController {
         return this.invoicesService.findAll(userId);
     }
 
+    @Get('owed-by-me')
+    findOwedByMe(@CurrentUser() userId: string): Promise<Invoice[]> {
+        return this.invoicesService.findOwedByMe(userId);
+    }
+
     @Patch(':id')
     update(
         @CurrentUser() userId: string,
@@ -26,6 +31,20 @@ export class InvoicesController {
         @Body() data: Record<string, unknown>,
     ): Promise<Invoice> {
         return this.invoicesService.update(userId, id, data);
+    }
+
+    @Patch(':id/buddy-paid')
+    setBuddyPaid(
+        @CurrentUser() userId: string,
+        @Param('id') id: string,
+        @Body() body: { buddyUserId: string; paid: boolean },
+    ): Promise<Invoice> {
+        return this.invoicesService.setBuddyPaid(userId, id, body.buddyUserId, body.paid);
+    }
+
+    @Post(':id/notify-paid')
+    notifyPaid(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
+        return this.invoicesService.notifyPaid(userId, id);
     }
 
     @Delete(':id')

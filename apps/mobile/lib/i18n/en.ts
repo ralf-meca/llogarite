@@ -155,6 +155,7 @@ export const en = {
   'buddies.myCode': 'Your code',
   'buddies.myCodeHint': "Give this code to someone to become expense buddies.",
   'buddies.addWithCode': 'Add a buddy with a code',
+  'buddies.addFriend': 'Add friend',
   'buddies.codePlaceholder': 'Enter the code',
   'buddies.sendRequest': 'Send request',
   'buddies.sending': 'Sending...',
@@ -163,10 +164,20 @@ export const en = {
   'buddies.myBuddies': 'My buddies',
   'buddies.noBuddiesYet': "You don't have any expense buddies yet.",
   'buddies.codeRequired': "Enter your buddy's code.",
+  'buddies.tabOwedToMe': 'Owed to me',
+  'buddies.tabOwedByMe': 'I owe',
+  'buddies.noOwedToMe': "None of your buddies have unpaid invoices.",
+  'buddies.noOwedByMe': "You don't have any unpaid invoices.",
+  'buddies.notifyPaid': 'Notify as paid',
+  'buddies.notifySent': 'Your buddy has been notified.',
 
   'buddyDetail.totalUnpaid': 'Total unpaid',
   'buddyDetail.unpaidInvoices': 'Unpaid invoices',
   'buddyDetail.noUnpaidInvoices': 'No unpaid invoices.',
+  'buddyDetail.confirmMarkPaidTitle': 'Mark as paid?',
+  'buddyDetail.confirmMarkPaidMessage': 'Mark the invoice from {seller} as paid?',
+  'buddyDetail.markPaidErrorTitle': 'Could not update',
+  'buddyDetail.markPaid': 'Mark as paid',
 
   'manualInvoice.editTitle': 'Edit invoice',
   'manualInvoice.addTitle': 'Add invoice manually',
@@ -223,6 +234,7 @@ export const en = {
   'projectPicker.empty': 'No projects created.',
 
   'buddyPicker.addBuddy': 'Add expense buddy',
+  'buddyPicker.selectedCount': '{count} selected',
   'buddyPicker.title': 'Expense buddies',
   'buddyPicker.empty': "You don't have any expense buddies yet.",
 

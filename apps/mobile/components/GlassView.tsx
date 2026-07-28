@@ -1,15 +1,20 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radius } from '../lib/theme';
 
 type GlassViewProps = {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   tint?: 'light' | 'dark';
+  onLayout?: (event: LayoutChangeEvent) => void;
 };
 
-export function GlassView({ children, style, tint = 'light' }: GlassViewProps) {
-  return <View style={[styles.base, tint === 'dark' && styles.dark, style]}>{children}</View>;
+export function GlassView({ children, style, tint = 'light', onLayout }: GlassViewProps) {
+  return (
+    <View style={[styles.base, tint === 'dark' && styles.dark, style]} onLayout={onLayout}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

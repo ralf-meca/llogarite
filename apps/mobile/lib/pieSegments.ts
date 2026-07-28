@@ -17,5 +17,11 @@ export function toPieSegments(items: PieSegmentInput[], otherLabel: string): Pie
   }
   const top = sorted.slice(0, PIE_SEGMENT_LIMIT);
   const rest = sorted.slice(PIE_SEGMENT_LIMIT).reduce((sum, item) => sum + item.total, 0);
+
+  const existingOther = top.find((item) => item.label === otherLabel);
+  if (existingOther) {
+    existingOther.total += rest;
+    return top;
+  }
   return [...top, { label: otherLabel, total: rest }];
 }

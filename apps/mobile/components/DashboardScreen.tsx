@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchBudget } from '../lib/budgetApi';
-import { CATEGORIES, categoryLabelKey } from '../lib/categories';
+import { CATEGORIES, DEFAULT_CATEGORY, categoryLabelKey } from '../lib/categories';
 import { groupByCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
@@ -52,7 +52,7 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
     .sort((a, b) => (a.key < b.key ? -1 : 1))
     .map((entry) => ({ label: entry.label, value: entry.total }));
 
-  const categorySegments = toPieSegments(groupByCategory(invoices), t('categories.te_tjera')).map(
+  const categorySegments = toPieSegments(groupByCategory(invoices), DEFAULT_CATEGORY).map(
     (segment, index) => ({
       ...segment,
       label: CATEGORY_IDS.has(segment.label) ? t(categoryLabelKey(segment.label)) : segment.label,

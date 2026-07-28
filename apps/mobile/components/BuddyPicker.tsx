@@ -5,31 +5,39 @@ import type { Buddy } from '../lib/buddiesApi';
 import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
+import { UserAvatar } from './UserAvatar';
 
 type BuddyPickerProps = {
   buddies: Buddy[];
   selectedIds: string[];
   onToggle: (buddyId: string) => void;
+  iconOnly?: boolean;
 };
 
-export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps) {
+export function BuddyPicker({ buddies, selectedIds, onToggle, iconOnly }: BuddyPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const selectedBuddies = buddies.filter((buddy) => selectedIds.includes(buddy.id));
   const label =
     selectedBuddies.length === 0
       ? t('buddyPicker.addBuddy')
-      : selectedBuddies.map((buddy) => buddy.name ?? buddy.email).join(', ');
+      : t('buddyPicker.selectedCount', { count: selectedBuddies.length });
 
   return (
     <>
-      <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-        <Ionicons name="people-outline" size={14} color="#374151" />
-        <Text style={styles.triggerText} numberOfLines={1}>
-          {label}
-        </Text>
-        <Ionicons name="chevron-down" size={12} color="#6b7280" />
-      </Pressable>
+      {iconOnly ? (
+        <Pressable style={styles.iconTrigger} onPress={() => setIsOpen(true)} hitSlop={8}>
+          <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+        </Pressable>
+      ) : (
+        <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
+          <Ionicons name="people-outline" size={14} color="#374151" />
+          <Text style={styles.triggerText} numberOfLines={1}>
+            {label}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color="#6b7280" />
+        </Pressable>
+      )}
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
@@ -41,6 +49,7 @@ export function BuddyPicker({ buddies, selectedIds, onToggle }: BuddyPickerProps
                 const isSelected = selectedIds.includes(buddy.id);
                 return (
                   <Pressable key={buddy.id} style={styles.row} onPress={() => onToggle(buddy.id)}>
+                    <UserAvatar user={buddy} size={32} />
                     <Text style={[styles.rowText, isSelected && styles.rowTextActive]} numberOfLines={1}>
                       {buddy.name ?? buddy.email}
                     </Text>
@@ -79,6 +88,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     flexShrink: 1,
+  },
+  iconTrigger: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTint,
   },
   backdrop: {
     flex: 1,

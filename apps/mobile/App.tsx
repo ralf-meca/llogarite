@@ -41,6 +41,7 @@ import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
+import { addNotificationTapListener, getInitialNotificationData, registerPushToken } from "./lib/pushNotifications";
 import { HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
@@ -120,8 +121,10 @@ function AppContent() {
     const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
     const [productDetailReturnScreen, setProductDetailReturnScreen] = useState<"products" | "detail">("products");
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
-    const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail">("list");
+    const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail" | "buddies">("list");
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
+    const [buddiesInitialTab, setBuddiesInitialTab] = useState<"owedByMe" | "owedToMe">("owedToMe");
+    const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const { toasts, showError, dismissToast } = useToasts();
@@ -146,13 +149,24 @@ function AppContent() {
 
     useEffect(() => {
         getToken().then((token) => {
-            if (token) {
-                getUser().then(setUser);
-                setScreen("dashboard");
-                startOnboardingIfNeeded();
-            } else {
+            if (!token) {
                 setScreen("auth");
+                return;
             }
+            getUser().then(setUser);
+            getInitialNotificationData().then((data) => {
+                console.log("cold-start notification data", JSON.stringify(data));
+                if (data?.type === "invoice_notify_paid" && data.invoiceId) {
+                    setBuddiesInitialTab("owedToMe");
+                    setHighlightInvoiceId(data.invoiceId);
+                    setScreen("buddies");
+                } else if (data?.type === "buddy_request") {
+                    setScreen("buddies");
+                } else {
+                    setScreen("dashboard");
+                    startOnboardingIfNeeded();
+                }
+            });
         });
     }, [startOnboardingIfNeeded]);
 
@@ -163,7 +177,7 @@ function AppContent() {
     }, [isOnboarding, onboardingStep]);
 
     useEffect(() => {
-        if (screen === "dashboard" || screen === "list" || screen === "budget") {
+        if (screen === "dashboard" || screen === "list" || screen === "budget" || screen === "buddies") {
             loadSavedInvoices();
         }
     }, [screen, loadSavedInvoices]);
@@ -175,6 +189,25 @@ function AppContent() {
                 .catch(() => {});
         }
     }, [screen]);
+
+    useEffect(() => {
+        if (user) {
+            registerPushToken();
+        }
+    }, [user]);
+
+    useEffect(() => {
+        return addNotificationTapListener((data) => {
+            if (data.type === "invoice_notify_paid" && data.invoiceId) {
+                loadSavedInvoices();
+                setBuddiesInitialTab("owedToMe");
+                setHighlightInvoiceId(data.invoiceId);
+                setScreen("buddies");
+            } else if (data.type === "buddy_request") {
+                setScreen("buddies");
+            }
+        });
+    }, [loadSavedInvoices]);
 
     const handleAuthenticated = (auth: AuthResponse) => {
         Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
@@ -264,7 +297,7 @@ function AppContent() {
         }
     };
 
-    const handleSelectInvoice = (invoice: SavedInvoice, returnTo: "list" | "buddyDetail" = "list") => {
+    const handleSelectInvoice = (invoice: SavedInvoice, returnTo: "list" | "buddyDetail" | "buddies" = "list") => {
         setSelectedInvoice(invoice);
         setDetailReturnScreen(returnTo);
         setScreen("detail");
@@ -527,9 +560,20 @@ function AppContent() {
                             />
                         ) : (
                             <BuddiesScreen
+                                userId={user?.id ?? ""}
+                                invoices={savedInvoices}
+                                onInvoicesChanged={loadSavedInvoices}
+                                initialTab={buddiesInitialTab}
+                                highlightInvoiceId={highlightInvoiceId}
                                 onSelectBuddy={(buddy) => {
                                     setSelectedBuddy(buddy);
                                     setScreen("buddyDetail");
+                                }}
+                                onSelectInvoice={(invoiceId) => {
+                                    const invoice = savedInvoices.find((candidate) => candidate.id === invoiceId);
+                                    if (invoice) {
+                                        handleSelectInvoice(invoice, "buddies");
+                                    }
                                 }}
                             />
                         )}
@@ -596,6 +640,7 @@ function AppContent() {
                                 handleSelectInvoice(invoice, "buddyDetail");
                             }
                         }}
+                        onInvoicesChanged={loadSavedInvoices}
                     />
                 )
             ) : (

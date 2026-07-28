@@ -18,6 +18,7 @@ import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ProjectPicker } from './ProjectPicker';
 import { ToastHost } from './ToastHost';
+import { UserAvatar } from './UserAvatar';
 
 type ManualInvoiceScreenProps = {
   initialData?: InvoiceVerificationResult;
@@ -190,45 +191,54 @@ export function ManualInvoiceScreen({
           onChangeText={setDateLabel}
         />
 
-        <View style={styles.projectRow}>
-          <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
-        </View>
-
-        <View style={styles.projectRow}>
-          <BuddyPicker
-            buddies={buddies}
-            selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
-            onToggle={toggleBuddy}
-          />
+        <View style={styles.pickersRow}>
+          <View style={styles.pickerSlot}>
+            <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
+          </View>
+          {selectedBuddies.length === 0 && (
+            <View style={styles.pickerSlot}>
+              <BuddyPicker buddies={buddies} selectedIds={[]} onToggle={toggleBuddy} />
+            </View>
+          )}
         </View>
 
         {selectedBuddies.length > 0 && (
           <GlassView style={[styles.card, styles.buddiesCard]}>
-            <Text style={styles.buddiesTitle}>
-              {t('manualInvoice.splitLabel', { amount: formatAmount(shareAmount) })}
-            </Text>
+            <View style={styles.buddiesHeader}>
+              <Text style={styles.buddiesTitle}>
+                {t('manualInvoice.splitLabel', { amount: formatAmount(shareAmount) })}
+              </Text>
+              <BuddyPicker
+                buddies={buddies}
+                selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
+                onToggle={toggleBuddy}
+                iconOnly
+              />
+            </View>
             {selectedBuddies.map((buddy) => {
               const info = buddies.find((candidate) => candidate.id === buddy.userId);
               return (
-                <Pressable
-                  key={buddy.userId}
-                  style={styles.buddyRow}
-                  onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}
-                >
-                  <Text style={styles.buddyName} numberOfLines={1}>
-                    {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
-                  </Text>
-                  <View style={styles.buddyPaidToggle}>
-                    <Ionicons
-                      name={buddy.paid ? 'checkbox' : 'square-outline'}
-                      size={20}
-                      color={buddy.paid ? '#10b981' : '#9ca3af'}
-                    />
-                    <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
-                      {buddy.paid ? t('manualInvoice.paid') : t('manualInvoice.unpaid')}
+                <View key={buddy.userId} style={styles.buddyRow}>
+                  <Pressable onPress={() => toggleBuddy(buddy.userId)} hitSlop={8}>
+                    <Ionicons name="close" size={18} color="#9ca3af" />
+                  </Pressable>
+                  <Pressable style={styles.buddyRowMain} onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}>
+                    <UserAvatar user={info ?? null} size={28} />
+                    <Text style={styles.buddyName} numberOfLines={1}>
+                      {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                     </Text>
-                  </View>
-                </Pressable>
+                    <View style={styles.buddyPaidToggle}>
+                      <Ionicons
+                        name={buddy.paid ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={buddy.paid ? '#10b981' : '#9ca3af'}
+                      />
+                      <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
+                        {t('manualInvoice.paid')}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
               );
             })}
           </GlassView>
@@ -352,8 +362,14 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 12,
   },
-  projectRow: {
+  pickersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 16,
+  },
+  pickerSlot: {
+    flex: 1,
   },
   card: {
     padding: 20,
@@ -361,19 +377,33 @@ const styles = StyleSheet.create({
   buddiesCard: {
     marginBottom: 16,
   },
+  buddiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 8,
+  },
   buddiesTitle: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
     color: '#6b7280',
-    marginBottom: 8,
   },
   buddyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
+  },
+  buddyRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   buddyName: {
     flex: 1,

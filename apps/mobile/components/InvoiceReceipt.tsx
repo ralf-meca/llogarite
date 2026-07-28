@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { toDateLabel } from '../lib/date';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
@@ -10,15 +11,11 @@ type InvoiceReceiptProps = {
   onSelectItem?: (item: InvoiceItem) => void;
 };
 
-const LOCALE_BY_LANGUAGE = { sq: 'sq-AL', en: 'en-US' } as const;
-
 export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   return (
     <GlassView style={styles.card}>
-      <Text style={styles.date}>
-        {new Date(result.dateTimeCreated).toLocaleString(LOCALE_BY_LANGUAGE[language])}
-      </Text>
+      <Text style={styles.date}>{toDateLabel(new Date(result.dateTimeCreated))}</Text>
       <View style={styles.sellerRow}>
         <Text style={styles.sellerName}>{result.seller.name}</Text>
         {result.verified && <VerifiedBadge />}
