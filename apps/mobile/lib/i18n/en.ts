@@ -88,7 +88,10 @@ export const en = {
   'dashboard.monthlyBudget': "This month's budget",
   'dashboard.of': 'of',
   'dashboard.totalSpent': 'Total spent',
+  'dashboard.avgMonthly': 'Avg. monthly',
+  'dashboard.thisYear': 'this year',
   'dashboard.savedInvoices': 'Saved invoices',
+  'dashboard.thisMonth': 'this month',
   'dashboard.noInvoicesForStats': 'No invoices to show statistics for.',
   'dashboard.spendingByCategory': 'Spending by category',
   'dashboard.spendingByMonth': 'Spending by month',
@@ -239,7 +242,7 @@ export const en = {
   'buddyPicker.empty': "You don't have any expense buddies yet.",
 
   'verifiedBadge.title': 'Verified',
-  'verifiedBadge.message': 'This information is official, confirmed by the Tax Authority.',
+  'verifiedBadge.message': 'Confirmed by the Tax Authority.',
 
   'scanMenu.scanQr': 'Scan QR code',
   'scanMenu.scanReceipt': 'Scan invoice',

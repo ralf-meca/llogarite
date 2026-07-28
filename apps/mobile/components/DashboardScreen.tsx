@@ -5,7 +5,7 @@ import { CATEGORIES, DEFAULT_CATEGORY, categoryLabelKey } from '../lib/categorie
 import { groupByCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import { currentMonthTotal, groupByMonth } from '../lib/monthlySpending';
+import { averageMonthlyThisYear, currentMonthKey, currentMonthTotal, groupByMonth, monthKeyOf } from '../lib/monthlySpending';
 import { toPieSegments } from '../lib/pieSegments';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
@@ -31,9 +31,11 @@ function indexOfMax(values: number[]): number {
 
 type DashboardScreenProps = {
   invoices: SavedInvoice[];
+  onSelectBudget: () => void;
+  onSelectInvoiceList: () => void;
 };
 
-export function DashboardScreen({ invoices }: DashboardScreenProps) {
+export function DashboardScreen({ invoices, onSelectBudget, onSelectInvoiceList }: DashboardScreenProps) {
   const { t, language } = useTranslation();
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
   const [categorySelection, setCategorySelection] = useState<number | null>(null);
@@ -47,7 +49,9 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
   const monthSpent = currentMonthTotal(invoices);
   const budgetRatio = budgetTarget && budgetTarget > 0 ? monthSpent / budgetTarget : 0;
 
-  const totalSpent = invoices.reduce((sum, invoice) => sum + invoice.data.totalPrice, 0);
+  const avgMonthlySpent = averageMonthlyThisYear(invoices);
+  const savedThisMonth = invoices.filter((invoice) => monthKeyOf(invoice.data.dateTimeCreated) === currentMonthKey())
+    .length;
   const monthlyPoints = [...groupByMonth(invoices, language)]
     .sort((a, b) => (a.key < b.key ? -1 : 1))
     .map((entry) => ({ label: entry.label, value: entry.total }));
@@ -64,29 +68,37 @@ export function DashboardScreen({ invoices }: DashboardScreenProps) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       {budgetTarget !== null && (
-        <GlassView style={styles.budgetCard}>
-          <Text style={styles.chartTitle}>{t('dashboard.monthlyBudget')}</Text>
-          <Text style={styles.budgetAmount}>
-            {formatAmount(monthSpent)}{' '}
-            <Text style={styles.budgetTarget}>
-              {t('dashboard.of')} {formatAmount(budgetTarget)}
+        <Pressable onPress={onSelectBudget}>
+          <GlassView style={styles.budgetCard}>
+            <Text style={styles.chartTitle}>{t('dashboard.monthlyBudget')}</Text>
+            <Text style={styles.budgetAmount}>
+              {formatAmount(monthSpent)}{' '}
+              <Text style={styles.budgetTarget}>
+                {t('dashboard.of')} {formatAmount(budgetTarget)}
+              </Text>
             </Text>
-          </Text>
-          <View style={styles.budgetProgressWrapper}>
-            <ProgressBar ratio={budgetRatio} />
-          </View>
-        </GlassView>
+            <View style={styles.budgetProgressWrapper}>
+              <ProgressBar ratio={budgetRatio} />
+            </View>
+          </GlassView>
+        </Pressable>
       )}
 
       <View style={styles.statsRow}>
-        <GlassView style={styles.statCard}>
-          <Text style={styles.statValue}>{formatAmount(totalSpent)}</Text>
-          <Text style={styles.statLabel}>{t('dashboard.totalSpent')}</Text>
-        </GlassView>
-        <GlassView style={styles.statCard}>
-          <Text style={styles.statValue}>{invoices.length}</Text>
-          <Text style={styles.statLabel}>{t('dashboard.savedInvoices')}</Text>
-        </GlassView>
+        <Pressable style={styles.statCardWrapper} onPress={onSelectInvoiceList}>
+          <GlassView style={styles.statCard}>
+            <Text style={styles.statValue}>{formatAmount(avgMonthlySpent)}</Text>
+            <Text style={styles.statLabel}>{t('dashboard.avgMonthly')}</Text>
+            <Text style={styles.statLabelSub}>{t('dashboard.thisYear')}</Text>
+          </GlassView>
+        </Pressable>
+        <Pressable style={styles.statCardWrapper} onPress={onSelectInvoiceList}>
+          <GlassView style={styles.statCard}>
+            <Text style={styles.statValue}>{savedThisMonth}</Text>
+            <Text style={styles.statLabel}>{t('dashboard.savedInvoices')}</Text>
+            <Text style={styles.statLabelSub}>{t('dashboard.thisMonth')}</Text>
+          </GlassView>
+        </Pressable>
       </View>
 
       {invoices.length === 0 ? (
@@ -174,10 +186,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  statCardWrapper: {
+    flex: 1,
+  },
   statCard: {
     flex: 1,
     padding: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     fontSize: 18,
@@ -188,6 +204,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 4,
+    textAlign: 'center',
+  },
+  statLabelSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    opacity: 0.7,
     textAlign: 'center',
   },
   emptyText: {

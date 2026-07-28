@@ -90,7 +90,10 @@ export const sq: Record<keyof typeof en, string> = {
   'dashboard.monthlyBudget': 'Buxheti i muajit',
   'dashboard.of': 'nga',
   'dashboard.totalSpent': 'Shpenzime gjithsej',
+  'dashboard.avgMonthly': 'Mesatarja mujore',
+  'dashboard.thisYear': 'këtë vit',
   'dashboard.savedInvoices': 'Fatura të ruajtura',
+  'dashboard.thisMonth': 'këtë muaj',
   'dashboard.noInvoicesForStats': 'Nuk ka fatura për të shfaqur statistika.',
   'dashboard.spendingByCategory': 'Shpenzimet sipas kategorisë',
   'dashboard.spendingByMonth': 'Shpenzimet sipas muajit',
@@ -241,7 +244,7 @@ export const sq: Record<keyof typeof en, string> = {
   'buddyPicker.empty': 'Nuk ke shokë shpenzimesh ende.',
 
   'verifiedBadge.title': 'E verifikuar',
-  'verifiedBadge.message': 'Kjo informacion është zyrtar, i konfirmuar nga Autoriteti Tatimor.',
+  'verifiedBadge.message': 'Konfirmuar nga Autoriteti Tatimor.',
 
   'scanMenu.scanQr': 'Skano kodin QR',
   'scanMenu.scanReceipt': 'Skano faturën',

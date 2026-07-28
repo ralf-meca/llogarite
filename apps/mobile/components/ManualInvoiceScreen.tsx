@@ -125,10 +125,6 @@ export function ManualInvoiceScreen({
   };
 
   const handleSubmit = () => {
-    if (!sellerName.trim()) {
-      showError(t('manualInvoice.sellerRequired'));
-      return;
-    }
     const date = parseDateLabel(dateLabel);
     if (!date) {
       showError(t('manualInvoice.invalidDate'));

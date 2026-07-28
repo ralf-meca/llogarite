@@ -49,3 +49,20 @@ export function currentMonthTotal(invoices: SavedInvoice[]): number {
     return monthKeyOf(invoice.data.dateTimeCreated) === currentKey ? sum + invoice.data.totalPrice : sum;
   }, 0);
 }
+
+export function averageMonthlyThisYear(invoices: SavedInvoice[]): number {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const monthsElapsed = now.getMonth();
+  if (monthsElapsed === 0) {
+    return 0;
+  }
+
+  const total = invoices.reduce((sum, invoice) => {
+    const date = new Date(invoice.data.dateTimeCreated);
+    const isPriorMonthThisYear = date.getFullYear() === currentYear && date.getMonth() < monthsElapsed;
+    return isPriorMonthThisYear ? sum + invoice.data.totalPrice : sum;
+  }, 0);
+
+  return total / monthsElapsed;
+}

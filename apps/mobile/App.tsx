@@ -498,7 +498,11 @@ function AppContent() {
 
                     <View style={styles.sheet}>
                         {screen === "dashboard" ? (
-                            <DashboardScreen invoices={savedInvoices} />
+                            <DashboardScreen
+                                invoices={savedInvoices}
+                                onSelectBudget={() => setScreen("budget")}
+                                onSelectInvoiceList={() => setScreen("list")}
+                            />
                         ) : screen === "list" ? (
                             <FlatList
                                 style={styles.list}
@@ -516,7 +520,7 @@ function AppContent() {
                                                     <Ionicons
                                                         name={categoryIcon(dominantCategory(item))}
                                                         size={18}
-                                                        color={colors.white}
+                                                        color={colors.primary}
                                                     />
                                                 </View>
                                                 <View style={styles.savedRowTextGroup}>
@@ -845,7 +849,7 @@ const styles = StyleSheet.create({
         borderRadius: 17,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: colors.primary,
+        backgroundColor: colors.primaryTint,
     },
     savedRowTextGroup: {
         flexShrink: 1,
