@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
-import { changePassword, type AuthUser } from '../lib/authApi';
+import { changePassword, deleteAccount, type AuthUser } from '../lib/authApi';
 import { useTranslation } from '../lib/i18n';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -18,7 +18,7 @@ type UserMenuModalProps = {
   onRestartTour: () => void;
 };
 
-type MenuView = 'menu' | 'changePassword' | 'changePasswordSuccess';
+type MenuView = 'menu' | 'changePassword' | 'changePasswordSuccess' | 'deleteAccountConfirm';
 
 export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour }: UserMenuModalProps) {
   const { t } = useTranslation();
@@ -27,6 +27,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toasts, showError, dismissToast } = useToasts();
 
   const handleShow = () => {
@@ -50,6 +51,20 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour 
       .catch((submitError: Error) => {
         setIsSubmitting(false);
         showError(submitError.message);
+      });
+  };
+
+  const handleDeleteAccount = () => {
+    setIsDeleting(true);
+    deleteAccount()
+      .then(() => {
+        setIsDeleting(false);
+        onClose();
+        onLogout();
+      })
+      .catch((deleteError: Error) => {
+        setIsDeleting(false);
+        showError(deleteError.message);
       });
   };
 
@@ -86,6 +101,27 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour 
                 >
                   <Ionicons name="log-out-outline" size={20} color="#dc2626" />
                   <Text style={[styles.menuItemText, styles.logoutText]}>{t('userMenu.logout')}</Text>
+                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => setView('deleteAccountConfirm')}>
+                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                  <Text style={[styles.menuItemText, styles.logoutText]}>{t('userMenu.deleteAccount')}</Text>
+                </Pressable>
+              </>
+            )}
+
+            {view === 'deleteAccountConfirm' && (
+              <>
+                <Text style={styles.title}>{t('userMenu.deleteAccountTitle')}</Text>
+                <Text style={styles.deleteWarning}>{t('userMenu.deleteAccountWarning')}</Text>
+                <GlassButton
+                  label={isDeleting ? t('userMenu.deleting') : t('userMenu.deleteAccountConfirm')}
+                  variant="danger"
+                  style={styles.deleteButton}
+                  onPress={handleDeleteAccount}
+                  disabled={isDeleting}
+                />
+                <Pressable onPress={() => setView('menu')}>
+                  <Text style={styles.backText}>{t('common.cancel')}</Text>
                 </Pressable>
               </>
             )}
@@ -199,6 +235,16 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  deleteWarning: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  deleteButton: {
+    marginBottom: 4,
   },
   backText: {
     textAlign: 'center',

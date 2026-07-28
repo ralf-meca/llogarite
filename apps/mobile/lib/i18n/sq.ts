@@ -86,6 +86,12 @@ export const sq: Record<keyof typeof en, string> = {
   'userMenu.confirmNewPasswordPlaceholder': 'Konfirmo fjalëkalimin e ri',
   'userMenu.passwordsDontMatch': 'Fjalëkalimet e reja nuk përputhen.',
   'userMenu.passwordChanged': 'Fjalëkalimi u ndryshua.',
+  'userMenu.deleteAccount': 'Fshi llogarinë',
+  'userMenu.deleteAccountTitle': 'Të fshihet llogaria jote?',
+  'userMenu.deleteAccountWarning':
+    'Kjo fshin përgjithmonë llogarinë tënde dhe të gjitha faturat, buxhetin, projektet dhe lidhjet me shokë. Kjo veprim nuk mund të kthehet.',
+  'userMenu.deleteAccountConfirm': 'Po, fshije llogarinë time',
+  'userMenu.deleting': 'Duke fshirë...',
 
   'app.loading': 'Duke u ngarkuar...',
   'app.title': 'Llogarite',

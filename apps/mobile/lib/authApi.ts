@@ -106,3 +106,16 @@ export async function changePassword(currentPassword: string, newPassword: strin
     );
   }
 }
+
+export async function deleteAccount(): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/users/me`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Fshirja e llogarisë dështoi. Provo përsëri.'));
+  }
+}

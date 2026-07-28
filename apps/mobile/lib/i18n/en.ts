@@ -84,6 +84,12 @@ export const en = {
   'userMenu.confirmNewPasswordPlaceholder': 'Confirm new password',
   'userMenu.passwordsDontMatch': 'The new passwords do not match.',
   'userMenu.passwordChanged': 'Your password has been changed.',
+  'userMenu.deleteAccount': 'Delete account',
+  'userMenu.deleteAccountTitle': 'Delete your account?',
+  'userMenu.deleteAccountWarning':
+    'This permanently deletes your account and all your invoices, budget, projects, and buddy connections. This cannot be undone.',
+  'userMenu.deleteAccountConfirm': 'Yes, delete my account',
+  'userMenu.deleting': 'Deleting...',
 
   'app.loading': 'Loading...',
   'app.title': 'Llogarite',

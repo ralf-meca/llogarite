@@ -33,6 +33,10 @@ export class UsersService {
         await this.usersRepository.update(id, { isPremium });
     }
 
+    async deleteAccount(id: string): Promise<void> {
+        await this.usersRepository.delete(id);
+    }
+
     async updatePushToken(id: string, pushToken: string | null): Promise<void> {
         await this.usersRepository.update(id, { pushToken });
     }

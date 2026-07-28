@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -17,5 +17,11 @@ export class UsersController {
     @Patch('me/push-token')
     updatePushToken(@CurrentUser() userId: string, @Body() body: { token: string | null }): Promise<void> {
         return this.usersService.updatePushToken(userId, body.token ?? null);
+    }
+
+    @Delete('me')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    deleteMe(@CurrentUser() userId: string): Promise<void> {
+        return this.usersService.deleteAccount(userId);
     }
 }
