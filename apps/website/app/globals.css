@@ -54,6 +54,12 @@ a {
   color: var(--text-dark);
   text-decoration: none;
 }
+.site-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
 .site-nav {
   display: flex;
   gap: 20px;
