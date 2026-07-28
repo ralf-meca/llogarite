@@ -278,6 +278,13 @@ export const en = {
   'plans.apply': 'Apply',
   'plans.premiumActivated': 'Premium activated!',
   'plans.codeApplied': 'Code applied: {percent}% off.',
+  'plans.purchasing': 'Processing...',
+  'plans.purchaseFailed': 'Purchase failed. Please try again.',
+  'plans.noPackageAvailable': 'Premium is not available right now. Please try again later.',
+  'plans.restorePurchases': 'Restore purchases',
+  'plans.restoring': 'Restoring...',
+  'plans.restoreSuccess': 'Purchase restored!',
+  'plans.restoreNotFound': 'No previous purchase found.',
 
   'legal.privacyTitle': 'Privacy Policy',
   'legal.termsTitle': 'Terms of Service',

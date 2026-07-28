@@ -10,6 +10,7 @@ import {InvoicesModule} from './invoices/invoices.module';
 import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
 import {ProjectsModule} from './projects/projects.module';
 import {UsersModule} from './users/users.module';
+import {RevenueCatWebhookModule} from './webhooks/revenuecat-webhook.module';
 
 @Module({
     controllers: [AppController],
@@ -39,6 +40,7 @@ import {UsersModule} from './users/users.module';
         DiscountCodesModule,
         UsersModule,
         AuthModule,
+        RevenueCatWebhookModule,
     ],
 })
 export class AppModule {

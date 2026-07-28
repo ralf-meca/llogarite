@@ -4,13 +4,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { redeemDiscountCode } from '../lib/discountCodesApi';
 import { useTranslation } from '../lib/i18n';
+import { getPremiumPackage, purchasePremium, restorePurchases } from '../lib/purchases';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 
-const PREMIUM_MONTHLY_PRICE = 5;
+const PREMIUM_MONTHLY_PRICE = 2;
 
 type PlansScreenProps = {
   isPremium: boolean;
@@ -41,6 +42,8 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
   const [code, setCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
   const handleApplyCode = () => {
@@ -67,6 +70,47 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
 
   const discountedPrice =
     discountPercent !== null ? Math.round(PREMIUM_MONTHLY_PRICE * (1 - discountPercent / 100) * 100) / 100 : null;
+
+  const handleBuyPremium = async () => {
+    setIsPurchasing(true);
+    try {
+      const pkg = await getPremiumPackage();
+      if (!pkg) {
+        showError(t('plans.noPackageAvailable'));
+        return;
+      }
+      const isPremiumNow = await purchasePremium(pkg);
+      if (isPremiumNow) {
+        showSuccess(t('plans.premiumActivated'));
+        onPremiumGranted();
+      } else {
+        showError(t('plans.purchaseFailed'));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
+      showError(message || t('plans.purchaseFailed'));
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    setIsRestoring(true);
+    try {
+      const isPremiumNow = await restorePurchases();
+      if (isPremiumNow) {
+        showSuccess(t('plans.restoreSuccess'));
+        onPremiumGranted();
+      } else {
+        showError(t('plans.restoreNotFound'));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
+      showError(message || t('plans.purchaseFailed'));
+    } finally {
+      setIsRestoring(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -122,15 +166,24 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
                 </View>
               ) : (
                 <GlassButton
-                  label={t('plans.buyPremium')}
+                  label={isPurchasing ? t('plans.purchasing') : t('plans.buyPremium')}
                   variant="accent"
                   style={styles.buyButton}
-                  onPress={() => showError(t('plans.paymentsComingSoon'))}
+                  onPress={handleBuyPremium}
+                  disabled={isPurchasing}
                 />
               )}
             </GlassView>
           </View>
         </View>
+
+        {!isPremium && (
+          <Pressable onPress={handleRestorePurchases} disabled={isRestoring} style={styles.restoreLink}>
+            <Text style={styles.restoreLinkText}>
+              {isRestoring ? t('plans.restoring') : t('plans.restorePurchases')}
+            </Text>
+          </Pressable>
+        )}
 
         {!isPremium && (
           <GlassView style={styles.codeCard}>
@@ -263,6 +316,16 @@ const styles = StyleSheet.create({
   },
   buyButton: {
     marginTop: 16,
+  },
+  restoreLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  restoreLinkText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
   activeBadge: {
     flexDirection: 'row',

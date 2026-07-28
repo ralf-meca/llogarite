@@ -50,7 +50,7 @@ const PRIVACY_SECTIONS_SQ: Section[] = [
   },
   {
     heading: '9. Na kontakto',
-    body: 'Për pyetje rreth kësaj politike ose të dhënave të tua, na shkruaj në support@llogarite.app.',
+    body: 'Për pyetje rreth kësaj politike ose të dhënave të tua, na shkruaj në support@llogarite.site.',
   },
 ];
 
@@ -80,24 +80,28 @@ const TERMS_SECTIONS_SQ: Section[] = [
     body: 'Kur lidhesh me një përdorues tjetër dhe ndan një faturë me të, të dyja llogaritë mund të shohin detajet e shpenzimit të ndarë. Je vetë përgjegjës për personat me të cilët lidhesh.',
   },
   {
-    heading: '7. Kufizimi i përgjegjësisë',
+    heading: '7. Abonimet dhe pagesat',
+    body: 'Llogarite Premium është një abonim me rinovim automatik, faturuar përmes Google Play. Mund ta anulosh në çdo kohë nga cilësimet e llogarisë Google Play; qasja vazhdon deri në fund të periudhës aktuale të faturimit. Çmimet shfaqen në aplikacion para blerjes.',
+  },
+  {
+    heading: '8. Kufizimi i përgjegjësisë',
     body: 'Aplikacioni ofrohet "siç është". Nuk garantojmë saktësi absolute për të dhënat e nxjerra nga skanimi (OCR) apo rezultatet e verifikimit nga sisteme të palëve të treta — kontrollo gjithmonë shifrat e rëndësishme financiare vetë.',
   },
   {
-    heading: '8. Ndërprerja',
+    heading: '9. Ndërprerja',
     body: 'Mund ta fshish llogarinë tënde në çdo moment nga aplikacioni. Ne mund të pezullojmë ose ndërpresim llogaritë që shkelin këto kushte.',
   },
   {
-    heading: '9. Ndryshimet në shërbim',
+    heading: '10. Ndryshimet në shërbim',
     body: 'Funksionalitetet e aplikacionit mund të ndryshojnë, shtohen ose hiqen me kalimin e kohës. Këto kushte gjithashtu mund të përditësohen; do të vazhdojmë t\'i mbajmë të qarta dhe të arsyeshme.',
   },
   {
-    heading: '10. Ligji në fuqi',
+    heading: '11. Ligji në fuqi',
     body: 'Këto kushte rregullohen nga ligjet në fuqi në vendin tënd të banimit, përveç rasteve kur kërkohet ndryshe nga ligji.',
   },
   {
-    heading: '11. Na kontakto',
-    body: 'Për pyetje rreth këtyre kushteve, na shkruaj në support@llogarite.app.',
+    heading: '12. Na kontakto',
+    body: 'Për pyetje rreth këtyre kushteve, na shkruaj në support@llogarite.site.',
   },
 ];
 
@@ -136,7 +140,7 @@ const PRIVACY_SECTIONS_EN: Section[] = [
   },
   {
     heading: '9. Contact us',
-    body: 'For questions about this policy or your data, write to us at support@llogarite.app.',
+    body: 'For questions about this policy or your data, write to us at support@llogarite.site.',
   },
 ];
 
@@ -166,24 +170,28 @@ const TERMS_SECTIONS_EN: Section[] = [
     body: 'When you connect with another user and share an invoice with them, both accounts can see the shared expense details. You are responsible for the people you connect with.',
   },
   {
-    heading: '7. Limitation of liability',
+    heading: '7. Subscriptions and payments',
+    body: 'Llogarite Premium is an auto-renewing subscription billed through Google Play. You can cancel anytime from your Google Play account settings; access continues until the end of the current billing period. Prices are shown in the app before purchase.',
+  },
+  {
+    heading: '8. Limitation of liability',
     body: 'The app is provided "as is". We do not guarantee absolute accuracy for data extracted via scanning (OCR) or verification results from third-party systems — always double-check important financial figures yourself.',
   },
   {
-    heading: '8. Termination',
+    heading: '9. Termination',
     body: 'You may delete your account at any time from the app. We may suspend or terminate accounts that violate these terms.',
   },
   {
-    heading: '9. Changes to the service',
+    heading: '10. Changes to the service',
     body: "The app's features may change, be added, or be removed over time. These terms may also be updated; we will keep them clear and reasonable.",
   },
   {
-    heading: '10. Governing law',
+    heading: '11. Governing law',
     body: 'These terms are governed by the laws applicable in your country of residence, except where the law requires otherwise.',
   },
   {
-    heading: '11. Contact us',
-    body: 'For questions about these terms, write to us at support@llogarite.app.',
+    heading: '12. Contact us',
+    body: 'For questions about these terms, write to us at support@llogarite.site.',
   },
 ];
 

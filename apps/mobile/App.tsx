@@ -42,6 +42,7 @@ import { monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import { addNotificationTapListener, getInitialNotificationData, registerPushToken } from "./lib/pushNotifications";
+import { configurePurchases } from "./lib/purchases";
 import { HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
@@ -193,6 +194,7 @@ function AppContent() {
     useEffect(() => {
         if (user) {
             registerPushToken();
+            configurePurchases(user.id);
         }
     }, [user]);
 
