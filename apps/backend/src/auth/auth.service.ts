@@ -3,9 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
+import { EmailService } from '../email/email.service';
+import { passwordResetEmailHtml } from '../email/templates/password-reset.template';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -13,6 +16,13 @@ import { AuthResponse } from './types/auth-response.type';
 import { JwtPayload } from './types/jwt-payload.type';
 
 const PASSWORD_HASH_ROUNDS = 10;
+const RESET_CODE_LENGTH = 6;
+
+function generateResetCode(): string {
+    const min = 10 ** (RESET_CODE_LENGTH - 1);
+    const max = 10 ** RESET_CODE_LENGTH - 1;
+    return String(Math.floor(min + Math.random() * (max - min + 1)));
+}
 
 @Injectable()
 export class AuthService {
@@ -22,6 +32,7 @@ export class AuthService {
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
+        private readonly emailService: EmailService,
         configService: ConfigService,
     ) {
         this.googleClientId = configService.get<string>('GOOGLE_CLIENT_ID');
@@ -65,6 +76,25 @@ export class AuthService {
 
         const passwordHash = await bcrypt.hash(dto.newPassword, PASSWORD_HASH_ROUNDS);
         await this.usersService.updatePassword(user.id, passwordHash);
+    }
+
+    async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
+        const email = dto.email.toLowerCase().trim();
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            // Don't reveal whether an account exists for this email.
+            return;
+        }
+
+        const code = generateResetCode();
+        const passwordHash = await bcrypt.hash(code, PASSWORD_HASH_ROUNDS);
+        await this.usersService.updatePassword(user.id, passwordHash);
+
+        await this.emailService.sendMail(
+            user.email,
+            'Fjalëkalimi yt i përkohshëm - Llogarite',
+            passwordResetEmailHtml(code),
+        );
     }
 
     async loginWithGoogle(dto: GoogleAuthDto): Promise<AuthResponse> {

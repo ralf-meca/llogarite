@@ -73,6 +73,20 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   return response.json();
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Dërgimi i kodit dështoi. Provo përsëri.'));
+  }
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');

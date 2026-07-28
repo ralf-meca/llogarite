@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Patch, Post, UseGuards } from '
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -33,5 +34,11 @@ export class AuthController {
     @UseGuards(JwtAuthGuard)
     changePassword(@CurrentUser() userId: string, @Body() dto: ChangePasswordDto): Promise<void> {
         return this.authService.changePassword(userId, dto);
+    }
+
+    @Post('forgot-password')
+    @HttpCode(HttpStatus.OK)
+    forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
+        return this.authService.forgotPassword(dto);
     }
 }
