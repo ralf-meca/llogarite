@@ -10,7 +10,7 @@ a { color: inherit; }
 .site-header { position: relative; z-index: 5; border-bottom: 1px solid rgba(20, 23, 31, .08); background: rgba(255,255,255,.82); backdrop-filter: blur(18px); }
 .site-header-inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -.7px; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 9px; color: #fff; background: var(--blue); font-size: 13px; box-shadow: 0 7px 15px rgba(91,127,224,.28); }.brand-dot,.wordmark span { color: var(--blue); }
+.brand-logo { width: 30px; height: 30px; object-fit: contain; }.brand-dot,.wordmark span { color: var(--blue); }
 .site-header-right,.site-nav,.lang-switch { display:flex; align-items:center; }.site-header-right{gap:26px}.site-nav{gap:22px}.site-nav a{font-size:12px;font-weight:700;text-decoration:none;color:#5d6370}.site-nav a:hover{color:var(--blue)}
 .lang-switch { padding: 3px; border: 1px solid var(--line); border-radius: 99px; }.lang-switch button { border: 0; background: transparent; border-radius: 99px; padding: 5px 9px; color: var(--muted); font: 700 10px Manrope, sans-serif; cursor: pointer; }.lang-switch button.active{background:var(--ink);color:#fff}
 
