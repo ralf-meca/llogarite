@@ -1,9 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
+import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
@@ -16,6 +17,7 @@ import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
+import { ItemAssignPicker } from './ItemAssignPicker';
 import { ProjectPicker } from './ProjectPicker';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
@@ -34,10 +36,20 @@ type ItemDraft = {
   unitPrice: string;
   category: string;
   categoryTouched: boolean;
+  buddyQuantities: Record<string, number>;
+  excludedBuddyIds: string[];
 };
 
 function emptyItem(): ItemDraft {
-  return { name: '', quantity: '1', unitPrice: '', category: DEFAULT_CATEGORY, categoryTouched: false };
+  return {
+    name: '',
+    quantity: '1',
+    unitPrice: '',
+    category: DEFAULT_CATEGORY,
+    categoryTouched: false,
+    buddyQuantities: {},
+    excludedBuddyIds: [],
+  };
 }
 
 function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
@@ -47,6 +59,8 @@ function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
     unitPrice: formatAmount(item.unitPriceAfterVat),
     category: item.category ?? suggestCategory(item.name),
     categoryTouched: Boolean(item.category),
+    buddyQuantities: item.buddyQuantities ?? {},
+    excludedBuddyIds: item.excludedBuddyIds ?? [],
   }));
 }
 
@@ -69,6 +83,15 @@ export function ManualInvoiceScreen({
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(initialData?.buddies ?? []);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
+  const [isItemSplitEnabled, setIsItemSplitEnabled] = useState(() =>
+    Boolean(
+      initialData?.items.some(
+        (item) =>
+          Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0) ||
+          (item.excludedBuddyIds?.length ?? 0) > 0,
+      ),
+    ),
+  );
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
@@ -86,7 +109,18 @@ export function ManualInvoiceScreen({
     return sum + (Number.isFinite(price) && Number.isFinite(quantity) ? price * quantity : 0);
   }, 0);
 
-  const shareAmount = total / (selectedBuddies.length + 1);
+  const itemRows = items.map((item) => {
+    const price = parseAmountInput(item.unitPrice);
+    const quantity = Number(item.quantity);
+    return {
+      quantity: Number.isFinite(quantity) ? quantity : 0,
+      unitPrice: Number.isFinite(price) ? price : 0,
+      buddyQuantities: item.buddyQuantities,
+      excludedBuddyIds: item.excludedBuddyIds,
+    };
+  });
+  const allBuddyIds = selectedBuddies.map((buddy) => buddy.userId);
+  const getBuddyShare = (buddyId: string) => computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds);
 
   const toggleBuddy = (buddyId: string) => {
     setSelectedBuddies((current) =>
@@ -94,6 +128,61 @@ export function ManualInvoiceScreen({
         ? current.filter((buddy) => buddy.userId !== buddyId)
         : [...current, { userId: buddyId, paid: false }],
     );
+    // Clear any dangling quantity/exclusion a removed buddy held on any row.
+    setItems((current) =>
+      current.map((item) => {
+        if (!(buddyId in item.buddyQuantities) && !item.excludedBuddyIds.includes(buddyId)) {
+          return item;
+        }
+        const { [buddyId]: _removedQuantity, ...restQuantities } = item.buddyQuantities;
+        return {
+          ...item,
+          buddyQuantities: restQuantities,
+          excludedBuddyIds: item.excludedBuddyIds.filter((id) => id !== buddyId),
+        };
+      }),
+    );
+  };
+
+  const setItemBuddyQuantity = (index: number, buddyId: string, quantity: number) => {
+    setItems((current) =>
+      current.map((item, i) => {
+        if (i !== index) {
+          return item;
+        }
+        const nextQuantities = { ...item.buddyQuantities };
+        if (quantity <= 0) {
+          delete nextQuantities[buddyId];
+        } else {
+          nextQuantities[buddyId] = quantity;
+        }
+        return { ...item, buddyQuantities: nextQuantities };
+      }),
+    );
+  };
+
+  const toggleItemBuddyExcluded = (index: number, buddyId: string) => {
+    setItems((current) =>
+      current.map((item, i) => {
+        if (i !== index) {
+          return item;
+        }
+        const isExcluded = item.excludedBuddyIds.includes(buddyId);
+        return {
+          ...item,
+          excludedBuddyIds: isExcluded
+            ? item.excludedBuddyIds.filter((id) => id !== buddyId)
+            : [...item.excludedBuddyIds, buddyId],
+        };
+      }),
+    );
+  };
+
+  const handleToggleItemSplit = (value: boolean) => {
+    setIsItemSplitEnabled(value);
+    if (!value) {
+      setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {}, excludedBuddyIds: [] })));
+    }
   };
 
   const setBuddyPaid = (buddyId: string, paid: boolean) => {
@@ -145,6 +234,8 @@ export function ManualInvoiceScreen({
         unitPriceBeforeVat: unitPrice,
         unitPriceAfterVat: unitPrice,
         category: item.category,
+        buddyQuantities: item.buddyQuantities,
+        excludedBuddyIds: item.excludedBuddyIds,
       });
     }
 
@@ -201,9 +292,8 @@ export function ManualInvoiceScreen({
         {selectedBuddies.length > 0 && (
           <GlassView style={[styles.card, styles.buddiesCard]}>
             <View style={styles.buddiesHeader}>
-              <Text style={styles.buddiesTitle}>
-                {t('manualInvoice.splitLabel', { amount: formatAmount(shareAmount) })}
-              </Text>
+              <Text style={styles.buddiesTitle}>{t('manualInvoice.buddiesTitle')}</Text>
+              <Switch value={isItemSplitEnabled} onValueChange={handleToggleItemSplit} />
               <BuddyPicker
                 buddies={buddies}
                 selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
@@ -223,6 +313,7 @@ export function ManualInvoiceScreen({
                     <Text style={styles.buddyName} numberOfLines={1}>
                       {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                     </Text>
+                    <Text style={styles.buddyShareAmount}>{formatAmount(getBuddyShare(buddy.userId))}</Text>
                     <View style={styles.buddyPaidToggle}>
                       <Ionicons
                         name={buddy.paid ? 'checkbox' : 'square-outline'}
@@ -246,6 +337,7 @@ export function ManualInvoiceScreen({
             <Text style={[styles.headerCell, styles.nameColumn]}>{t('manualInvoice.itemColumn')}</Text>
             <Text style={[styles.headerCell, styles.qtyColumn]}>{t('manualInvoice.quantityColumn')}</Text>
             <Text style={[styles.headerCell, styles.priceColumn]}>{t('manualInvoice.priceColumn')}</Text>
+            {isItemSplitEnabled && selectedBuddies.length > 0 && <View style={styles.assignColumn} />}
             <View style={styles.removeColumn} />
           </View>
 
@@ -282,6 +374,23 @@ export function ManualInvoiceScreen({
                   value={item.unitPrice}
                   onChangeText={(value) => updateItem(index, { unitPrice: formatAmountInput(value) })}
                 />
+                {isItemSplitEnabled && selectedBuddies.length > 0 && (
+                  <View style={styles.assignColumn}>
+                    <ItemAssignPicker
+                      buddies={selectedBuddies
+                        .map((buddy) => buddies.find((candidate) => candidate.id === buddy.userId))
+                        .filter((buddy): buddy is Buddy => Boolean(buddy))}
+                      rowQuantity={Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0}
+                      unitPrice={
+                        Number.isFinite(parseAmountInput(item.unitPrice)) ? parseAmountInput(item.unitPrice) : 0
+                      }
+                      buddyQuantities={item.buddyQuantities}
+                      excludedBuddyIds={item.excludedBuddyIds}
+                      onQuantityChange={(buddyId, quantity) => setItemBuddyQuantity(index, buddyId, quantity)}
+                      onToggleExcluded={(buddyId) => toggleItemBuddyExcluded(index, buddyId)}
+                    />
+                  </View>
+                )}
                 <Pressable
                   style={styles.removeColumn}
                   onPress={() => removeItem(index)}
@@ -419,6 +528,17 @@ const styles = StyleSheet.create({
   },
   buddyPaidTextOn: {
     color: '#059669',
+  },
+  buddyShareAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  assignColumn: {
+    width: 28,
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemsHeader: {
     flexDirection: 'row',

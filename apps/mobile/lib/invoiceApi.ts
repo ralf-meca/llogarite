@@ -40,6 +40,11 @@ export type InvoiceItem = {
   unitPriceBeforeVat: number;
   unitPriceAfterVat: number;
   category?: string;
+  // Units of this row's quantity claimed exclusively by a buddy (buddyId -> qty, 0..quantity).
+  // Whatever quantity is left unclaimed falls into the shared pool, split evenly across the
+  // owner + every attached buddy except those listed in excludedBuddyIds for this row.
+  buddyQuantities?: Record<string, number>;
+  excludedBuddyIds?: string[];
 };
 
 export type InvoiceSeller = {
@@ -74,5 +79,10 @@ export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVer
       ),
     );
   }
-  return response.json();
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Verifikimi i faturës dështoi. Provo përsëri.');
+  }
 }
