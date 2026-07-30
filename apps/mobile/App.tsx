@@ -788,6 +788,10 @@ function AppContent() {
                     setIsUserMenuVisible(false);
                     handleRestartOnboarding();
                 }}
+                onUserUpdated={(updated) => {
+                    setUser(updated);
+                    saveUser(updated);
+                }}
             />
 
             {isOnboarding && MAIN_SCREENS.has(screen) && (

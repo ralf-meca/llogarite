@@ -16,14 +16,14 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
-export async function register(email: string, password: string): Promise<AuthResponse> {
+export async function register(email: string, password: string, name: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, name }),
   });
   if (!response.ok) {
     throw new Error(
@@ -117,5 +117,34 @@ export async function deleteAccount(): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(describeHttpError(response.status, {}, 'Fshirja e llogarisë dështoi. Provo përsëri.'));
+  }
+}
+
+export async function updateAvatar(imageDataUri: string): Promise<string | null> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/users/me/avatar`, {
+    method: 'PATCH',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ image: imageDataUri }),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Ndryshimi i fotos dështoi. Provo përsëri.'));
+  }
+  const data: { avatarUrl: string | null } = await response.json();
+  return data.avatarUrl;
+}
+
+export async function removeAvatar(): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/users/me/avatar`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Heqja e fotos dështoi. Provo përsëri.'));
   }
 }

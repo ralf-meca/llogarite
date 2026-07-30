@@ -43,7 +43,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Llogarite needs access to your photos so you can upload an invoice image."
+          "photosPermission": "Llogarite needs access to your photos so you can upload an invoice image.",
+          "cameraPermission": "Llogarite needs access to your camera so you can take a photo for an invoice or your profile picture."
         }
       ],
       "./plugins/withWindowsNinjaFix",

@@ -48,7 +48,7 @@ export class AuthService {
         }
 
         const passwordHash = await bcrypt.hash(dto.password, PASSWORD_HASH_ROUNDS);
-        const user = await this.usersService.create({ email, passwordHash });
+        const user = await this.usersService.create({ email, passwordHash, name: dto.name.trim() });
 
         return this.buildAuthResponse(user);
     }

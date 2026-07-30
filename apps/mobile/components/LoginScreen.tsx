@@ -14,6 +14,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Svg, { Path } from 'react-native-svg';
 import { useToasts } from '../hooks/useToasts';
 import { forgotPassword, login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
@@ -69,12 +70,18 @@ type LoginScreenProps = {
 
 type Mode = 'login' | 'register';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('login');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -124,9 +131,35 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   }, [showSwipeHint, fingerX, fingerOpacity, fingerScale]);
 
   const handleSubmit = () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      showError(t('login.fieldsRequired'));
+      return;
+    }
+    if (mode === 'register') {
+      if (!firstName.trim() || !lastName.trim()) {
+        showError(t('login.nameRequired'));
+        return;
+      }
+      if (!EMAIL_REGEX.test(trimmedEmail)) {
+        showError(t('login.invalidEmail'));
+        return;
+      }
+      if (password.length < 8) {
+        showError(t('login.passwordTooShort'));
+        return;
+      }
+      if (password !== confirmPassword) {
+        showError(t('login.passwordsDontMatch'));
+        return;
+      }
+    }
     setIsSubmitting(true);
-    const submit = mode === 'login' ? login : register;
-    submit(email, password)
+    const authPromise =
+      mode === 'login'
+        ? login(trimmedEmail, password)
+        : register(trimmedEmail, password, `${firstName.trim()} ${lastName.trim()}`.trim());
+    authPromise
       .then((auth) => {
         setIsSubmitting(false);
         onAuthenticated(auth);
@@ -165,6 +198,9 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'register' : 'login');
+    setConfirmPassword('');
+    setFirstName('');
+    setLastName('');
   };
 
   const openForgotPassword = () => {
@@ -244,9 +280,27 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             ))}
 
             <View style={[styles.authPage, { width: SCREEN_WIDTH, height: pagerHeight }]}>
+              <KeyboardAvoidingView behavior="padding" style={styles.authPageContent}>
               <Text style={styles.formTitle}>
                 {mode === 'login' ? t('login.welcomeBack') : t('login.createAccount')}
               </Text>
+
+              {mode === 'register' && (
+                <View style={styles.nameRow}>
+                  <GlassTextInput
+                    style={[styles.input, styles.nameInput]}
+                    placeholder={t('login.firstNamePlaceholder')}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                  />
+                  <GlassTextInput
+                    style={[styles.input, styles.nameInput]}
+                    placeholder={t('login.lastNamePlaceholder')}
+                    value={lastName}
+                    onChangeText={setLastName}
+                  />
+                </View>
+              )}
 
               <GlassTextInput
                 style={styles.input}
@@ -271,6 +325,24 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                   <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textMuted} />
                 </Pressable>
               </GlassView>
+
+              {mode === 'register' && (
+                <GlassView style={styles.passwordContainer}>
+                  <GlassTextInput
+                    style={styles.passwordInput}
+                    placeholder={t('login.confirmPasswordPlaceholder')}
+                    secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                  />
+                  <Pressable
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword((prev) => !prev)}
+                  >
+                    <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color={colors.textMuted} />
+                  </Pressable>
+                </GlassView>
+              )}
 
               {mode === 'login' && (
                 <Pressable onPress={openForgotPassword} style={styles.forgotPasswordLink}>
@@ -327,6 +399,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 </Text>
                 .
               </Text>
+              </KeyboardAvoidingView>
             </View>
           </ScrollView>
         )}
@@ -477,6 +550,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
+  },
+  authPageContent: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
     justifyContent: 'center',
@@ -489,6 +565,13 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
   },
   passwordContainer: {
     flexDirection: 'row',

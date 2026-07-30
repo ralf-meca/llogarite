@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 
 const CODE_CHARS = '0123456789';
 const CODE_LENGTH = 6;
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 function generateCode(): string {
     let code = '';
@@ -35,6 +36,19 @@ export class UsersService {
 
     async deleteAccount(id: string): Promise<void> {
         await this.usersRepository.delete(id);
+    }
+
+    async setAvatar(id: string, image: string): Promise<void> {
+        const base64 = image.slice(image.indexOf(',') + 1);
+        const approxBytes = (base64.length * 3) / 4;
+        if (approxBytes > MAX_AVATAR_BYTES) {
+            throw new BadRequestException('Image is too large');
+        }
+        await this.usersRepository.update(id, { avatarUrl: image });
+    }
+
+    async removeAvatar(id: string): Promise<void> {
+        await this.usersRepository.update(id, { avatarUrl: null });
     }
 
     async updatePushToken(id: string, pushToken: string | null): Promise<void> {
