@@ -18,13 +18,12 @@ export type ShareableRow = {
   quantity: number;
   unitPrice: number;
   buddyQuantities: Record<string, number>;
-  excludedBuddyIds: string[];
 };
 
 // Each buddy's own claimed quantity on a row is entirely their share. Whatever quantity is
 // left unclaimed on that row is pooled and divided evenly across the owner + whichever buddies
-// did NOT claim a specific quantity on that row themselves (and aren't explicitly excluded) —
-// a buddy who already took their own cut of a row doesn't also get a slice of what's left.
+// did NOT claim a specific quantity on that row themselves — a buddy who already took their
+// own cut of a row doesn't also get a slice of what's left.
 export function computeBuddyShareFromRows(rows: ShareableRow[], buddyUserId: string, allBuddyIds: string[]): number {
   let total = 0;
   for (const row of rows) {
@@ -37,8 +36,7 @@ export function computeBuddyShareFromRows(rows: ShareableRow[], buddyUserId: str
       continue;
     }
 
-    const participatesInRemainder = (id: string) =>
-      (row.buddyQuantities[id] ?? 0) === 0 && !row.excludedBuddyIds.includes(id);
+    const participatesInRemainder = (id: string) => (row.buddyQuantities[id] ?? 0) === 0;
     if (!participatesInRemainder(buddyUserId)) {
       continue;
     }
@@ -54,7 +52,6 @@ export function computeShareForBuddy(invoice: SavedInvoice, buddyUserId: string)
     quantity: item.quantity,
     unitPrice: item.unitPriceAfterVat,
     buddyQuantities: item.buddyQuantities ?? {},
-    excludedBuddyIds: item.excludedBuddyIds ?? [],
   }));
   return computeBuddyShareFromRows(rows, buddyUserId, allBuddyIds);
 }

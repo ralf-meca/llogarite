@@ -12,11 +12,30 @@ type BuddyPickerProps = {
   selectedIds: string[];
   onToggle: (buddyId: string) => void;
   iconOnly?: boolean;
+  // Optional controlled open state, so a caller can share one picker's modal across
+  // multiple trigger buttons instead of each trigger owning its own modal instance.
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  // Suppresses this instance's own trigger button, rendering only the modal. Lets a
+  // caller place the Modal-owning instance somewhere that's never a display:'none'
+  // descendant (that hides the Modal's content from repainting) while driving it
+  // from external trigger buttons elsewhere via isOpen/onOpenChange.
+  hideTrigger?: boolean;
 };
 
-export function BuddyPicker({ buddies, selectedIds, onToggle, iconOnly }: BuddyPickerProps) {
+export function BuddyPicker({
+  buddies,
+  selectedIds,
+  onToggle,
+  iconOnly,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  hideTrigger,
+}: BuddyPickerProps) {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = controlledIsOpen ?? internalIsOpen;
+  const setIsOpen = onOpenChange ?? setInternalIsOpen;
   const selectedBuddies = buddies.filter((buddy) => selectedIds.includes(buddy.id));
   const label =
     selectedBuddies.length === 0
@@ -25,7 +44,7 @@ export function BuddyPicker({ buddies, selectedIds, onToggle, iconOnly }: BuddyP
 
   return (
     <>
-      {iconOnly ? (
+      {hideTrigger ? null : iconOnly ? (
         <Pressable style={styles.iconTrigger} onPress={() => setIsOpen(true)} hitSlop={8}>
           <Ionicons name="person-add-outline" size={16} color={colors.primary} />
         </Pressable>
@@ -48,7 +67,16 @@ export function BuddyPicker({ buddies, selectedIds, onToggle, iconOnly }: BuddyP
               {buddies.map((buddy) => {
                 const isSelected = selectedIds.includes(buddy.id);
                 return (
-                  <Pressable key={buddy.id} style={styles.row} onPress={() => onToggle(buddy.id)}>
+                  <Pressable
+                    key={buddy.id}
+                    style={styles.row}
+                    onPress={() => {
+                      onToggle(buddy.id);
+                      if (buddies.length === 1) {
+                        setIsOpen(false);
+                      }
+                    }}
+                  >
                     <UserAvatar user={buddy} size={32} />
                     <Text style={[styles.rowText, isSelected && styles.rowTextActive]} numberOfLines={1}>
                       {buddy.name ?? buddy.email}

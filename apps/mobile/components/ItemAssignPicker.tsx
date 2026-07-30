@@ -5,6 +5,7 @@ import type { Buddy } from '../lib/buddiesApi';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
+import { MultiPersonAvatar } from './MultiPersonAvatar';
 import { UserAvatar } from './UserAvatar';
 
 type ItemAssignPickerProps = {
@@ -12,9 +13,7 @@ type ItemAssignPickerProps = {
   rowQuantity: number;
   unitPrice: number;
   buddyQuantities: Record<string, number>;
-  excludedBuddyIds: string[];
   onQuantityChange: (buddyId: string, quantity: number) => void;
-  onToggleExcluded: (buddyId: string) => void;
 };
 
 export function ItemAssignPicker({
@@ -22,24 +21,32 @@ export function ItemAssignPicker({
   rowQuantity,
   unitPrice,
   buddyQuantities,
-  excludedBuddyIds,
   onQuantityChange,
-  onToggleExcluded,
 }: ItemAssignPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const [mode, setMode] = useState<'quantity' | 'percentage'>('quantity');
 
-  const isCustomized =
-    Object.values(buddyQuantities).some((qty) => qty > 0) || excludedBuddyIds.length > 0;
+  const isCustomized = Object.values(buddyQuantities).some((qty) => qty > 0);
   const assignedQuantity = Object.values(buddyQuantities).reduce((sum, qty) => sum + qty, 0);
   const remainingQuantity = Math.max(0, rowQuantity - assignedQuantity);
+  const remainingPercent = rowQuantity > 0 ? Math.ceil((remainingQuantity / rowQuantity) * 100) : 0;
+  const claimedBuddies = buddies.filter((buddy) => (buddyQuantities[buddy.id] ?? 0) > 0);
+  const percentStep = 5;
+
+  const toPercent = (quantity: number) => (rowQuantity > 0 ? Math.round((quantity / rowQuantity) * 100) : 0);
+  const fromPercent = (percent: number) => (percent / 100) * rowQuantity;
 
   return (
     <>
       <Pressable onPress={() => setIsOpen(true)}>
-        <View style={[styles.circle, isCustomized && styles.circleCustomized]}>
-          <Ionicons name="people" size={14} color={isCustomized ? '#ffffff' : colors.primary} />
-        </View>
+        {claimedBuddies.length > 0 ? (
+          <MultiPersonAvatar people={claimedBuddies} size={34} />
+        ) : (
+          <View style={[styles.circle, isCustomized && styles.circleCustomized]}>
+            <Ionicons name="people" size={19} color={isCustomized ? '#ffffff' : colors.primary} />
+          </View>
+        )}
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
@@ -51,12 +58,41 @@ export function ItemAssignPicker({
                 <Text style={styles.quantityLabel}>{t('itemAssignPicker.quantity')}</Text>
                 <Text style={styles.quantityValue}>{rowQuantity}</Text>
               </View>
-              <ScrollView bounces={false}>
+              <View style={styles.modeToggle}>
+                <Pressable
+                  style={[styles.modeOption, mode === 'quantity' && styles.modeOptionActive]}
+                  onPress={() => setMode('quantity')}
+                >
+                  <Text style={[styles.modeOptionText, mode === 'quantity' && styles.modeOptionTextActive]}>
+                    {t('itemAssignPicker.quantityMode')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modeOption, mode === 'percentage' && styles.modeOptionActive]}
+                  onPress={() => setMode('percentage')}
+                >
+                  <Text style={[styles.modeOptionText, mode === 'percentage' && styles.modeOptionTextActive]}>
+                    {t('itemAssignPicker.percentageMode')}
+                  </Text>
+                </Pressable>
+              </View>
+              <ScrollView style={styles.scrollArea} bounces={false}>
                 {buddies.map((buddy) => {
                   const quantity = buddyQuantities[buddy.id] ?? 0;
                   const otherAssigned = assignedQuantity - quantity;
                   const maxQuantity = Math.max(0, rowQuantity - otherAssigned);
-                  const isExcluded = excludedBuddyIds.includes(buddy.id);
+
+                  const percent = toPercent(quantity);
+                  const maxPercent = toPercent(maxQuantity);
+                  const step = mode === 'percentage' ? percentStep : 1;
+                  const value = mode === 'percentage' ? percent : quantity;
+                  const maxValue = mode === 'percentage' ? maxPercent : maxQuantity;
+
+                  const applyValue = (nextValue: number) => {
+                    const clamped = Math.max(0, Math.min(maxValue, nextValue));
+                    onQuantityChange(buddy.id, mode === 'percentage' ? fromPercent(clamped) : clamped);
+                  };
+
                   return (
                     <View key={buddy.id} style={styles.buddyRow}>
                       <UserAvatar user={buddy} size={22} />
@@ -64,37 +100,24 @@ export function ItemAssignPicker({
                         {buddy.name ?? buddy.email}
                       </Text>
                       <View style={styles.stepper}>
-                        <Pressable
-                          onPress={() => onQuantityChange(buddy.id, Math.max(0, quantity - 1))}
-                          disabled={quantity <= 0}
-                          hitSlop={6}
-                        >
+                        <Pressable onPress={() => applyValue(value - step)} disabled={value <= 0} hitSlop={6}>
                           <Ionicons
                             name="remove-circle-outline"
                             size={20}
-                            color={quantity <= 0 ? '#d1d5db' : colors.primary}
+                            color={value <= 0 ? '#d1d5db' : colors.primary}
                           />
                         </Pressable>
-                        <Text style={styles.stepperValue}>{quantity}</Text>
-                        <Pressable
-                          onPress={() => onQuantityChange(buddy.id, Math.min(maxQuantity, quantity + 1))}
-                          disabled={quantity >= maxQuantity}
-                          hitSlop={6}
-                        >
+                        <Text style={styles.stepperValue}>
+                          {mode === 'percentage' ? `${value}%` : value}
+                        </Text>
+                        <Pressable onPress={() => applyValue(value + step)} disabled={value >= maxValue} hitSlop={6}>
                           <Ionicons
                             name="add-circle-outline"
                             size={20}
-                            color={quantity >= maxQuantity ? '#d1d5db' : colors.primary}
+                            color={value >= maxValue ? '#d1d5db' : colors.primary}
                           />
                         </Pressable>
                       </View>
-                      <Pressable onPress={() => onToggleExcluded(buddy.id)} hitSlop={6}>
-                        <Ionicons
-                          name={isExcluded ? 'square-outline' : 'checkbox'}
-                          size={20}
-                          color={isExcluded ? '#9ca3af' : '#10b981'}
-                        />
-                      </Pressable>
                     </View>
                   );
                 })}
@@ -103,11 +126,16 @@ export function ItemAssignPicker({
                     <Ionicons name="people" size={16} color={colors.primary} />
                   </View>
                   <Text style={styles.restLabel}>{t('itemAssignPicker.restOfGroup')}</Text>
-                  <Text style={styles.restAmount}>{formatAmount(remainingQuantity * unitPrice)}</Text>
+                  <Text style={styles.restAmount}>
+                    {mode === 'percentage' ? `${remainingPercent}%` : Math.ceil(remainingQuantity)} ·{' '}
+                    {formatAmount(remainingQuantity * unitPrice)}
+                  </Text>
                 </View>
               </ScrollView>
               <Text style={styles.sharedInfo}>
-                {t('itemAssignPicker.sharedInfo', { remaining: remainingQuantity, total: rowQuantity })}
+                {mode === 'percentage'
+                  ? t('itemAssignPicker.sharedInfoPercent', { percent: remainingPercent })
+                  : t('itemAssignPicker.sharedInfo', { remaining: Math.ceil(remainingQuantity), total: rowQuantity })}
               </Text>
             </View>
           </Pressable>
@@ -119,9 +147,9 @@ export function ItemAssignPicker({
 
 const styles = StyleSheet.create({
   circle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryTint,
@@ -143,8 +171,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 14,
     padding: 16,
-    maxHeight: 380,
+    maxHeight: 520,
     boxShadow: '0px 8px 24px rgba(0,0,0,0.2)',
+  },
+  scrollArea: {
+    maxHeight: 340,
   },
   menuTitle: {
     fontSize: 14,
@@ -166,6 +197,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1f2937',
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 8,
+  },
+  modeOption: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  modeOptionActive: {
+    backgroundColor: '#ffffff',
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+  },
+  modeOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  modeOptionTextActive: {
+    color: colors.primary,
   },
   buddyRow: {
     flexDirection: 'row',

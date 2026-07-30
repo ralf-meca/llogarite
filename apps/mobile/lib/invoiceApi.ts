@@ -42,9 +42,8 @@ export type InvoiceItem = {
   category?: string;
   // Units of this row's quantity claimed exclusively by a buddy (buddyId -> qty, 0..quantity).
   // Whatever quantity is left unclaimed falls into the shared pool, split evenly across the
-  // owner + every attached buddy except those listed in excludedBuddyIds for this row.
+  // owner + every attached buddy who didn't claim anything on this row.
   buddyQuantities?: Record<string, number>;
-  excludedBuddyIds?: string[];
 };
 
 export type InvoiceSeller = {

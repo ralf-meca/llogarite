@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Modal, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
@@ -36,7 +36,7 @@ import { dominantCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
 import { fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
 import { showInterstitialAd } from "./lib/ads";
-import { parseInvoiceQrUrl, verifyInvoice, type InvoiceVerificationResult } from "./lib/invoiceApi";
+import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
@@ -103,6 +103,22 @@ const ONBOARDING_STEPS: OnboardingStepConfig[] = [
     { screen: "buddies", titleKey: "onboarding.step8Title", messageKey: "onboarding.step8Message", premium: true },
 ];
 
+// Mirrors the backend's own comparison (invoices.service.ts) so a scanned invoice's
+// "verified" status only gets dropped when the item rows themselves actually changed
+// during the edit step — not because of category auto-suggestion, VAT collapsing, or
+// buddy-split fields that the form round-trips differently than the raw scan result.
+function normalizeItemsForComparison(items: InvoiceItem[]) {
+    return items.map((item) => ({
+        name: item.name.trim(),
+        quantity: item.quantity,
+        unitPriceAfterVat: item.unitPriceAfterVat,
+    }));
+}
+
+function haveItemsChanged(original: InvoiceItem[], next: InvoiceItem[]): boolean {
+    return JSON.stringify(normalizeItemsForComparison(original)) !== JSON.stringify(normalizeItemsForComparison(next));
+}
+
 function AppContent() {
     const { t } = useTranslation();
     const [user, setUser] = useState<AuthUser | null>(null);
@@ -111,11 +127,29 @@ function AppContent() {
     const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
     const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+    const isDrawerVisibleRef = useRef(isDrawerVisible);
+    isDrawerVisibleRef.current = isDrawerVisible;
+    const drawerSwipeResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_evt, gestureState) =>
+                !isDrawerVisibleRef.current && gestureState.dx > 20 && Math.abs(gestureState.dy) < 20,
+            onPanResponderRelease: (_evt, gestureState) => {
+                if (gestureState.dx > 60) {
+                    setIsDrawerVisible(true);
+                }
+            },
+        }),
+    ).current;
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
     const [selectedInvoice, setSelectedInvoice] = useState<SavedInvoice | null>(null);
     const [manualPrefill, setManualPrefill] = useState<InvoiceVerificationResult | null>(null);
+    // Set only when the prefilled data came from a successful QR verification, so
+    // handleManualSubmit knows to save it directly (preserving "verified" unless the
+    // user actually changed the item rows) instead of routing back through the
+    // separate review-then-confirm screen used for plain manual entry.
+    const [scannedVerifiedData, setScannedVerifiedData] = useState<InvoiceVerificationResult | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
@@ -128,7 +162,7 @@ function AppContent() {
     const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
-    const { toasts, showError, dismissToast } = useToasts();
+    const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
     const loadSavedInvoices = useCallback(() => {
         fetchSavedInvoices()
@@ -258,6 +292,20 @@ function AppContent() {
         setScreen("manual");
     };
 
+    const openVerifiedScanForEdit = (data: InvoiceVerificationResult) => {
+        setSelectedInvoice(null);
+        setScannedVerifiedData(data);
+        setManualPrefill(data);
+        setScreen("manual");
+    };
+
+    const findExistingInvoice = (iic: string) => savedInvoices.find((invoice) => invoice.iic === iic);
+
+    const goToExistingInvoice = (existing: SavedInvoice) => {
+        showSuccess(t("app.invoiceAlreadyExists"));
+        handleSelectInvoice(existing);
+    };
+
     const handleScanned = (scannedText: string) => {
         setIsScannerVisible(false);
 
@@ -268,10 +316,16 @@ function AppContent() {
             return;
         }
 
+        const existing = findExistingInvoice(invoiceParams.iic);
+        if (existing) {
+            goToExistingInvoice(existing);
+            return;
+        }
+
         setScreen("invoice");
         setVerification({ status: "loading" });
         verifyInvoice(invoiceParams)
-            .then((data) => setVerification({ status: "success", data: { ...data, verified: true } }))
+            .then((data) => openVerifiedScanForEdit({ ...data, verified: true }))
             .catch((error: Error) => {
                 showError(error.message);
                 fallbackToManualEntry({
@@ -289,6 +343,7 @@ function AppContent() {
         setVerification({ status: "idle" });
         setSelectedInvoice(null);
         setManualPrefill(null);
+        setScannedVerifiedData(null);
     };
 
     const handleManualClose = () => {
@@ -309,6 +364,7 @@ function AppContent() {
         setVerification({ status: "idle" });
         setSelectedInvoice(null);
         setManualPrefill(null);
+        setScannedVerifiedData(null);
         setScreen(detailReturnScreen);
     };
 
@@ -366,10 +422,16 @@ function AppContent() {
                 };
 
                 if (qrParams) {
+                    const existing = findExistingInvoice(qrParams.iic);
+                    if (existing) {
+                        goToExistingInvoice(existing);
+                        return;
+                    }
+
                     setScreen("invoice");
                     setVerification({ status: "loading" });
                     verifyInvoice(qrParams)
-                        .then((data) => setVerification({ status: "success", data: { ...data, verified: true } }))
+                        .then((data) => openVerifiedScanForEdit({ ...data, verified: true }))
                         .catch((error: Error) => {
                             showError(error.message);
                             fallbackToManualEntry(receiptPrefill);
@@ -400,10 +462,17 @@ function AppContent() {
 
                 setIsProcessingReceipt(false);
                 setIsReceiptScannerVisible(false);
+
+                const existing = findExistingInvoice(invoiceParams.iic);
+                if (existing) {
+                    goToExistingInvoice(existing);
+                    return;
+                }
+
                 setScreen("invoice");
                 setVerification({ status: "loading" });
                 verifyInvoice(invoiceParams)
-                    .then((data) => setVerification({ status: "success", data: { ...data, verified: true } }))
+                    .then((data) => openVerifiedScanForEdit({ ...data, verified: true }))
                     .catch((error: Error) => {
                         showError(error.message);
                         fallbackToManualEntry({
@@ -453,6 +522,27 @@ function AppContent() {
                 });
             return;
         }
+
+        if (scannedVerifiedData) {
+            const verified = !haveItemsChanged(scannedVerifiedData.items, data.items);
+            setIsSaving(true);
+            saveInvoice({ ...data, verified })
+                .then(() => {
+                    setIsSaving(false);
+                    setScannedVerifiedData(null);
+                    loadSavedInvoices();
+                    handleClose();
+                    if (!user?.isPremium) {
+                        showInterstitialAd().catch(() => undefined);
+                    }
+                })
+                .catch((error: Error) => {
+                    setIsSaving(false);
+                    showError(error.message);
+                });
+            return;
+        }
+
         setVerification({ status: "success", data: { ...data, verified: false } });
         setScreen("invoice");
     };
@@ -489,7 +579,7 @@ function AppContent() {
             ) : screen === "auth" ? (
                 <LoginScreen onAuthenticated={handleAuthenticated} />
             ) : MAIN_SCREENS.has(screen) ? (
-                <View style={styles.mainWrapper}>
+                <View style={styles.mainWrapper} {...drawerSwipeResponder.panHandlers}>
                     <View style={styles.headerRow}>
                         <Pressable style={styles.menuButton} hitSlop={12} onPress={() => setIsDrawerVisible(true)}>
                             <Ionicons name="menu-outline" size={20} color={colors.primary} />
@@ -602,6 +692,7 @@ function AppContent() {
                     isEditing={Boolean(selectedInvoice)}
                     isSaving={isSaving}
                     onClose={handleManualClose}
+                    onBack={handleCloseDetail}
                     onSubmit={handleManualSubmit}
                 />
             ) : screen === "invoice" ? (

@@ -27,6 +27,7 @@ type ManualInvoiceScreenProps = {
   isEditing?: boolean;
   isSaving?: boolean;
   onClose: () => void;
+  onBack?: () => void;
   onSubmit: (result: InvoiceVerificationResult) => void;
 };
 
@@ -37,7 +38,6 @@ type ItemDraft = {
   category: string;
   categoryTouched: boolean;
   buddyQuantities: Record<string, number>;
-  excludedBuddyIds: string[];
 };
 
 function emptyItem(): ItemDraft {
@@ -48,7 +48,6 @@ function emptyItem(): ItemDraft {
     category: DEFAULT_CATEGORY,
     categoryTouched: false,
     buddyQuantities: {},
-    excludedBuddyIds: [],
   };
 }
 
@@ -60,7 +59,6 @@ function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
     category: item.category ?? suggestCategory(item.name),
     categoryTouched: Boolean(item.category),
     buddyQuantities: item.buddyQuantities ?? {},
-    excludedBuddyIds: item.excludedBuddyIds ?? [],
   }));
 }
 
@@ -69,6 +67,7 @@ export function ManualInvoiceScreen({
   isEditing,
   isSaving,
   onClose,
+  onBack,
   onSubmit,
 }: ManualInvoiceScreenProps) {
   const { t } = useTranslation();
@@ -83,13 +82,10 @@ export function ManualInvoiceScreen({
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(initialData?.buddies ?? []);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
+  const [isBuddyPickerOpen, setIsBuddyPickerOpen] = useState(false);
   const [isItemSplitEnabled, setIsItemSplitEnabled] = useState(() =>
     Boolean(
-      initialData?.items.some(
-        (item) =>
-          Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0) ||
-          (item.excludedBuddyIds?.length ?? 0) > 0,
-      ),
+      initialData?.items.some((item) => Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0)),
     ),
   );
   const { toasts, showError, dismissToast } = useToasts();
@@ -116,7 +112,6 @@ export function ManualInvoiceScreen({
       quantity: Number.isFinite(quantity) ? quantity : 0,
       unitPrice: Number.isFinite(price) ? price : 0,
       buddyQuantities: item.buddyQuantities,
-      excludedBuddyIds: item.excludedBuddyIds,
     };
   });
   const allBuddyIds = selectedBuddies.map((buddy) => buddy.userId);
@@ -128,18 +123,14 @@ export function ManualInvoiceScreen({
         ? current.filter((buddy) => buddy.userId !== buddyId)
         : [...current, { userId: buddyId, paid: false }],
     );
-    // Clear any dangling quantity/exclusion a removed buddy held on any row.
+    // Clear any dangling quantity a removed buddy held on any row.
     setItems((current) =>
       current.map((item) => {
-        if (!(buddyId in item.buddyQuantities) && !item.excludedBuddyIds.includes(buddyId)) {
+        if (!(buddyId in item.buddyQuantities)) {
           return item;
         }
         const { [buddyId]: _removedQuantity, ...restQuantities } = item.buddyQuantities;
-        return {
-          ...item,
-          buddyQuantities: restQuantities,
-          excludedBuddyIds: item.excludedBuddyIds.filter((id) => id !== buddyId),
-        };
+        return { ...item, buddyQuantities: restQuantities };
       }),
     );
   };
@@ -161,27 +152,10 @@ export function ManualInvoiceScreen({
     );
   };
 
-  const toggleItemBuddyExcluded = (index: number, buddyId: string) => {
-    setItems((current) =>
-      current.map((item, i) => {
-        if (i !== index) {
-          return item;
-        }
-        const isExcluded = item.excludedBuddyIds.includes(buddyId);
-        return {
-          ...item,
-          excludedBuddyIds: isExcluded
-            ? item.excludedBuddyIds.filter((id) => id !== buddyId)
-            : [...item.excludedBuddyIds, buddyId],
-        };
-      }),
-    );
-  };
-
   const handleToggleItemSplit = (value: boolean) => {
     setIsItemSplitEnabled(value);
     if (!value) {
-      setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {}, excludedBuddyIds: [] })));
+      setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {} })));
     }
   };
 
@@ -235,7 +209,6 @@ export function ManualInvoiceScreen({
         unitPriceAfterVat: unitPrice,
         category: item.category,
         buddyQuantities: item.buddyQuantities,
-        excludedBuddyIds: item.excludedBuddyIds,
       });
     }
 
@@ -252,15 +225,26 @@ export function ManualInvoiceScreen({
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
-        <GlassView style={styles.closeButton}>
-          {isEditing ? (
-            <MaterialCommunityIcons name="pencil-off-outline" size={18} color="#111827" />
-          ) : (
+      {isEditing && onBack ? (
+        <View style={styles.headerRow}>
+          <Pressable onPress={onBack} style={styles.iconButtonShadow}>
+            <GlassView style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={18} color="#9ca3af" />
+            </GlassView>
+          </Pressable>
+          <Pressable onPress={onClose} style={styles.iconButtonShadow}>
+            <GlassView style={styles.iconButton}>
+              <MaterialCommunityIcons name="pencil-off-outline" size={18} color="#111827" />
+            </GlassView>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
+          <GlassView style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
-          )}
-        </GlassView>
-      </Pressable>
+          </GlassView>
+        </Pressable>
+      )}
 
       <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
         <Text style={styles.title}>{isEditing ? t('manualInvoice.editTitle') : t('manualInvoice.addTitle')}</Text>
@@ -282,24 +266,46 @@ export function ManualInvoiceScreen({
           <View style={styles.pickerSlot}>
             <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
           </View>
-          {selectedBuddies.length === 0 && (
-            <View style={styles.pickerSlot}>
-              <BuddyPicker buddies={buddies} selectedIds={[]} onToggle={toggleBuddy} />
-            </View>
-          )}
+          {/* Just a trigger button here (no Modal inside), so hiding it via style when
+              buddies exist can't suppress repaints for the shared modal below. */}
+          <View style={[styles.pickerSlot, selectedBuddies.length > 0 && styles.hiddenSlot]}>
+            <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
+              <Ionicons name="people-outline" size={14} color="#374151" />
+              <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
+                {t('buddyPicker.addBuddy')}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color="#6b7280" />
+            </Pressable>
+          </View>
         </View>
 
-        {selectedBuddies.length > 0 && (
-          <GlassView style={[styles.card, styles.buddiesCard]}>
-            <View style={styles.buddiesHeader}>
+        {/* The one instance that actually owns the shared Modal, mounted at a stable
+            position that's never a display:'none' descendant — Fabric stops repainting
+            hidden subtrees' content (e.g. these checkboxes) even though state updates
+            correctly, so the Modal itself must never be nested under a hidden ancestor. */}
+        <BuddyPicker
+          buddies={buddies}
+          selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
+          onToggle={toggleBuddy}
+          isOpen={isBuddyPickerOpen}
+          onOpenChange={setIsBuddyPickerOpen}
+          hideTrigger
+        />
+
+        <GlassView
+          style={[styles.card, styles.buddiesCard, selectedBuddies.length === 0 && styles.hiddenCard]}
+        >
+          <View style={styles.buddiesHeader}>
               <Text style={styles.buddiesTitle}>{t('manualInvoice.buddiesTitle')}</Text>
-              <Switch value={isItemSplitEnabled} onValueChange={handleToggleItemSplit} />
-              <BuddyPicker
-                buddies={buddies}
-                selectedIds={selectedBuddies.map((buddy) => buddy.userId)}
-                onToggle={toggleBuddy}
-                iconOnly
-              />
+              <View style={styles.splitModeToggle}>
+                <Text style={styles.splitModeLabel}>
+                  {isItemSplitEnabled ? t('manualInvoice.splitByItem') : t('manualInvoice.splitEvenly')}
+                </Text>
+                <Switch value={isItemSplitEnabled} onValueChange={handleToggleItemSplit} />
+              </View>
+              <Pressable style={styles.addBuddyIconTrigger} onPress={() => setIsBuddyPickerOpen(true)} hitSlop={8}>
+                <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+              </Pressable>
             </View>
             {selectedBuddies.map((buddy) => {
               const info = buddies.find((candidate) => candidate.id === buddy.userId);
@@ -328,8 +334,7 @@ export function ManualInvoiceScreen({
                 </View>
               );
             })}
-          </GlassView>
-        )}
+        </GlassView>
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
@@ -385,9 +390,7 @@ export function ManualInvoiceScreen({
                         Number.isFinite(parseAmountInput(item.unitPrice)) ? parseAmountInput(item.unitPrice) : 0
                       }
                       buddyQuantities={item.buddyQuantities}
-                      excludedBuddyIds={item.excludedBuddyIds}
                       onQuantityChange={(buddyId, quantity) => setItemBuddyQuantity(index, buddyId, quantity)}
-                      onToggleExcluded={(buddyId) => toggleItemBuddyExcluded(index, buddyId)}
                     />
                   </View>
                 )}
@@ -451,6 +454,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonShadow: {
+    borderRadius: 18,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.15)',
+  },
   scroll: {
     flex: 1,
   },
@@ -476,11 +498,43 @@ const styles = StyleSheet.create({
   pickerSlot: {
     flex: 1,
   },
+  hiddenSlot: {
+    display: 'none',
+  },
+  addBuddyIconTrigger: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTint,
+  },
+  buddyPillTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+    maxWidth: '100%',
+  },
+  buddyPillTriggerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    flexShrink: 1,
+  },
   card: {
     padding: 20,
   },
   buddiesCard: {
     marginBottom: 16,
+  },
+  hiddenCard: {
+    display: 'none',
   },
   buddiesHeader: {
     flexDirection: 'row',
@@ -488,6 +542,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 8,
+  },
+  splitModeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  splitModeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6b7280',
   },
   buddiesTitle: {
     flex: 1,
@@ -535,7 +599,7 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   assignColumn: {
-    width: 28,
+    width: 38,
     marginLeft: 6,
     alignItems: 'center',
     justifyContent: 'center',
