@@ -72,6 +72,20 @@ type Mode = 'login' | 'register';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const EMAIL_DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com', 'hotmail.com'];
+
+function getEmailSuggestions(value: string): string[] {
+  const at = value.indexOf('@');
+  if (at <= 0) {
+    return [];
+  }
+  const local = value.slice(0, at);
+  const domainPart = value.slice(at + 1);
+  return EMAIL_DOMAINS.filter((domain) => domain !== domainPart && domain.startsWith(domainPart)).map(
+    (domain) => `${local}@${domain}`,
+  );
+}
+
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('login');
@@ -310,6 +324,19 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 value={email}
                 onChangeText={setEmail}
               />
+              {getEmailSuggestions(email).length > 0 && (
+                <View style={styles.emailSuggestions}>
+                  {getEmailSuggestions(email).map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      style={styles.emailSuggestionChip}
+                      onPress={() => setEmail(suggestion)}
+                    >
+                      <Text style={styles.emailSuggestionText}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
               <GlassView style={styles.passwordContainer}>
                 <GlassTextInput
                   style={styles.passwordInput}
@@ -432,6 +459,19 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               value={forgotEmail}
               onChangeText={setForgotEmail}
             />
+            {getEmailSuggestions(forgotEmail).length > 0 && (
+              <View style={styles.emailSuggestions}>
+                {getEmailSuggestions(forgotEmail).map((suggestion) => (
+                  <Pressable
+                    key={suggestion}
+                    style={styles.emailSuggestionChip}
+                    onPress={() => setForgotEmail(suggestion)}
+                  >
+                    <Text style={styles.emailSuggestionText}>{suggestion}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             <GlassButton
               label={isSendingReset ? t('login.forgotPasswordSending') : t('login.forgotPasswordSend')}
               variant="accent"
@@ -565,6 +605,24 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  emailSuggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  emailSuggestionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+  },
+  emailSuggestionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   nameRow: {
     flexDirection: 'row',
