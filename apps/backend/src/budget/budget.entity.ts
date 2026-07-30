@@ -24,6 +24,9 @@ export class Budget {
     @Column({ type: 'double precision' })
     amount: number;
 
+    @Column({ type: 'jsonb', nullable: true })
+    categoryAllocations: Record<string, { mode: 'percent' | 'amount'; value: number }> | null;
+
     @CreateDateColumn()
     createdAt: Date;
 

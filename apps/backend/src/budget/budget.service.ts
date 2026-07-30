@@ -14,13 +14,17 @@ export class BudgetService {
         return this.budgetRepository.findOne({ where: { userId } });
     }
 
-    async upsert(userId: string, amount: number): Promise<Budget> {
+    async upsert(
+        userId: string,
+        amount: number,
+        categoryAllocations: Record<string, { mode: 'percent' | 'amount'; value: number }> | null,
+    ): Promise<Budget> {
         const existing = await this.budgetRepository.findOne({ where: { userId } });
         if (existing) {
-            await this.budgetRepository.update(existing.id, { amount });
-            return { ...existing, amount };
+            await this.budgetRepository.update(existing.id, { amount, categoryAllocations });
+            return { ...existing, amount, categoryAllocations };
         }
-        const budget = this.budgetRepository.create({ userId, amount });
+        const budget = this.budgetRepository.create({ userId, amount, categoryAllocations });
         return this.budgetRepository.save(budget);
     }
 }

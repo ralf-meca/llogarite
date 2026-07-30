@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { changePassword, deleteAccount, removeAvatar, updateAvatar, type AuthUser } from '../lib/authApi';
 import { useTranslation } from '../lib/i18n';
@@ -44,6 +44,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
   const { toasts, showError, dismissToast } = useToasts();
   const { first: firstName, last: lastName } = splitName(user?.name);
 
@@ -130,15 +131,12 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
   };
 
   const handleChangePhoto = () => {
-    const options: Array<{ text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }> = [
-      { text: t('userMenu.takePhoto'), onPress: takeAvatarPhoto },
-      { text: t('userMenu.choosePhoto'), onPress: pickAvatarFromLibrary },
-    ];
-    if (user?.avatarUrl) {
-      options.push({ text: t('userMenu.removePhoto'), style: 'destructive', onPress: handleRemovePhoto });
-    }
-    options.push({ text: t('common.cancel'), style: 'cancel' });
-    Alert.alert(t('userMenu.changePhotoTitle'), undefined, options);
+    setIsPhotoMenuOpen(true);
+  };
+
+  const choosePhotoOption = (action: () => void) => {
+    setIsPhotoMenuOpen(false);
+    action();
   };
 
   const handleShow = () => {
@@ -213,14 +211,11 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                     </View>
 
                     <Pressable
-                      style={styles.logoutTrigger}
-                      onPress={() => {
-                        onClose();
-                        onLogout();
-                      }}
+                      style={({ pressed }) => [styles.dangerTrigger, pressed && styles.dangerTriggerPressed]}
+                      onPress={() => setView('deleteAccountConfirm')}
                     >
-                      <Ionicons name="log-out-outline" size={20} color={colors.white} />
-                      <Text style={styles.logoutTriggerText}>{t('userMenu.logout')}</Text>
+                      <Ionicons name="trash-outline" size={13} color={colors.danger} />
+                      <Text style={styles.dangerTriggerText}>{t('userMenu.deleteAccount')}</Text>
                     </Pressable>
                   </View>
 
@@ -241,9 +236,15 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                   <Ionicons name="help-circle-outline" size={20} color="#1f2937" />
                   <Text style={styles.menuItemText}>{t('userMenu.restartTour')}</Text>
                 </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => setView('deleteAccountConfirm')}>
-                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
-                  <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.deleteAccount')}</Text>
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                >
+                  <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+                  <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.logout')}</Text>
                 </Pressable>
               </>
             )}
@@ -311,6 +312,38 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
         </Pressable>
       </Pressable>
 
+      <Modal
+        visible={isPhotoMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsPhotoMenuOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setIsPhotoMenuOpen(false)}>
+          <Pressable style={styles.photoMenuWrapper} onPress={(event) => event.stopPropagation()}>
+            <GlassView style={styles.photoMenu}>
+              <Text style={styles.title}>{t('userMenu.changePhotoTitle')}</Text>
+              <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(takeAvatarPhoto)}>
+                <Ionicons name="camera-outline" size={20} color="#1f2937" />
+                <Text style={styles.menuItemText}>{t('userMenu.takePhoto')}</Text>
+              </Pressable>
+              <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(pickAvatarFromLibrary)}>
+                <Ionicons name="images-outline" size={20} color="#1f2937" />
+                <Text style={styles.menuItemText}>{t('userMenu.choosePhoto')}</Text>
+              </Pressable>
+              {user?.avatarUrl && (
+                <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(handleRemovePhoto)}>
+                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                  <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.removePhoto')}</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={() => setIsPhotoMenuOpen(false)}>
+                <Text style={styles.backText}>{t('common.cancel')}</Text>
+              </Pressable>
+            </GlassView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </Modal>
   );
@@ -321,6 +354,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  photoMenuWrapper: {
+    width: '80%',
+  },
+  photoMenu: {
+    padding: 24,
   },
   backdropBlur: {
     ...StyleSheet.absoluteFillObject,
@@ -348,7 +387,7 @@ const styles = StyleSheet.create({
   },
   profileRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     gap: 12,
   },
   profileInfo: {
@@ -392,21 +431,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
   },
-  logoutTrigger: {
+  dangerTrigger: {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    minWidth: 72,
-    backgroundColor: colors.danger,
-    borderRadius: radius.card,
-    boxShadow: '0px 3px 8px rgba(220,38,38,0.35)',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    minWidth: 42,
+    backgroundColor: colors.dangerTint,
+    borderRadius: radius.card - 4,
+    borderWidth: 1,
+    borderColor: 'rgba(220,38,38,0.25)',
   },
-  logoutTriggerText: {
-    fontSize: 11,
+  dangerTriggerPressed: {
+    opacity: 0.7,
+  },
+  dangerTriggerText: {
+    width: 42,
+    fontSize: 8,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.danger,
     textAlign: 'center',
   },
   menuItem: {

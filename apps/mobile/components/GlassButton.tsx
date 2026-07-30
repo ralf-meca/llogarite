@@ -66,5 +66,6 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: '600',
     fontSize: 16,
+    textAlign: 'center',
   },
 });

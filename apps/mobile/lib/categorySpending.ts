@@ -1,4 +1,5 @@
 import { DEFAULT_CATEGORY } from './categories';
+import { currentMonthKey, monthKeyOf } from './monthlySpending';
 import type { SavedInvoice } from './savedInvoicesApi';
 
 export type CategorySpending = {
@@ -21,6 +22,12 @@ export function groupByCategory(invoices: SavedInvoice[]): CategorySpending[] {
   return Array.from(totals.entries())
     .map(([key, total]) => ({ key, label: key, total }))
     .sort((a, b) => b.total - a.total);
+}
+
+export function currentMonthCategoryTotals(invoices: SavedInvoice[]): CategorySpending[] {
+  const currentKey = currentMonthKey();
+  const thisMonth = invoices.filter((invoice) => monthKeyOf(invoice.data.dateTimeCreated) === currentKey);
+  return groupByCategory(thisMonth);
 }
 
 export function dominantCategory(invoice: SavedInvoice): string {
