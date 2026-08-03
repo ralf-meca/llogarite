@@ -8,9 +8,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/env": "^16.2.12",
+    "@swc/helpers": "^0.5.15",
     "next": "^16.2.12",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "styled-jsx": "^5.1.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
