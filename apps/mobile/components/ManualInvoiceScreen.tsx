@@ -48,6 +48,7 @@ type ItemDraft = {
   category: string;
   categoryTouched: boolean;
   buddyQuantities: Record<string, number>;
+  buddySplitTouched: boolean;
 };
 
 function emptyItem(): ItemDraft {
@@ -58,6 +59,7 @@ function emptyItem(): ItemDraft {
     category: DEFAULT_CATEGORY,
     categoryTouched: false,
     buddyQuantities: {},
+    buddySplitTouched: false,
   };
 }
 
@@ -69,7 +71,19 @@ function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
     category: item.category ?? suggestCategory(item.name),
     categoryTouched: Boolean(item.category),
     buddyQuantities: item.buddyQuantities ?? {},
+    buddySplitTouched: Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0),
   }));
+}
+
+// Even split of a row's quantity across the owner + every selected buddy, e.g. a
+// 2-quantity row with one buddy defaults to 1 for them; a 1-quantity row defaults to 0.5
+// (shown as 50% in the picker). Only applied to rows the user hasn't customized yet.
+function defaultBuddyQuantities(rowQuantity: number, buddyIds: string[]): Record<string, number> {
+  if (buddyIds.length === 0 || !Number.isFinite(rowQuantity) || rowQuantity <= 0) {
+    return {};
+  }
+  const share = rowQuantity / (buddyIds.length + 1);
+  return Object.fromEntries(buddyIds.map((id) => [id, share]));
 }
 
 export function ManualInvoiceScreen({
@@ -126,21 +140,37 @@ export function ManualInvoiceScreen({
   });
   const allBuddyIds = selectedBuddies.map((buddy) => buddy.userId);
   const getBuddyShare = (buddyId: string) => computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds);
+  const buddiesTotal = allBuddyIds.reduce((sum, buddyId) => sum + getBuddyShare(buddyId), 0);
+  const groupShare = total - buddiesTotal;
 
   const toggleBuddy = (buddyId: string) => {
+    const isRemoving = selectedBuddies.some((buddy) => buddy.userId === buddyId);
+    const nextBuddyIds = isRemoving
+      ? selectedBuddies.filter((buddy) => buddy.userId !== buddyId).map((buddy) => buddy.userId)
+      : [...selectedBuddies.map((buddy) => buddy.userId), buddyId];
+
     setSelectedBuddies((current) =>
       current.some((buddy) => buddy.userId === buddyId)
         ? current.filter((buddy) => buddy.userId !== buddyId)
         : [...current, { userId: buddyId, paid: false }],
     );
-    // Clear any dangling quantity a removed buddy held on any row.
+
     setItems((current) =>
       current.map((item) => {
-        if (!(buddyId in item.buddyQuantities)) {
+        if (item.buddySplitTouched) {
+          // Clear any dangling quantity a removed buddy held on a row the user customized.
+          if (!(buddyId in item.buddyQuantities)) {
+            return item;
+          }
+          const { [buddyId]: _removedQuantity, ...restQuantities } = item.buddyQuantities;
+          return { ...item, buddyQuantities: restQuantities };
+        }
+        if (!isItemSplitEnabled) {
           return item;
         }
-        const { [buddyId]: _removedQuantity, ...restQuantities } = item.buddyQuantities;
-        return { ...item, buddyQuantities: restQuantities };
+        const quantity = Number(item.quantity);
+        const rowQuantity = Number.isFinite(quantity) ? quantity : 0;
+        return { ...item, buddyQuantities: defaultBuddyQuantities(rowQuantity, nextBuddyIds) };
       }),
     );
   };
@@ -157,7 +187,7 @@ export function ManualInvoiceScreen({
         } else {
           nextQuantities[buddyId] = quantity;
         }
-        return { ...item, buddyQuantities: nextQuantities };
+        return { ...item, buddyQuantities: nextQuantities, buddySplitTouched: true };
       }),
     );
   };
@@ -165,8 +195,20 @@ export function ManualInvoiceScreen({
   const handleToggleItemSplit = (value: boolean) => {
     setIsItemSplitEnabled(value);
     if (!value) {
-      setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {} })));
+      setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {}, buddySplitTouched: false })));
+      return;
     }
+    const buddyIds = selectedBuddies.map((buddy) => buddy.userId);
+    setItems((current) =>
+      current.map((item) => {
+        if (item.buddySplitTouched || buddyIds.length === 0) {
+          return item;
+        }
+        const quantity = Number(item.quantity);
+        const rowQuantity = Number.isFinite(quantity) ? quantity : 0;
+        return { ...item, buddyQuantities: defaultBuddyQuantities(rowQuantity, buddyIds) };
+      }),
+    );
   };
 
   const setBuddyPaid = (buddyId: string, paid: boolean) => {
@@ -188,10 +230,36 @@ export function ManualInvoiceScreen({
   };
 
   const updateItem = (index: number, patch: Partial<ItemDraft>) => {
-    setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+    setItems((current) =>
+      current.map((item, i) => {
+        if (i !== index) {
+          return item;
+        }
+        const merged = { ...item, ...patch };
+        if ('quantity' in patch && isItemSplitEnabled && !merged.buddySplitTouched && selectedBuddies.length > 0) {
+          const quantity = Number(merged.quantity);
+          merged.buddyQuantities = defaultBuddyQuantities(
+            Number.isFinite(quantity) ? quantity : 0,
+            selectedBuddies.map((buddy) => buddy.userId),
+          );
+        }
+        return merged;
+      }),
+    );
   };
 
-  const addItem = () => setItems((current) => [...current, emptyItem()]);
+  const addItem = () =>
+    setItems((current) => {
+      const draft = emptyItem();
+      if (isItemSplitEnabled && selectedBuddies.length > 0) {
+        const quantity = Number(draft.quantity);
+        draft.buddyQuantities = defaultBuddyQuantities(
+          Number.isFinite(quantity) ? quantity : 0,
+          selectedBuddies.map((buddy) => buddy.userId),
+        );
+      }
+      return [...current, draft];
+    });
 
   const removeItem = (index: number) => {
     setItems((current) => (current.length > 1 ? current.filter((_, i) => i !== index) : current));
@@ -356,6 +424,18 @@ export function ManualInvoiceScreen({
                 </View>
               );
             })}
+            {selectedBuddies.length > 0 && (
+              <View style={styles.buddiesSummary}>
+                <View style={styles.buddiesSummaryRow}>
+                  <Text style={styles.buddiesSummaryLabel}>{t('manualInvoice.buddiesTotal')}</Text>
+                  <Text style={styles.buddiesSummaryValue}>{formatAmount(buddiesTotal)}</Text>
+                </View>
+                <View style={styles.buddiesSummaryRow}>
+                  <Text style={styles.buddiesSummaryLabel}>{t('manualInvoice.groupShare')}</Text>
+                  <Text style={styles.buddiesSummaryValue}>{formatAmount(groupShare)}</Text>
+                </View>
+              </View>
+            )}
         </GlassView>
 
         <GlassView style={styles.card}>
@@ -576,6 +656,7 @@ const styles = StyleSheet.create({
   splitModeOption: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 6,
@@ -634,6 +715,27 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   buddyShareAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  buddiesSummary: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    gap: 6,
+  },
+  buddiesSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  buddiesSummaryLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  buddiesSummaryValue: {
     fontSize: 13,
     fontWeight: '700',
     color: '#1f2937',

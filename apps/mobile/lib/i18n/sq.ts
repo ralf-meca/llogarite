@@ -228,6 +228,8 @@ export const sq: Record<keyof typeof en, string> = {
   'manualInvoice.buddiesTitle': 'Ndaj me shokë',
   'manualInvoice.splitEvenly': 'Ndaj në mënyrë të barabartë',
   'manualInvoice.splitByItem': 'Ndaj sipas artikullit',
+  'manualInvoice.buddiesTotal': 'Totali i shokëve',
+  'manualInvoice.groupShare': 'Pjesa e grupit',
   'itemAssignPicker.title': 'Ndaj këtë artikull',
   'itemAssignPicker.quantity': 'Sasia',
   'itemAssignPicker.quantityMode': 'Sasia',

@@ -25,7 +25,10 @@ export function ItemAssignPicker({
 }: ItemAssignPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<'quantity' | 'percentage'>('quantity');
+  const [mode, setMode] = useState<'quantity' | 'percentage'>(() => {
+    const hasFraction = Object.values(buddyQuantities).some((qty) => qty > 0 && !Number.isInteger(qty));
+    return hasFraction ? 'percentage' : 'quantity';
+  });
 
   const isCustomized = Object.values(buddyQuantities).some((qty) => qty > 0);
   const assignedQuantity = Object.values(buddyQuantities).reduce((sum, qty) => sum + qty, 0);

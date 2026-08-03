@@ -226,6 +226,8 @@ export const en = {
   'manualInvoice.buddiesTitle': 'Split with buddies',
   'manualInvoice.splitEvenly': 'Split evenly',
   'manualInvoice.splitByItem': 'Split by item',
+  'manualInvoice.buddiesTotal': 'Buddies total',
+  'manualInvoice.groupShare': "Group's share",
   'itemAssignPicker.title': 'Split this item',
   'itemAssignPicker.quantity': 'Quantity',
   'itemAssignPicker.quantityMode': 'Quantity',
