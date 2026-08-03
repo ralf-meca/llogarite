@@ -50,15 +50,7 @@
       "./plugins/withWindowsNinjaFix",
       "./plugins/withReleaseMatchingFallbacks",
       "./plugins/withMonorepoMetroRoot",
-      "./plugins/withReleaseSigning",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "2.3.0"
-          }
-        }
-      ]
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "eas": {
