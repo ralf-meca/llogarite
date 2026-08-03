@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { PlusIcon, TrashIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -201,7 +201,7 @@ export function MonthlyPaymentsScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.title}>{t('monthlyPayments.title')}</Text>
           <Pressable style={styles.addButton} onPress={openAdd}>
-            <Ionicons name="add" size={22} color={colors.primary} />
+            <PlusIcon size={22} weight="bold" color={colors.primary} />
           </Pressable>
         </View>
 
@@ -228,7 +228,7 @@ export function MonthlyPaymentsScreen() {
                 </Text>
               </Pressable>
               <Pressable style={styles.deleteButton} onPress={() => handleDelete(payment.id)}>
-                <Ionicons name="trash-outline" size={18} color="#dc2626" />
+                <TrashIcon size={18} color="#dc2626" />
               </Pressable>
             </GlassView>
           );

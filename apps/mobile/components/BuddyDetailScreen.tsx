@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon, CheckCircleIcon } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { buddyInvoiceShares, unpaidTotal, type BuddyInvoiceShare } from '../lib/buddyExpenses';
@@ -57,7 +57,7 @@ export function BuddyDetailScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color="#1f2937" />
+          <ArrowLeftIcon size={22} color="#1f2937" />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
           {buddyName}
@@ -93,7 +93,7 @@ export function BuddyDetailScreen({
                   onPress={() => handleMarkPaid(share)}
                   disabled={isMarking}
                 >
-                  <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
+                  <CheckCircleIcon size={13} weight="fill" color={colors.primary} />
                   <Text style={styles.markPaidButtonText}>
                     {isMarking ? t('common.saving') : t('buddyDetail.markPaid')}
                   </Text>

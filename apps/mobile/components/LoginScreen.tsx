@@ -1,4 +1,3 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -16,6 +15,16 @@ import {
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Svg, { Path } from 'react-native-svg';
+import {
+  ChartPieIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  HandSwipeRightIcon,
+  type Icon,
+  QrCodeIcon,
+  SignInIcon,
+  UsersIcon,
+} from 'phosphor-react-native';
 import { useToasts } from '../hooks/useToasts';
 import { forgotPassword, login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
@@ -30,15 +39,15 @@ import { ToastHost } from './ToastHost';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Slide = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: Icon;
   titleKey: TranslationKey;
   captionKey: TranslationKey;
 };
 
 const SLIDES: Slide[] = [
-  { icon: 'qr-code-outline', titleKey: 'login.slide1Title', captionKey: 'login.slide1Caption' },
-  { icon: 'people-outline', titleKey: 'login.slide2Title', captionKey: 'login.slide2Caption' },
-  { icon: 'pie-chart-outline', titleKey: 'login.slide3Title', captionKey: 'login.slide3Caption' },
+  { icon: QrCodeIcon, titleKey: 'login.slide1Title', captionKey: 'login.slide1Caption' },
+  { icon: UsersIcon, titleKey: 'login.slide2Title', captionKey: 'login.slide2Caption' },
+  { icon: ChartPieIcon, titleKey: 'login.slide3Title', captionKey: 'login.slide3Caption' },
 ];
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
@@ -271,7 +280,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             {SLIDES.map((slide) => (
               <View key={slide.titleKey} style={[styles.slide, { width: SCREEN_WIDTH, height: pagerHeight }]}>
                 <View style={styles.photoPlaceholder}>
-                  <Ionicons name={slide.icon} size={48} color={colors.white} />
+                  <slide.icon size={48} color={colors.white} />
                 </View>
                 <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
                 <Text style={styles.slideCaption}>{t(slide.captionKey)}</Text>
@@ -285,7 +294,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                           { opacity: fingerOpacity, transform: [{ translateX: fingerX }, { scale: fingerScale }] },
                         ]}
                       >
-                        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={30} color={colors.white} />
+                        <HandSwipeRightIcon size={30} color={colors.white} />
                       </Animated.View>
                     </View>
                   </View>
@@ -349,7 +358,11 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                   style={styles.eyeButton}
                   onPress={() => setShowPassword((prev) => !prev)}
                 >
-                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textMuted} />
+                  {showPassword ? (
+                    <EyeSlashIcon size={22} color={colors.textMuted} />
+                  ) : (
+                    <EyeIcon size={22} color={colors.textMuted} />
+                  )}
                 </Pressable>
               </GlassView>
 
@@ -366,7 +379,11 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                     style={styles.eyeButton}
                     onPress={() => setShowConfirmPassword((prev) => !prev)}
                   >
-                    <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color={colors.textMuted} />
+                    {showConfirmPassword ? (
+                      <EyeSlashIcon size={22} color={colors.textMuted} />
+                    ) : (
+                      <EyeIcon size={22} color={colors.textMuted} />
+                    )}
                   </Pressable>
                 </GlassView>
               )}
@@ -436,7 +453,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             {SLIDES.map((slide, index) => (
               <View key={slide.titleKey} style={[styles.dot, index === activeSlide && styles.dotActive]} />
             ))}
-            <Ionicons name="log-in-outline" size={14} color={colors.primarySubtle} />
+            <SignInIcon size={14} color={colors.primarySubtle} />
           </View>
         )}
       </View>

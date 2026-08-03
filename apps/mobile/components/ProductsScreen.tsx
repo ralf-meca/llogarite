@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CaretRightIcon } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
@@ -70,7 +70,7 @@ export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProp
               <Text style={styles.rowName} numberOfLines={1}>
                 {product.name}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+              <CaretRightIcon size={18} color="#9ca3af" />
             </GlassView>
           </Pressable>
         ))}

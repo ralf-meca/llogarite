@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CheckIcon, PencilSimpleIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import {
   fetchBudget,
@@ -46,7 +47,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const [allocations, setAllocations] = useState<Record<CategoryId, AllocationDraft>>(emptyAllocations());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEditingCategories, setIsEditingCategories] = useState(false);
+  const [editingCategoryIds, setEditingCategoryIds] = useState<Set<CategoryId>>(new Set());
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
@@ -111,7 +112,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
     });
   };
 
-  const handleSave = () => {
+  const persistBudget = (onSuccess: () => void) => {
     const amount = parseAmountInput(input);
     if (!Number.isFinite(amount) || amount < 0) {
       showError(t('budget.invalidAmount'));
@@ -130,7 +131,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
         setIsSaving(false);
         setTarget(budget.amount);
         setInput(formatAmountDisplay(budget.amount));
-        setIsEditingCategories(false);
+        onSuccess();
       })
       .catch((error: Error) => {
         setIsSaving(false);
@@ -138,8 +139,26 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
       });
   };
 
+  const handleSave = () => {
+    persistBudget(() => setEditingCategoryIds(new Set()));
+  };
+
+  const startEditingCategory = (categoryId: CategoryId) => {
+    setEditingCategoryIds((current) => new Set(current).add(categoryId));
+  };
+
+  const handleSaveCategory = (categoryId: CategoryId) => {
+    persistBudget(() => {
+      setEditingCategoryIds((current) => {
+        const next = new Set(current);
+        next.delete(categoryId);
+        return next;
+      });
+    });
+  };
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+    <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
       <Text style={styles.title}>{t('budget.title')}</Text>
 
       {!isLoading && target !== null && (
@@ -173,12 +192,6 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
             <Text style={styles.sectionLabel}>{t('budget.splitByCategory')}</Text>
             <Text style={styles.sectionHint}>{t('budget.categoryAllocationHint')}</Text>
           </View>
-          {!isEditingCategories && (
-            <Pressable style={styles.editCategoriesButton} onPress={() => setIsEditingCategories(true)}>
-              <Ionicons name="pencil-outline" size={14} color={colors.primary} />
-              <Text style={styles.editCategoriesButtonText}>{t('common.edit')}</Text>
-            </Pressable>
-          )}
         </View>
 
         <View style={styles.categoryGrid}>
@@ -188,15 +201,31 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
             const resolvedAmount = resolveAllocationAmount(allocation, parseAmountInput(input) || 0);
             const categorySpent = spentByCategory.get(category.id) ?? 0;
             const categoryRatio = resolvedAmount > 0 ? categorySpent / resolvedAmount : 0;
+            const isEditingCategory = editingCategoryIds.has(category.id);
+            const CategoryIcon = categoryIcon(category.id);
 
             return (
               <View key={category.id} style={styles.categoryCube}>
-                <Ionicons name={categoryIcon(category.id)} size={32} color={colors.primary} />
+                <Pressable
+                  style={styles.categoryEditButton}
+                  onPress={() =>
+                    isEditingCategory ? handleSaveCategory(category.id) : startEditingCategory(category.id)
+                  }
+                  disabled={isSaving}
+                >
+                  {isEditingCategory ? (
+                    <CheckIcon size={14} weight="bold" color={colors.primary} />
+                  ) : (
+                    <PencilSimpleIcon size={14} color={colors.primary} />
+                  )}
+                </Pressable>
+
+                <CategoryIcon size={32} color={colors.primary} />
                 <Text style={styles.categoryLabel} numberOfLines={1}>
                   {t(categoryLabelKey(category.id))}
                 </Text>
 
-                {isEditingCategories ? (
+                {isEditingCategory ? (
                   <View style={styles.categoryInputRow}>
                     <GlassTextInput
                       style={styles.categoryInput}
@@ -275,7 +304,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
       </GlassView>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -333,21 +362,6 @@ const styles = StyleSheet.create({
   categorySectionHeaderText: {
     flex: 1,
   },
-  editCategoriesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.primaryTint,
-  },
-  editCategoriesButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
   sectionLabel: {
     marginTop: 8,
     fontSize: 15,
@@ -366,12 +380,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   categoryCube: {
+    position: 'relative',
     width: '47%',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 10,
     backgroundColor: colors.primaryTint,
     borderRadius: 16,
+  },
+  categoryEditButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+    zIndex: 1,
   },
   categoryLabel: {
     marginTop: 8,

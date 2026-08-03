@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ListIcon } from "phosphor-react-native";
 import { scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
@@ -582,7 +582,7 @@ function AppContent() {
                 <View style={styles.mainWrapper} {...drawerSwipeResponder.panHandlers}>
                     <View style={styles.headerRow}>
                         <Pressable style={styles.menuButton} hitSlop={12} onPress={() => setIsDrawerVisible(true)}>
-                            <Ionicons name="menu-outline" size={20} color={colors.primary} />
+                            <ListIcon size={20} color={colors.primary} />
                         </Pressable>
                         <Text style={styles.title}>Llogarite</Text>
                         <View style={styles.headerSpacer} />
@@ -609,11 +609,10 @@ function AppContent() {
                                         <GlassView style={styles.savedRow}>
                                             <View style={styles.savedRowLeft}>
                                                 <View style={styles.savedRowIcon}>
-                                                    <Ionicons
-                                                        name={categoryIcon(dominantCategory(item))}
-                                                        size={18}
-                                                        color={colors.primary}
-                                                    />
+                                                    {(() => {
+                                                        const DominantIcon = categoryIcon(dominantCategory(item));
+                                                        return <DominantIcon size={18} color={colors.primary} />;
+                                                    })()}
                                                 </View>
                                                 <View style={styles.savedRowTextGroup}>
                                                     <View style={styles.savedSellerRow}>

@@ -1,4 +1,15 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  CalendarIcon,
+  CaretRightIcon,
+  CrownIcon,
+  FolderIcon,
+  HouseIcon,
+  ReceiptIcon,
+  TrendUpIcon,
+  UsersIcon,
+  WalletIcon,
+  type Icon,
+} from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AuthUser } from '../lib/authApi';
@@ -20,17 +31,17 @@ const PANEL_WIDTH = Math.min(300, Dimensions.get('window').width * 0.78);
 
 const NAV_ITEMS: {
   key: DrawerScreen;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: Icon;
   labelKey: TranslationKey;
   premium?: boolean;
 }[] = [
-  { key: 'dashboard', icon: 'home-outline', labelKey: 'drawer.dashboard' },
-  { key: 'list', icon: 'receipt-outline', labelKey: 'drawer.list' },
-  { key: 'budget', icon: 'wallet-outline', labelKey: 'drawer.budget' },
-  { key: 'monthlyPayments', icon: 'calendar-outline', labelKey: 'drawer.monthlyPayments' },
-  { key: 'projects', icon: 'folder-outline', labelKey: 'drawer.projects', premium: true },
-  { key: 'products', icon: 'trending-up-outline', labelKey: 'drawer.products', premium: true },
-  { key: 'buddies', icon: 'people-outline', labelKey: 'drawer.buddies', premium: true },
+  { key: 'dashboard', icon: HouseIcon, labelKey: 'drawer.dashboard' },
+  { key: 'list', icon: ReceiptIcon, labelKey: 'drawer.list' },
+  { key: 'budget', icon: WalletIcon, labelKey: 'drawer.budget' },
+  { key: 'monthlyPayments', icon: CalendarIcon, labelKey: 'drawer.monthlyPayments' },
+  { key: 'projects', icon: FolderIcon, labelKey: 'drawer.projects', premium: true },
+  { key: 'products', icon: TrendUpIcon, labelKey: 'drawer.products', premium: true },
+  { key: 'buddies', icon: UsersIcon, labelKey: 'drawer.buddies', premium: true },
 ];
 
 type SideDrawerProps = {
@@ -109,11 +120,7 @@ export function SideDrawer({
                   onPress={() => onNavigate(item.key)}
                 >
                   <View>
-                    <Ionicons
-                      name={item.icon}
-                      size={20}
-                      color={isLocked ? colors.textMuted : isActive ? colors.primary : '#4b5563'}
-                    />
+                    <item.icon size={20} color={isLocked ? colors.textMuted : isActive ? colors.primary : '#4b5563'} />
                     {item.key === 'buddies' && pendingBuddyRequests > 0 && <View style={styles.navBadgeDot} />}
                   </View>
                   <Text
@@ -125,7 +132,7 @@ export function SideDrawer({
                   >
                     {t(item.labelKey)}
                   </Text>
-                  {isLocked && <MaterialCommunityIcons name="crown-outline" size={16} color={colors.primary} />}
+                  {isLocked && <CrownIcon size={16} color={colors.primary} />}
                 </Pressable>
               );
             })}
@@ -147,7 +154,7 @@ export function SideDrawer({
                 </Text>
               )}
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+            <CaretRightIcon size={16} color="#9ca3af" />
           </Pressable>
         </Animated.View>
       </View>

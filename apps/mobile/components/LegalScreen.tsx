@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon } from 'phosphor-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
@@ -211,7 +211,7 @@ export function LegalScreen({ type, onBack }: LegalScreenProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color={colors.textDark} />
+          <ArrowLeftIcon size={22} color={colors.textDark} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
           {title}

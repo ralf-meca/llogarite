@@ -1,5 +1,12 @@
-﻿import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+﻿import * as ImagePicker from 'expo-image-picker';
+import {
+  CameraIcon,
+  ImagesIcon,
+  KeyIcon,
+  QuestionIcon,
+  SignOutIcon,
+  TrashIcon,
+} from 'phosphor-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -194,7 +201,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                           {isUploadingAvatar ? (
                             <ActivityIndicator size="small" color="#ffffff" />
                           ) : (
-                            <Ionicons name="camera" size={12} color="#ffffff" />
+                            <CameraIcon size={12} weight="fill" color="#ffffff" />
                           )}
                         </View>
                       </Pressable>
@@ -214,7 +221,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                       style={({ pressed }) => [styles.dangerTrigger, pressed && styles.dangerTriggerPressed]}
                       onPress={() => setView('deleteAccountConfirm')}
                     >
-                      <Ionicons name="trash-outline" size={13} color={colors.danger} />
+                      <TrashIcon size={13} color={colors.danger} />
                       <Text style={styles.dangerTriggerText}>{t('userMenu.deleteAccount')}</Text>
                     </Pressable>
                   </View>
@@ -228,12 +235,12 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
 
                 {(user?.hasPassword ?? true) && (
                   <Pressable style={styles.menuItem} onPress={() => setView('changePassword')}>
-                    <Ionicons name="key-outline" size={20} color="#1f2937" />
+                    <KeyIcon size={20} color="#1f2937" />
                     <Text style={styles.menuItemText}>{t('userMenu.changePassword')}</Text>
                   </Pressable>
                 )}
                 <Pressable style={styles.menuItem} onPress={onRestartTour}>
-                  <Ionicons name="help-circle-outline" size={20} color="#1f2937" />
+                  <QuestionIcon size={20} color="#1f2937" />
                   <Text style={styles.menuItemText}>{t('userMenu.restartTour')}</Text>
                 </Pressable>
                 <Pressable
@@ -243,7 +250,7 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                     onLogout();
                   }}
                 >
-                  <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+                  <SignOutIcon size={20} color="#dc2626" />
                   <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.logout')}</Text>
                 </Pressable>
               </>
@@ -323,16 +330,16 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
             <GlassView style={styles.photoMenu}>
               <Text style={styles.title}>{t('userMenu.changePhotoTitle')}</Text>
               <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(takeAvatarPhoto)}>
-                <Ionicons name="camera-outline" size={20} color="#1f2937" />
+                <CameraIcon size={20} color="#1f2937" />
                 <Text style={styles.menuItemText}>{t('userMenu.takePhoto')}</Text>
               </Pressable>
               <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(pickAvatarFromLibrary)}>
-                <Ionicons name="images-outline" size={20} color="#1f2937" />
+                <ImagesIcon size={20} color="#1f2937" />
                 <Text style={styles.menuItemText}>{t('userMenu.choosePhoto')}</Text>
               </Pressable>
               {user?.avatarUrl && (
                 <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(handleRemovePhoto)}>
-                  <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                  <TrashIcon size={20} color="#dc2626" />
                   <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.removePhoto')}</Text>
                 </Pressable>
               )}

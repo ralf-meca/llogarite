@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CalendarIcon, CaretDownIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
@@ -83,11 +83,11 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
   return (
     <>
       <Pressable style={styles.trigger} onPress={open}>
-        <Ionicons name="calendar-outline" size={14} color="#374151" />
+        <CalendarIcon size={14} color="#374151" />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
         </Text>
-        <Ionicons name="chevron-down" size={12} color="#6b7280" />
+        <CaretDownIcon size={12} color="#6b7280" />
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>

@@ -1,6 +1,16 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  ArrowLeftIcon,
+  CaretDownIcon,
+  CheckSquareIcon,
+  PencilSlashIcon,
+  SquareIcon,
+  UserPlusIcon,
+  UsersIcon,
+  XCircleIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
@@ -229,12 +239,12 @@ export function ManualInvoiceScreen({
         <View style={styles.headerRow}>
           <Pressable onPress={onBack} style={styles.iconButtonShadow}>
             <GlassView style={styles.iconButton}>
-              <Ionicons name="arrow-back" size={18} color="#9ca3af" />
+              <ArrowLeftIcon size={18} color="#9ca3af" />
             </GlassView>
           </Pressable>
           <Pressable onPress={onClose} style={styles.iconButtonShadow}>
             <GlassView style={styles.iconButton}>
-              <MaterialCommunityIcons name="pencil-off-outline" size={18} color="#111827" />
+              <PencilSlashIcon size={18} color="#111827" />
             </GlassView>
           </Pressable>
         </View>
@@ -270,11 +280,11 @@ export function ManualInvoiceScreen({
               buddies exist can't suppress repaints for the shared modal below. */}
           <View style={[styles.pickerSlot, selectedBuddies.length > 0 && styles.hiddenSlot]}>
             <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
-              <Ionicons name="people-outline" size={14} color="#374151" />
+              <UsersIcon size={14} color="#374151" />
               <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
                 {t('buddyPicker.addBuddy')}
               </Text>
-              <Ionicons name="chevron-down" size={12} color="#6b7280" />
+              <CaretDownIcon size={12} color="#6b7280" />
             </Pressable>
           </View>
         </View>
@@ -297,14 +307,26 @@ export function ManualInvoiceScreen({
         >
           <View style={styles.buddiesHeader}>
               <Text style={styles.buddiesTitle}>{t('manualInvoice.buddiesTitle')}</Text>
-              <View style={styles.splitModeToggle}>
-                <Text style={styles.splitModeLabel}>
-                  {isItemSplitEnabled ? t('manualInvoice.splitByItem') : t('manualInvoice.splitEvenly')}
-                </Text>
-                <Switch value={isItemSplitEnabled} onValueChange={handleToggleItemSplit} />
-              </View>
               <Pressable style={styles.addBuddyIconTrigger} onPress={() => setIsBuddyPickerOpen(true)} hitSlop={8}>
-                <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+                <UserPlusIcon size={16} color={colors.primary} />
+              </Pressable>
+            </View>
+            <View style={styles.splitModeToggle}>
+              <Pressable
+                style={[styles.splitModeOption, !isItemSplitEnabled && styles.splitModeOptionActive]}
+                onPress={() => handleToggleItemSplit(false)}
+              >
+                <Text style={[styles.splitModeOptionText, !isItemSplitEnabled && styles.splitModeOptionTextActive]}>
+                  {t('manualInvoice.splitEvenly')}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.splitModeOption, isItemSplitEnabled && styles.splitModeOptionActive]}
+                onPress={() => handleToggleItemSplit(true)}
+              >
+                <Text style={[styles.splitModeOptionText, isItemSplitEnabled && styles.splitModeOptionTextActive]}>
+                  {t('manualInvoice.splitByItem')}
+                </Text>
               </Pressable>
             </View>
             {selectedBuddies.map((buddy) => {
@@ -312,7 +334,7 @@ export function ManualInvoiceScreen({
               return (
                 <View key={buddy.userId} style={styles.buddyRow}>
                   <Pressable onPress={() => toggleBuddy(buddy.userId)} hitSlop={8}>
-                    <Ionicons name="close" size={18} color="#9ca3af" />
+                    <XIcon size={18} color="#9ca3af" />
                   </Pressable>
                   <Pressable style={styles.buddyRowMain} onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}>
                     <UserAvatar user={info ?? null} size={28} />
@@ -321,11 +343,11 @@ export function ManualInvoiceScreen({
                     </Text>
                     <Text style={styles.buddyShareAmount}>{formatAmount(getBuddyShare(buddy.userId))}</Text>
                     <View style={styles.buddyPaidToggle}>
-                      <Ionicons
-                        name={buddy.paid ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={buddy.paid ? '#10b981' : '#9ca3af'}
-                      />
+                      {buddy.paid ? (
+                        <CheckSquareIcon size={20} weight="fill" color="#10b981" />
+                      ) : (
+                        <SquareIcon size={20} color="#9ca3af" />
+                      )}
                       <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
                         {t('manualInvoice.paid')}
                       </Text>
@@ -399,7 +421,7 @@ export function ManualInvoiceScreen({
                   onPress={() => removeItem(index)}
                   disabled={items.length === 1}
                 >
-                  {items.length > 1 && <Ionicons name="close-circle" size={18} color="#dc2626" />}
+                  {items.length > 1 && <XCircleIcon size={18} weight="fill" color="#dc2626" />}
                 </Pressable>
               </View>
             </View>
@@ -545,13 +567,31 @@ const styles = StyleSheet.create({
   },
   splitModeToggle: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 2,
+    marginHorizontal: -8,
+    marginBottom: 8,
   },
-  splitModeLabel: {
-    fontSize: 11,
+  splitModeOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  splitModeOptionActive: {
+    backgroundColor: '#ffffff',
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+  },
+  splitModeOptionText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#6b7280',
+    textAlign: 'center',
+  },
+  splitModeOptionTextActive: {
+    color: colors.primary,
   },
   buddiesTitle: {
     flex: 1,

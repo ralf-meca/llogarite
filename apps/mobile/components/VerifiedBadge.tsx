@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CheckIcon, QrCodeIcon } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
@@ -62,7 +62,7 @@ export function VerifiedBadge({ size = 28 }: VerifiedBadgeProps) {
           ]}
         />
         <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Ionicons name="qr-code" size={size * 0.6} color="#374151" />
+          <QrCodeIcon size={size * 0.6} weight="fill" color="#374151" />
         </View>
         <View
           style={[
@@ -76,7 +76,7 @@ export function VerifiedBadge({ size = 28 }: VerifiedBadgeProps) {
             },
           ]}
         >
-          <Ionicons name="checkmark" size={badgeSize * 0.75} color="#ffffff" />
+          <CheckIcon size={badgeSize * 0.75} weight="bold" color="#ffffff" />
         </View>
       </Pressable>
 

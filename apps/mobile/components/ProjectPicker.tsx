@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { BriefcaseIcon, CaretDownIcon, CheckIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
@@ -20,11 +20,11 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-        <Ionicons name="briefcase-outline" size={14} color="#374151" />
+        <BriefcaseIcon size={14} color="#374151" />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
         </Text>
-        <Ionicons name="chevron-down" size={12} color="#6b7280" />
+        <CaretDownIcon size={12} color="#6b7280" />
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
@@ -40,7 +40,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                   }}
                 >
                   <Text style={[styles.menuItemText, value === null && styles.menuItemTextActive]}>{noneLabel}</Text>
-                  {value === null && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                  {value === null && <CheckIcon size={16} weight="bold" color={colors.primary} />}
                 </Pressable>
                 {projects.map((project) => (
                   <Pressable
@@ -57,7 +57,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                     >
                       {project.name}
                     </Text>
-                    {value === project.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                    {value === project.id && <CheckIcon size={16} weight="bold" color={colors.primary} />}
                   </Pressable>
                 ))}
                 {projects.length === 0 && <Text style={styles.emptyText}>{t('projectPicker.empty')}</Text>}

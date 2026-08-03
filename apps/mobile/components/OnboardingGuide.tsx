@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { CrownIcon, XIcon } from 'phosphor-react-native';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
@@ -60,12 +60,12 @@ export function OnboardingGuide({ step, stepIndex, totalSteps, onNext, onBack, o
         <View style={styles.row}>
           <View style={styles.bubble}>
             <Pressable style={styles.closeButton} onPress={onSkip} hitSlop={10}>
-              <Ionicons name="close" size={14} color={colors.textMuted} />
+              <XIcon size={14} color={colors.textMuted} />
             </Pressable>
 
             <View style={styles.bubbleHeader}>
               <Text style={styles.bubbleTitle}>{t(step.titleKey)}</Text>
-              {step.premium && <MaterialCommunityIcons name="crown" size={14} color={colors.primary} />}
+              {step.premium && <CrownIcon size={14} weight="fill" color={colors.primary} />}
             </View>
             <Text style={styles.bubbleMessage}>{t(step.messageKey)}</Text>
 

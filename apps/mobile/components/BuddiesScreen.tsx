@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircleIcon, CheckIcon, PaperPlaneTiltIcon, UserPlusIcon, XIcon } from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -178,7 +178,7 @@ export function BuddiesScreen({
           </GlassView>
 
           <Pressable style={styles.addFriendTrigger} onPress={() => setIsAddFriendOpen(true)}>
-            <Ionicons name="person-add" size={20} color={colors.white} />
+            <UserPlusIcon size={20} weight="fill" color={colors.white} />
             <Text style={styles.addFriendTriggerText}>{t('buddies.addFriend')}</Text>
           </Pressable>
         </View>
@@ -197,13 +197,13 @@ export function BuddiesScreen({
                     style={[styles.requestButton, styles.acceptButton]}
                     onPress={() => handleRespond(request.connectionId, true)}
                   >
-                    <Ionicons name="checkmark" size={18} color="#ffffff" />
+                    <CheckIcon size={18} weight="bold" color="#ffffff" />
                   </Pressable>
                   <Pressable
                     style={[styles.requestButton, styles.rejectButton]}
                     onPress={() => handleRespond(request.connectionId, false)}
                   >
-                    <Ionicons name="close" size={18} color="#dc2626" />
+                    <XIcon size={18} weight="bold" color="#dc2626" />
                   </Pressable>
                 </View>
               </View>
@@ -283,7 +283,7 @@ export function BuddiesScreen({
                         onPress={() => handleMarkPaid(share)}
                         disabled={isMarking}
                       >
-                        <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
+                        <CheckCircleIcon size={13} weight="fill" color={colors.primary} />
                         <Text style={styles.actionButtonText}>
                           {isMarking ? t('common.saving') : t('buddyDetail.markPaid')}
                         </Text>
@@ -334,7 +334,7 @@ export function BuddiesScreen({
                         onPress={() => handleNotifyPaid(share)}
                         disabled={isNotifying}
                       >
-                        <Ionicons name="paper-plane-outline" size={13} color={colors.primary} />
+                        <PaperPlaneTiltIcon size={13} color={colors.primary} />
                         <Text style={styles.actionButtonText}>
                           {isNotifying ? t('common.saving') : t('buddies.notifyPaid')}
                         </Text>

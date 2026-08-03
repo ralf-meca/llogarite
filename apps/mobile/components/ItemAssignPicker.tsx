@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { MinusCircleIcon, PlusCircleIcon, UsersIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Buddy } from '../lib/buddiesApi';
@@ -44,7 +44,7 @@ export function ItemAssignPicker({
           <MultiPersonAvatar people={claimedBuddies} size={34} />
         ) : (
           <View style={[styles.circle, isCustomized && styles.circleCustomized]}>
-            <Ionicons name="people" size={19} color={isCustomized ? '#ffffff' : colors.primary} />
+            <UsersIcon size={19} weight="fill" color={isCustomized ? '#ffffff' : colors.primary} />
           </View>
         )}
       </Pressable>
@@ -101,21 +101,13 @@ export function ItemAssignPicker({
                       </Text>
                       <View style={styles.stepper}>
                         <Pressable onPress={() => applyValue(value - step)} disabled={value <= 0} hitSlop={6}>
-                          <Ionicons
-                            name="remove-circle-outline"
-                            size={20}
-                            color={value <= 0 ? '#d1d5db' : colors.primary}
-                          />
+                          <MinusCircleIcon size={20} color={value <= 0 ? '#d1d5db' : colors.primary} />
                         </Pressable>
                         <Text style={styles.stepperValue}>
                           {mode === 'percentage' ? `${value}%` : value}
                         </Text>
                         <Pressable onPress={() => applyValue(value + step)} disabled={value >= maxValue} hitSlop={6}>
-                          <Ionicons
-                            name="add-circle-outline"
-                            size={20}
-                            color={value >= maxValue ? '#d1d5db' : colors.primary}
-                          />
+                          <PlusCircleIcon size={20} color={value >= maxValue ? '#d1d5db' : colors.primary} />
                         </Pressable>
                       </View>
                     </View>
@@ -123,7 +115,7 @@ export function ItemAssignPicker({
                 })}
                 <View style={styles.restRow}>
                   <View style={styles.restIcon}>
-                    <Ionicons name="people" size={16} color={colors.primary} />
+                    <UsersIcon size={16} weight="fill" color={colors.primary} />
                   </View>
                   <Text style={styles.restLabel}>{t('itemAssignPicker.restOfGroup')}</Text>
                   <Text style={styles.restAmount}>

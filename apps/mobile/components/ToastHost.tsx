@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircleIcon, WarningCircleIcon } from 'phosphor-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ToastItem } from '../hooks/useToasts';
 import { GlassView } from './GlassView';
@@ -21,11 +21,11 @@ export function ToastHost({ toasts, onDismiss, bottomOffset = 32 }: ToastHostPro
         return (
           <Pressable key={toast.id} style={styles.toastWrapper} onPress={() => onDismiss(toast.id)}>
             <GlassView style={[styles.toast, isSuccess ? styles.toastSuccess : styles.toastError]}>
-              <Ionicons
-                name={isSuccess ? 'checkmark-circle' : 'alert-circle'}
-                size={20}
-                color={isSuccess ? '#059669' : '#dc2626'}
-              />
+              {isSuccess ? (
+                <CheckCircleIcon size={20} weight="fill" color="#059669" />
+              ) : (
+                <WarningCircleIcon size={20} weight="fill" color="#dc2626" />
+              )}
               <Text style={styles.message}>{toast.message}</Text>
             </GlassView>
           </Pressable>

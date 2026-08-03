@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatAmount } from '../lib/formatAmount';
@@ -40,7 +40,7 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color="#1f2937" />
+          <ArrowLeftIcon size={22} color="#1f2937" />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
           {productName}

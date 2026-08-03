@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ArrowLeftIcon, CheckCircleIcon, CrownIcon, XCircleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -27,11 +27,11 @@ type FeatureRowProps = {
 function FeatureRow({ label, included }: FeatureRowProps) {
   return (
     <View style={styles.featureRow}>
-      <Ionicons
-        name={included ? 'checkmark-circle' : 'close-circle-outline'}
-        size={16}
-        color={included ? colors.primary : colors.textMuted}
-      />
+      {included ? (
+        <CheckCircleIcon size={16} weight="fill" color={colors.primary} />
+      ) : (
+        <XCircleIcon size={16} color={colors.textMuted} />
+      )}
       <Text style={[styles.featureLabel, !included && styles.featureLabelDisabled]}>{label}</Text>
     </View>
   );
@@ -116,7 +116,7 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color={colors.textDark} />
+          <ArrowLeftIcon size={22} color={colors.textDark} />
         </Pressable>
         <Text style={styles.title}>{t('plans.title')}</Text>
       </View>
@@ -139,7 +139,7 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
 
           <View style={styles.planCardPremiumWrapper}>
             <View style={styles.premiumBadge}>
-              <MaterialCommunityIcons name="crown" size={13} color={colors.white} />
+              <CrownIcon size={13} weight="fill" color={colors.white} />
               <Text style={styles.premiumBadgeText}>{t('plans.premiumPlan')}</Text>
             </View>
             <GlassView style={[styles.planCard, styles.planCardPremium]}>
@@ -161,7 +161,7 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
 
               {isPremium ? (
                 <View style={styles.activeBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                  <CheckCircleIcon size={16} weight="fill" color={colors.primary} />
                   <Text style={styles.activeBadgeText}>{t('plans.currentPlan')}</Text>
                 </View>
               ) : (

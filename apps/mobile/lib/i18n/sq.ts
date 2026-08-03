@@ -4,7 +4,6 @@ export const sq: Record<keyof typeof en, string> = {
   'common.save': 'Ruaj',
   'common.saving': 'Duke ruajtur...',
   'common.cancel': 'Anulo',
-  'common.edit': 'Ndrysho',
   'common.close': 'Mbyll',
   'common.confirm': 'Konfirmo',
   'common.delete': 'Fshi',

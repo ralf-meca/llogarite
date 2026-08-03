@@ -1,4 +1,14 @@
-import type { Ionicons } from '@expo/vector-icons';
+import {
+  CarIcon,
+  DotsThreeCircleIcon,
+  FirstAidKitIcon,
+  ForkKnifeIcon,
+  HouseIcon,
+  SparkleIcon,
+  TShirtIcon,
+  TicketIcon,
+  type Icon,
+} from 'phosphor-react-native';
 import type { TranslationKey } from './i18n';
 
 export type CategoryId =
@@ -11,17 +21,17 @@ export type CategoryId =
   | 'argetim'
   | 'te_tjera';
 
-export type Category = { id: CategoryId; labelKey: TranslationKey; icon: keyof typeof Ionicons.glyphMap };
+export type Category = { id: CategoryId; labelKey: TranslationKey; icon: Icon };
 
 export const CATEGORIES: Category[] = [
-  { id: 'ushqime', labelKey: 'categories.ushqime', icon: 'restaurant-outline' },
-  { id: 'higjene', labelKey: 'categories.higjene', icon: 'sparkles-outline' },
-  { id: 'shtepi', labelKey: 'categories.shtepi', icon: 'home-outline' },
-  { id: 'veshje', labelKey: 'categories.veshje', icon: 'shirt-outline' },
-  { id: 'transport', labelKey: 'categories.transport', icon: 'car-outline' },
-  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: 'medkit-outline' },
-  { id: 'argetim', labelKey: 'categories.argetim', icon: 'ticket-outline' },
-  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: 'ellipsis-horizontal-circle-outline' },
+  { id: 'ushqime', labelKey: 'categories.ushqime', icon: ForkKnifeIcon },
+  { id: 'higjene', labelKey: 'categories.higjene', icon: SparkleIcon },
+  { id: 'shtepi', labelKey: 'categories.shtepi', icon: HouseIcon },
+  { id: 'veshje', labelKey: 'categories.veshje', icon: TShirtIcon },
+  { id: 'transport', labelKey: 'categories.transport', icon: CarIcon },
+  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: FirstAidKitIcon },
+  { id: 'argetim', labelKey: 'categories.argetim', icon: TicketIcon },
+  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: DotsThreeCircleIcon },
 ];
 
 export const DEFAULT_CATEGORY: CategoryId = 'te_tjera';
@@ -30,7 +40,7 @@ export function categoryLabelKey(id: string | null | undefined): TranslationKey 
   return CATEGORIES.find((category) => category.id === id)?.labelKey ?? categoryLabelKey(DEFAULT_CATEGORY);
 }
 
-export function categoryIcon(id: string | null | undefined): keyof typeof Ionicons.glyphMap {
+export function categoryIcon(id: string | null | undefined): Icon {
   return CATEGORIES.find((category) => category.id === id)?.icon ?? categoryIcon(DEFAULT_CATEGORY);
 }
 

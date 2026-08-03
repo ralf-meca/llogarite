@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CaretDownIcon, CheckIcon } from 'phosphor-react-native';
 import { CATEGORIES, categoryIcon, categoryLabelKey } from '../lib/categories';
 import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
@@ -15,20 +15,21 @@ type CategoryPickerProps = {
 export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const ValueIcon = categoryIcon(value);
 
   return (
     <>
       {iconOnly ? (
         <Pressable style={styles.iconTrigger} onPress={() => setIsOpen(true)}>
-          <Ionicons name={categoryIcon(value)} size={18} color="#374151" />
+          <ValueIcon size={18} color="#374151" />
         </Pressable>
       ) : (
         <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-          <Ionicons name={categoryIcon(value)} size={13} color="#374151" />
+          <ValueIcon size={13} color="#374151" />
           <Text style={styles.triggerText} numberOfLines={1}>
             {t(categoryLabelKey(value))}
           </Text>
-          <Ionicons name="chevron-down" size={12} color="#6b7280" />
+          <CaretDownIcon size={12} color="#6b7280" />
         </Pressable>
       )}
 
@@ -37,28 +38,27 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
           <View style={styles.menuWrapper} pointerEvents="box-none">
             <GlassView style={styles.menu}>
               <ScrollView bounces={false}>
-                {CATEGORIES.map((category) => (
-                  <Pressable
-                    key={category.id}
-                    style={styles.menuItem}
-                    onPress={() => {
-                      onChange(category.id);
-                      setIsOpen(false);
-                    }}
-                  >
-                    <View style={styles.menuItemLeft}>
-                      <Ionicons
-                        name={category.icon}
-                        size={18}
-                        color={category.id === value ? colors.primary : '#4b5563'}
-                      />
-                      <Text style={[styles.menuItemText, category.id === value && styles.menuItemTextActive]}>
-                        {t(category.labelKey)}
-                      </Text>
-                    </View>
-                    {category.id === value && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                  </Pressable>
-                ))}
+                {CATEGORIES.map((category) => {
+                  const ItemIcon = category.icon;
+                  return (
+                    <Pressable
+                      key={category.id}
+                      style={styles.menuItem}
+                      onPress={() => {
+                        onChange(category.id);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <View style={styles.menuItemLeft}>
+                        <ItemIcon size={18} color={category.id === value ? colors.primary : '#4b5563'} />
+                        <Text style={[styles.menuItemText, category.id === value && styles.menuItemTextActive]}>
+                          {t(category.labelKey)}
+                        </Text>
+                      </View>
+                      {category.id === value && <CheckIcon size={16} weight="bold" color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
             </GlassView>
           </View>

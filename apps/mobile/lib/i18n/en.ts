@@ -2,7 +2,6 @@ export const en = {
   'common.save': 'Save',
   'common.saving': 'Saving...',
   'common.cancel': 'Cancel',
-  'common.edit': 'Edit',
   'common.close': 'Close',
   'common.confirm': 'Confirm',
   'common.delete': 'Delete',

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon, PencilSimpleIcon } from 'phosphor-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
 import { useTranslation } from '../lib/i18n';
@@ -35,12 +35,12 @@ export function InvoiceScreen({
         <View style={styles.headerRow}>
           <Pressable onPress={onClose} style={styles.iconButtonShadow}>
             <GlassView style={[styles.iconButton, styles.backButton]}>
-              <Ionicons name="arrow-back" size={18} color="#9ca3af" />
+              <ArrowLeftIcon size={18} color="#9ca3af" />
             </GlassView>
           </Pressable>
           <Pressable onPress={onEdit} style={styles.iconButtonShadow}>
             <GlassView style={styles.iconButton}>
-              <Ionicons name="create-outline" size={18} color="#111827" />
+              <PencilSimpleIcon size={18} color="#111827" />
             </GlassView>
           </Pressable>
         </View>

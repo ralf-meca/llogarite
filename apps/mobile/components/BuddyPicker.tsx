@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CaretDownIcon, CheckSquareIcon, SquareIcon, UserPlusIcon, UsersIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import type { Buddy } from '../lib/buddiesApi';
@@ -46,15 +46,15 @@ export function BuddyPicker({
     <>
       {hideTrigger ? null : iconOnly ? (
         <Pressable style={styles.iconTrigger} onPress={() => setIsOpen(true)} hitSlop={8}>
-          <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+          <UserPlusIcon size={16} color={colors.primary} />
         </Pressable>
       ) : (
         <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-          <Ionicons name="people-outline" size={14} color="#374151" />
+          <UsersIcon size={14} color="#374151" />
           <Text style={styles.triggerText} numberOfLines={1}>
             {label}
           </Text>
-          <Ionicons name="chevron-down" size={12} color="#6b7280" />
+          <CaretDownIcon size={12} color="#6b7280" />
         </Pressable>
       )}
 
@@ -81,11 +81,11 @@ export function BuddyPicker({
                     <Text style={[styles.rowText, isSelected && styles.rowTextActive]} numberOfLines={1}>
                       {buddy.name ?? buddy.email}
                     </Text>
-                    <Ionicons
-                      name={isSelected ? 'checkbox' : 'square-outline'}
-                      size={20}
-                      color={isSelected ? colors.primary : '#9ca3af'}
-                    />
+                    {isSelected ? (
+                      <CheckSquareIcon size={20} weight="fill" color={colors.primary} />
+                    ) : (
+                      <SquareIcon size={20} color="#9ca3af" />
+                    )}
                   </Pressable>
                 );
               })}

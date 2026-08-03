@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { BriefcaseIcon, CheckCircleIcon, CircleIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
@@ -60,7 +60,7 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
 
       {project && (
         <View style={styles.metaRow}>
-          <Ionicons name="briefcase-outline" size={14} color="#6b7280" />
+          <BriefcaseIcon size={14} color="#6b7280" />
           <Text style={styles.metaText}>{project.name}</Text>
         </View>
       )}
@@ -78,11 +78,11 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
                   {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                 </Text>
                 <Text style={styles.buddyShare}>{formatAmount(share)}</Text>
-                <Ionicons
-                  name={buddy.paid ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={16}
-                  color={buddy.paid ? '#10b981' : '#9ca3af'}
-                />
+                {buddy.paid ? (
+                  <CheckCircleIcon size={16} weight="fill" color="#10b981" />
+                ) : (
+                  <CircleIcon size={16} color="#9ca3af" />
+                )}
               </View>
             );
           })}

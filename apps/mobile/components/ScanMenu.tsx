@@ -1,7 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
+import {
+  ImageIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  QrCodeIcon,
+  ScanIcon,
+  XIcon,
+  type Icon,
+} from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from '../lib/i18n';
+import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
@@ -12,12 +20,12 @@ type ScanMenuProps = {
   onUploadFromGallery: () => void;
 };
 
-const MENU_ITEMS = [
-  { key: 'qr', icon: 'qr-code-outline', labelKey: 'scanMenu.scanQr' },
-  { key: 'receipt', icon: 'scan-outline', labelKey: 'scanMenu.scanReceipt' },
-  { key: 'gallery', icon: 'image-outline', labelKey: 'scanMenu.uploadFromGallery' },
-  { key: 'manual', icon: 'create-outline', labelKey: 'scanMenu.addManually' },
-] as const;
+const MENU_ITEMS: { key: 'qr' | 'receipt' | 'gallery' | 'manual'; icon: Icon; labelKey: TranslationKey }[] = [
+  { key: 'qr', icon: QrCodeIcon, labelKey: 'scanMenu.scanQr' },
+  { key: 'receipt', icon: ScanIcon, labelKey: 'scanMenu.scanReceipt' },
+  { key: 'gallery', icon: ImageIcon, labelKey: 'scanMenu.uploadFromGallery' },
+  { key: 'manual', icon: PencilSimpleIcon, labelKey: 'scanMenu.addManually' },
+];
 
 export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromGallery }: ScanMenuProps) {
   const { t } = useTranslation();
@@ -41,7 +49,11 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
       <View style={styles.fabWrapper} pointerEvents="box-none">
         <Pressable onPress={() => setIsOpen((prev) => !prev)}>
           <GlassView style={styles.fab}>
-            <Ionicons name={isOpen ? 'close' : 'add'} size={28} color="#fff" />
+            {isOpen ? (
+              <XIcon size={28} weight="bold" color="#fff" />
+            ) : (
+              <PlusIcon size={28} weight="bold" color="#fff" />
+            )}
           </GlassView>
         </Pressable>
       </View>
@@ -52,7 +64,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
             <GlassView style={styles.menu}>
               {MENU_ITEMS.map((item) => (
                 <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
-                  <Ionicons name={item.icon} size={20} color="#1f2937" />
+                  <item.icon size={20} color="#1f2937" />
                   <Text style={styles.menuItemText}>{t(item.labelKey)}</Text>
                 </Pressable>
               ))}

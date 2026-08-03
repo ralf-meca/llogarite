@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
+import { CalendarIcon, PlusIcon, TrashIcon, XCircleIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -148,7 +148,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
         <View style={styles.headerRow}>
           <Text style={styles.title}>{t('projects.title')}</Text>
           <Pressable style={styles.addButton} onPress={openAdd}>
-            <Ionicons name="add" size={22} color={colors.primary} />
+            <PlusIcon size={22} weight="bold" color={colors.primary} />
           </Pressable>
         </View>
 
@@ -166,7 +166,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                     {project.name}
                   </Text>
                   <Pressable style={styles.deleteButton} onPress={() => handleDelete(project.id)}>
-                    <Ionicons name="trash-outline" size={18} color="#dc2626" />
+                    <TrashIcon size={18} color="#dc2626" />
                   </Pressable>
                 </View>
 
@@ -228,7 +228,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                   style={[styles.input, styles.endDateInput, styles.dateTrigger]}
                   onPress={() => setIsDatePickerVisible(true)}
                 >
-                  <Ionicons name="calendar-outline" size={16} color="#6b7280" />
+                  <CalendarIcon size={16} color="#6b7280" />
                   <Text style={form.endDate ? styles.dateText : styles.datePlaceholder}>
                     {form.endDate ? toDateLabel(form.endDate) : t('projects.endDatePlaceholder')}
                   </Text>
@@ -238,7 +238,7 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
                     style={styles.clearDateButton}
                     onPress={() => setForm((current) => ({ ...current, endDate: null }))}
                   >
-                    <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                    <XCircleIcon size={20} weight="fill" color="#9ca3af" />
                   </Pressable>
                 )}
               </View>
