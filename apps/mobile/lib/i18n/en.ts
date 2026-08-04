@@ -331,6 +331,9 @@ export const en = {
   'legal.termsTitle': 'Terms of Service',
   'legal.lastUpdated': 'Last updated: July 2026',
 
+  'notifications.title': 'Notifications',
+  'notifications.empty': 'No notifications yet.',
+
   'categories.ushqime': 'Food & Drinks',
   'categories.higjene': 'Hygiene & Cosmetics',
   'categories.shtepi': 'Home & Cleaning',

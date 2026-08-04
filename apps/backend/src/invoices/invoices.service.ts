@@ -57,7 +57,9 @@ export class InvoicesService {
         }
 
         const invoice = this.invoicesRepository.create({ iic, data, userId, projectId, verified });
-        return this.invoicesRepository.save(invoice);
+        const saved = await this.invoicesRepository.save(invoice);
+        await this.notifyNewInvoiceBuddies(userId, saved.id, this.extractBuddyIds(data));
+        return saved;
     }
 
     findAll(userId: string): Promise<Invoice[]> {
@@ -77,7 +79,45 @@ export class InvoicesService {
         const verified = itemsChanged ? false : invoice.verified;
         const updatedData = { ...data, verified };
         await this.invoicesRepository.update(id, { data: updatedData, projectId, verified });
+
+        const previousBuddyIds = new Set(this.extractBuddyIds(invoice.data));
+        const newlyAddedBuddyIds = this.extractBuddyIds(updatedData).filter(
+            (buddyId) => !previousBuddyIds.has(buddyId),
+        );
+        await this.notifyNewInvoiceBuddies(userId, id, newlyAddedBuddyIds);
+
         return { ...invoice, data: updatedData, projectId, verified };
+    }
+
+    private extractBuddyIds(data: Record<string, unknown>): string[] {
+        const buddies = Array.isArray(data.buddies) ? (data.buddies as Array<Record<string, unknown>>) : [];
+        return buddies
+            .map((buddy) => (typeof buddy.userId === 'string' ? buddy.userId : null))
+            .filter((buddyId): buddyId is string => Boolean(buddyId));
+    }
+
+    private async notifyNewInvoiceBuddies(ownerId: string, invoiceId: string, newBuddyIds: string[]): Promise<void> {
+        if (newBuddyIds.length === 0) {
+            return;
+        }
+        const owner = await this.usersService.findById(ownerId);
+        if (!owner) {
+            return;
+        }
+        await Promise.all(
+            newBuddyIds.map(async (buddyUserId) => {
+                const buddyUser = await this.usersService.findById(buddyUserId);
+                if (!buddyUser) {
+                    return;
+                }
+                await this.notificationsService.notify(buddyUser.id, buddyUser.pushToken, {
+                    type: 'invoice_buddy_added',
+                    title: 'Shtuar në një faturë',
+                    body: `${owner.name ?? owner.email} të shtoi si shok shpenzimesh në një faturë.`,
+                    data: { buddyId: owner.id, invoiceId },
+                });
+            }),
+        );
     }
 
     async setBuddyPaid(userId: string, id: string, buddyUserId: string, paid: boolean): Promise<Invoice> {
@@ -125,10 +165,14 @@ export class InvoicesService {
             this.usersService.findById(userId),
             this.usersService.findById(invoice.userId),
         ]);
-        await this.notificationsService.send(owner?.pushToken, {
+        if (!owner) {
+            return;
+        }
+        await this.notificationsService.notify(owner.id, owner.pushToken, {
+            type: 'invoice_notify_paid',
             title: 'Pagesë e njoftuar',
             body: `${requester?.name ?? requester?.email ?? 'Shoku yt'} tha se e ka paguar pjesën e tij të faturës.`,
-            data: { type: 'invoice_notify_paid', invoiceId: id },
+            data: { invoiceId: id },
         });
     }
 

@@ -65,10 +65,11 @@ export class BuddiesService {
 
     private async notifyBuddyRequest(requesterId: string, target: User): Promise<void> {
         const requester = await this.usersService.findById(requesterId);
-        await this.notificationsService.send(target.pushToken, {
+        await this.notificationsService.notify(target.id, target.pushToken, {
+            type: 'buddy_request',
             title: 'Kërkesë e re',
             body: `${requester?.name ?? requester?.email ?? 'Dikush'} dëshiron të shtohet si shok shpenzimesh.`,
-            data: { type: 'buddy_request' },
+            data: { buddyId: requesterId },
         });
     }
 

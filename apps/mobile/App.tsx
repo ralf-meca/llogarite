@@ -34,14 +34,22 @@ import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from ".
 import { categoryIcon } from "./lib/categories";
 import { dominantCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
-import { fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
+import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
+import { fetchNotifications, markNotificationRead, syncMonthlyPaymentReminder } from "./lib/notificationsApi";
+import { addPaymentReminderFiredListener } from "./lib/paymentNotifications";
+import { NotificationBell } from "./components/NotificationBell";
 import { showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
-import { addNotificationTapListener, getInitialNotificationData, registerPushToken } from "./lib/pushNotifications";
+import {
+    addNotificationTapListener,
+    getInitialNotificationData,
+    registerPushToken,
+    setAppBadgeCount,
+} from "./lib/pushNotifications";
 import { configurePurchases } from "./lib/purchases";
 import { HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type ProductSummary } from "./lib/productPrices";
@@ -158,6 +166,7 @@ function AppContent() {
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
     const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail" | "buddies">("list");
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const [buddiesInitialTab, setBuddiesInitialTab] = useState<"owedByMe" | "owedToMe">("owedToMe");
     const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
@@ -182,6 +191,22 @@ function AppContent() {
         });
     }, []);
 
+    // Notification payloads only carry a buddy id, so reaching BuddyDetailScreen (which
+    // needs the full Buddy object) means looking it up first.
+    const navigateToBuddyDetail = useCallback((buddyId: string) => {
+        fetchBuddies()
+            .then((buddies) => {
+                const buddy = buddies.find((candidate) => candidate.id === buddyId);
+                if (buddy) {
+                    setSelectedBuddy(buddy);
+                    setScreen("buddyDetail");
+                } else {
+                    setScreen("buddies");
+                }
+            })
+            .catch(() => setScreen("buddies"));
+    }, []);
+
     useEffect(() => {
         getToken().then((token) => {
             if (!token) {
@@ -189,7 +214,8 @@ function AppContent() {
                 return;
             }
             getUser().then(setUser);
-            getInitialNotificationData().then((data) => {
+            getInitialNotificationData().then((payload) => {
+                const data = payload?.data;
                 console.log("cold-start notification data", JSON.stringify(data));
                 if (data?.type === "invoice_notify_paid" && data.invoiceId) {
                     setBuddiesInitialTab("owedToMe");
@@ -197,13 +223,29 @@ function AppContent() {
                     setScreen("buddies");
                 } else if (data?.type === "buddy_request") {
                     setScreen("buddies");
+                } else if (data?.type === "invoice_buddy_added" && data.buddyId) {
+                    navigateToBuddyDetail(data.buddyId);
+                } else if (data?.type === "monthly_payment_reminder" && data.paymentId) {
+                    syncMonthlyPaymentReminder({
+                        paymentId: data.paymentId,
+                        title: payload?.title ?? "",
+                        body: payload?.body ?? "",
+                    }).then((notification) => {
+                        if (notification) {
+                            markNotificationRead(notification.id);
+                        }
+                    });
+                    setScreen("monthlyPayments");
                 } else {
                     setScreen("dashboard");
                     startOnboardingIfNeeded();
                 }
+                if (data?.notificationId) {
+                    markNotificationRead(data.notificationId);
+                }
             });
         });
-    }, [startOnboardingIfNeeded]);
+    }, [startOnboardingIfNeeded, navigateToBuddyDetail]);
 
     useEffect(() => {
         if (isOnboarding) {
@@ -222,6 +264,13 @@ function AppContent() {
             fetchBuddyRequests()
                 .then((requests) => setPendingBuddyRequests(requests.length))
                 .catch(() => {});
+            fetchNotifications()
+                .then((notifications) => {
+                    const count = notifications.filter((n) => !n.read).length;
+                    setUnreadNotificationsCount(count);
+                    setAppBadgeCount(count);
+                })
+                .catch(() => {});
         }
     }, [screen]);
 
@@ -233,7 +282,8 @@ function AppContent() {
     }, [user]);
 
     useEffect(() => {
-        return addNotificationTapListener((data) => {
+        return addNotificationTapListener((payload) => {
+            const data = payload.data;
             if (data.type === "invoice_notify_paid" && data.invoiceId) {
                 loadSavedInvoices();
                 setBuddiesInitialTab("owedToMe");
@@ -241,9 +291,31 @@ function AppContent() {
                 setScreen("buddies");
             } else if (data.type === "buddy_request") {
                 setScreen("buddies");
+            } else if (data.type === "invoice_buddy_added" && data.buddyId) {
+                navigateToBuddyDetail(data.buddyId);
+            } else if (data.type === "monthly_payment_reminder" && data.paymentId) {
+                syncMonthlyPaymentReminder({
+                    paymentId: data.paymentId,
+                    title: payload.title ?? "",
+                    body: payload.body ?? "",
+                }).then((notification) => {
+                    if (notification) {
+                        markNotificationRead(notification.id);
+                    }
+                });
+                setScreen("monthlyPayments");
+            }
+            if (data.notificationId) {
+                markNotificationRead(data.notificationId);
             }
         });
-    }, [loadSavedInvoices]);
+    }, [loadSavedInvoices, navigateToBuddyDetail]);
+
+    useEffect(() => {
+        return addPaymentReminderFiredListener((payload) => {
+            syncMonthlyPaymentReminder(payload);
+        });
+    }, []);
 
     const handleAuthenticated = (auth: AuthResponse) => {
         Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
@@ -585,7 +657,16 @@ function AppContent() {
                             <ListIcon size={20} color={colors.primary} />
                         </Pressable>
                         <Text style={styles.title}>Llogarite</Text>
-                        <View style={styles.headerSpacer} />
+                        <NotificationBell
+                            unreadCount={unreadNotificationsCount}
+                            onOpened={() => {
+                                setUnreadNotificationsCount(0);
+                                setAppBadgeCount(0);
+                            }}
+                            onSelectBuddyId={navigateToBuddyDetail}
+                            onNavigateToBuddies={() => setScreen("buddies")}
+                            onNavigateToMonthlyPayments={() => setScreen("monthlyPayments")}
+                        />
                     </View>
 
                     <View style={styles.sheet}>
@@ -899,10 +980,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         alignSelf: "flex-start",
         zIndex: 1,
-    },
-    headerSpacer: {
-        width: 32,
-        alignSelf: "center",
     },
     sheet: {
         flex: 1,

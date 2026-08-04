@@ -333,6 +333,9 @@ export const sq: Record<keyof typeof en, string> = {
   'legal.termsTitle': 'Kushtet e Përdorimit',
   'legal.lastUpdated': 'Përditësuar për herë të fundit: korrik 2026',
 
+  'notifications.title': 'Njoftimet',
+  'notifications.empty': 'Ende pa njoftime.',
+
   'categories.ushqime': 'Ushqime & Pije',
   'categories.higjene': 'Higjenë & Kozmetikë',
   'categories.shtepi': 'Shtëpi & Pastrim',

@@ -70,7 +70,7 @@ export async function scheduleMonthlyPaymentReminders(payments: MonthlyPayment[]
         content: {
           title: 'Pagesë nesër',
           body: `${payment.name} duhet paguar nesër (${formatAmount(payment.amount)}).`,
-          data: { tag: NOTIFICATION_TAG, paymentId: payment.id },
+          data: { tag: NOTIFICATION_TAG, type: 'monthly_payment_reminder', paymentId: payment.id },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderDate },
       });
@@ -81,10 +81,29 @@ export async function scheduleMonthlyPaymentReminders(payments: MonthlyPayment[]
         content: {
           title: 'Pagesë sot',
           body: `${payment.name} duhet paguar sot (${formatAmount(payment.amount)}).`,
-          data: { tag: NOTIFICATION_TAG, paymentId: payment.id },
+          data: { tag: NOTIFICATION_TAG, type: 'monthly_payment_reminder', paymentId: payment.id },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dueDate },
       });
     }
   }
+}
+
+// Fires while the app process is alive (foreground or backgrounded) at the moment a
+// scheduled reminder is delivered — the natural place to best-effort sync it to the
+// backend so it shows up in the in-app notification list ("when reminded").
+export function addPaymentReminderFiredListener(
+  onFired: (payload: { paymentId: string; title: string; body: string }) => void,
+): () => void {
+  const subscription = Notifications.addNotificationReceivedListener((event) => {
+    const data = event.request.content.data as { tag?: string; paymentId?: string } | undefined;
+    if (data?.tag === NOTIFICATION_TAG && data.paymentId) {
+      onFired({
+        paymentId: data.paymentId,
+        title: event.request.content.title ?? '',
+        body: event.request.content.body ?? '',
+      });
+    }
+  });
+  return () => subscription.remove();
 }
