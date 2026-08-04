@@ -40,3 +40,42 @@ published react-native-svg version (it's presumably meant for a NativeWind-augme
 which this project doesn't use). This is a bug/assumption in `phosphor-react-native` itself,
 not a version-compatibility gap — don't attempt the react-native-svg upgrade again on the
 assumption that a newer version will fix it. Stick with the package-root import.
+
+## EAS production builds
+
+Before submitting a `production` profile build to EAS, validate the release build **locally
+first**:
+
+```bash
+npx expo prebuild --platform android --clean --no-install
+cd android && ./gradlew bundleRelease
+```
+
+This runs the exact same Gradle task (`:app:bundleRelease`) that EAS's cloud build runs, so it
+catches Gradle-level failures — dependency/variant resolution errors, Kotlin version mismatches,
+signing config issues — in a couple of minutes with full local output, instead of discovering
+them after a 30-90 minute EAS free-tier queue wait. Only run `eas build` once the local
+`bundleRelease` succeeds.
+
+Delete the local `android/` folder (`rm -rf android`) after finishing this check — it's
+gitignored and safe to remove, but if left in place it can balloon to 1-2 GB of Gradle build
+output and get swept into the *next* `eas build`'s upload archive, which has caused a build
+failure before (Gradle couldn't resolve any native module's release variant when this happened).
+`expo prebuild` regenerates it fresh in seconds whenever it's needed again.
+
+### versionCode
+
+`eas.json` has `"appVersionSource": "remote"`, so `eas build` auto-increments versionCode
+using a counter EAS tracks on its own servers — but that counter is only consulted by
+`eas build` itself. A local build (`expo prebuild` + `gradlew bundleRelease`, e.g. to produce
+an `.aab` to upload to Play Console directly without waiting on EAS's queue) does **not** touch
+that counter at all, and `app.json` has no `android.versionCode` set, so an un-set local build
+defaults to versionCode 1 — which Play Console will reject as not higher than whatever was
+last uploaded.
+
+**Every time you produce a build meant for actual upload — local or via EAS — bump the
+versionCode first**, and keep it ahead of both (a) whatever was last actually uploaded to Play
+Console and (b) EAS's own remote counter (check the highest `Version code` from recent
+`eas build:list`), so the two paths never collide once you switch back to `eas build`. For a
+local build, set `expo.android.versionCode` explicitly in `app.json` before running
+`expo prebuild`.
