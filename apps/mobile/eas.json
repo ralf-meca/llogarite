@@ -13,7 +13,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://unlike-needed-applying-conferences.trycloudflare.com/api",
+        "EXPO_PUBLIC_API_URL": "https://api.llogarite.site/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "327785849083-5hu7mig1s2pstkn9g1tqh8sgsf49phoe.apps.googleusercontent.com"
       },
       "android": {
