@@ -47,9 +47,12 @@ Before submitting a `production` profile build to EAS, validate the release buil
 first**:
 
 ```bash
-npx expo prebuild --platform android --clean --no-install
+npm run prebuild:android
 cd android && ./gradlew bundleRelease
 ```
+
+`prebuild:android` runs the env sync check (below) and then the prebuild it wraps
+(`expo prebuild --platform android --clean --no-install`).
 
 This runs the exact same Gradle task (`:app:bundleRelease`) that EAS's cloud build runs, so it
 catches Gradle-level failures — dependency/variant resolution errors, Kotlin version mismatches,
@@ -62,6 +65,32 @@ gitignored and safe to remove, but if left in place it can balloon to 1-2 GB of 
 output and get swept into the *next* `eas build`'s upload archive, which has caused a build
 failure before (Gradle couldn't resolve any native module's release variant when this happened).
 `expo prebuild` regenerates it fresh in seconds whenever it's needed again.
+
+### Production env values live in two files
+
+`eas.json`'s `build.production.env` block applies **only to EAS cloud builds**. A local
+`gradlew bundleRelease` never reads `eas.json` — it resolves env through `@expo/env`, which
+loads `.env.production.local`, `.env.local`, `.env.production`, `.env` in that order and takes
+the first hit. Since local builds are now the normal way to produce an upload artifact, the
+production values have to exist in `apps/mobile/.env.production` too, or the build silently
+falls back to `.env` (dev values, loopback API URL via `adb reverse`) and ships an app that
+cannot reach the backend. Nothing about that failure is visible at build time.
+
+`.env.production` is therefore committed — deliberately, against the root `.gitignore`'s
+`.env.production` rule, which is negated for this one path. It holds no secrets: `EXPO_PUBLIC_*`
+values are string-substituted into the shipped JS bundle by design, and both values are already
+public in `eas.json`. (`apps/backend/.env.production` is a different matter — real secrets, still
+ignored, server-only.)
+
+Because the two files must agree, `scripts/check-env-sync.js` diffs them and fails the build on
+any drift, missing key, or missing file. It runs automatically as part of `npm run prebuild:android`,
+or on its own:
+
+```bash
+npm run check:env
+```
+
+When a production value changes, change it in **both** files; the check will tell you if you miss one.
 
 ### versionCode
 

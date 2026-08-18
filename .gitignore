@@ -12,6 +12,13 @@ out
 .env.local
 .env.production
 
+# Tracked despite the rule above: EXPO_PUBLIC_* values are inlined into the
+# shipped JS bundle by design, so this file holds no secrets (the same values
+# are already committed in apps/mobile/eas.json). It is version-controlled so
+# local release builds are reproducible -- without it a fresh clone falls back
+# to the dev .env and silently ships a loopback API URL.
+!apps/mobile/.env.production
+
 # Docker
 postgres_data
 
