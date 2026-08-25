@@ -5,6 +5,7 @@ import {
   KeyIcon,
   QuestionIcon,
   SignOutIcon,
+  TranslateIcon,
   TrashIcon,
 } from 'phosphor-react-native';
 import { useState } from 'react';
@@ -16,6 +17,7 @@ import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
+import { LanguageSwitch } from './LanguageSwitch';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
 
@@ -239,6 +241,13 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                     <Text style={styles.menuItemText}>{t('userMenu.changePassword')}</Text>
                   </Pressable>
                 )}
+                <View style={styles.menuItem}>
+                  <TranslateIcon size={20} color="#1f2937" />
+                  <Text style={styles.menuItemText}>{t('userMenu.language')}</Text>
+                  <View style={styles.languageSlot}>
+                    <LanguageSwitch />
+                  </View>
+                </View>
                 <Pressable style={styles.menuItem} onPress={onRestartTour}>
                   <QuestionIcon size={20} color="#1f2937" />
                   <Text style={styles.menuItemText}>{t('userMenu.restartTour')}</Text>
@@ -460,6 +469,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.danger,
     textAlign: 'center',
+  },
+  languageSlot: {
+    marginLeft: 'auto',
   },
   menuItem: {
     flexDirection: 'row',

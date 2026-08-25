@@ -2,7 +2,7 @@ import { CrownIcon, XIcon } from 'phosphor-react-native';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
-import { colors, radius } from '../lib/theme';
+import { FAB_BOTTOM_OFFSET, FAB_SIZE, colors, radius } from '../lib/theme';
 import { AccountantMascot } from './AccountantMascot';
 
 export type OnboardingStep = {
@@ -12,9 +12,8 @@ export type OnboardingStep = {
   highlightFab?: boolean;
 };
 
-const FAB_BOTTOM_OFFSET = 32;
-const FAB_RADIUS = 28;
-const SPOTLIGHT_RADIUS = 42;
+const FAB_RADIUS = FAB_SIZE / 2;
+const SPOTLIGHT_RADIUS = FAB_RADIUS + 14;
 
 type OnboardingGuideProps = {
   step: OnboardingStep;

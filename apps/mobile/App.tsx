@@ -1,9 +1,8 @@
-import { ListIcon } from "phosphor-react-native";
 import { scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
@@ -24,8 +23,9 @@ import { ProjectsScreen } from "./components/ProjectsScreen";
 import { QrScannerModal } from "./components/QrScannerModal";
 import { ReceiptScannerModal } from "./components/ReceiptScannerModal";
 import { ScanMenu } from "./components/ScanMenu";
-import { SideDrawer, type DrawerScreen } from "./components/SideDrawer";
+import { BottomNavBar, type NavScreen } from "./components/BottomNavBar";
 import { ToastHost } from "./components/ToastHost";
+import { UserAvatar } from "./components/UserAvatar";
 import { UserMenuModal } from "./components/UserMenuModal";
 import { VerifiedBadge } from "./components/VerifiedBadge";
 import { useToasts } from "./hooks/useToasts";
@@ -51,7 +51,7 @@ import {
     setAppBadgeCount,
 } from "./lib/pushNotifications";
 import { configurePurchases } from "./lib/purchases";
-import { HEADER_INSET, colors, radius } from "./lib/theme";
+import { BOTTOM_NAV_HEIGHT, HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
@@ -73,7 +73,7 @@ export type VerificationState =
 type Screen =
     | "loading"
     | "auth"
-    | DrawerScreen
+    | NavScreen
     | "invoice"
     | "detail"
     | "manual"
@@ -91,9 +91,9 @@ const MAIN_SCREENS = new Set<Screen>([
     "buddies",
 ]);
 
-const PREMIUM_SCREENS = new Set<DrawerScreen>(["projects", "products", "buddies"]);
+const PREMIUM_SCREENS = new Set<NavScreen>(["projects", "products", "buddies"]);
 
-type OnboardingStepConfig = OnboardingStep & { screen: DrawerScreen };
+type OnboardingStepConfig = OnboardingStep & { screen: NavScreen };
 
 const ONBOARDING_STEPS: OnboardingStepConfig[] = [
     { screen: "dashboard", titleKey: "onboarding.step1Title", messageKey: "onboarding.step1Message" },
@@ -134,20 +134,6 @@ function AppContent() {
     const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
     const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
-    const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-    const isDrawerVisibleRef = useRef(isDrawerVisible);
-    isDrawerVisibleRef.current = isDrawerVisible;
-    const drawerSwipeResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_evt, gestureState) =>
-                !isDrawerVisibleRef.current && gestureState.dx > 20 && Math.abs(gestureState.dy) < 20,
-            onPanResponderRelease: (_evt, gestureState) => {
-                if (gestureState.dx > 60) {
-                    setIsDrawerVisible(true);
-                }
-            },
-        }),
-    ).current;
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -248,8 +234,9 @@ function AppContent() {
     }, [startOnboardingIfNeeded, navigateToBuddyDetail]);
 
     useEffect(() => {
-        if (isOnboarding) {
-            setScreen(ONBOARDING_STEPS[onboardingStep].screen);
+        const step = ONBOARDING_STEPS[onboardingStep];
+        if (isOnboarding && step) {
+            setScreen(step.screen);
         }
     }, [isOnboarding, onboardingStep]);
 
@@ -317,6 +304,16 @@ function AppContent() {
         });
     }, []);
 
+    const handleNavigate = (target: NavScreen) => {
+        setSelectedInvoice(null);
+        setManualPrefill(null);
+        if (PREMIUM_SCREENS.has(target) && !user?.isPremium) {
+            setScreen("plans");
+            return;
+        }
+        setScreen(target);
+    };
+
     const handleAuthenticated = (auth: AuthResponse) => {
         Promise.all([saveToken(auth.accessToken), saveUser(auth.user)]).then(() => {
             setUser(auth.user);
@@ -340,11 +337,14 @@ function AppContent() {
     };
 
     const handleOnboardingNext = () => {
-        if (onboardingStep === ONBOARDING_STEPS.length - 1) {
+        if (onboardingStep >= ONBOARDING_STEPS.length - 1) {
             finishOnboarding();
             return;
         }
-        setOnboardingStep((current) => current + 1);
+        // Clamp inside the updater too: two taps batched into one render both read
+        // the same stale `onboardingStep`, so the guard above passes twice while the
+        // functional updates still stack — which used to walk past the last step.
+        setOnboardingStep((current) => Math.min(current + 1, ONBOARDING_STEPS.length - 1));
     };
 
     const handleOnboardingBack = () => {
@@ -651,10 +651,14 @@ function AppContent() {
             ) : screen === "auth" ? (
                 <LoginScreen onAuthenticated={handleAuthenticated} />
             ) : MAIN_SCREENS.has(screen) ? (
-                <View style={styles.mainWrapper} {...drawerSwipeResponder.panHandlers}>
+                <View style={styles.mainWrapper}>
                     <View style={styles.headerRow}>
-                        <Pressable style={styles.menuButton} hitSlop={12} onPress={() => setIsDrawerVisible(true)}>
-                            <ListIcon size={20} color={colors.primary} />
+                        <Pressable
+                            style={styles.headerAvatar}
+                            hitSlop={12}
+                            onPress={() => setIsUserMenuVisible(true)}
+                        >
+                            <UserAvatar user={user} size={32} />
                         </Pressable>
                         <Text style={styles.title}>Llogarite</Text>
                         <NotificationBell
@@ -675,6 +679,7 @@ function AppContent() {
                                 invoices={savedInvoices}
                                 onSelectBudget={() => setScreen("budget")}
                                 onSelectInvoiceList={() => setScreen("list")}
+                                onSelectInvoice={(invoice) => handleSelectInvoice(invoice, "list")}
                             />
                         ) : screen === "list" ? (
                             <FlatList
@@ -755,6 +760,12 @@ function AppContent() {
                         )}
                     </View>
 
+                    <BottomNavBar
+                        activeScreen={screen}
+                        isPremium={Boolean(user?.isPremium)}
+                        pendingBuddyRequests={pendingBuddyRequests}
+                        onNavigate={handleNavigate}
+                    />
                     <ScanMenu
                         onScanQr={() => setIsScannerVisible(true)}
                         onAddManually={() => {
@@ -765,6 +776,7 @@ function AppContent() {
                         onScanReceipt={() => setIsReceiptScannerVisible(true)}
                         onUploadFromGallery={handleUploadFromGallery}
                     />
+
                 </View>
             ) : screen === "manual" ? (
                 <ManualInvoiceScreen
@@ -874,7 +886,7 @@ function AppContent() {
                 }}
             />
 
-            {isOnboarding && MAIN_SCREENS.has(screen) && (
+            {isOnboarding && MAIN_SCREENS.has(screen) && ONBOARDING_STEPS[onboardingStep] && (
                 <OnboardingGuide
                     step={ONBOARDING_STEPS[onboardingStep]}
                     stepIndex={onboardingStep}
@@ -884,29 +896,6 @@ function AppContent() {
                     onSkip={finishOnboarding}
                 />
             )}
-
-            <SideDrawer
-                visible={isDrawerVisible}
-                activeScreen={screen}
-                user={user}
-                isPremium={Boolean(user?.isPremium)}
-                pendingBuddyRequests={pendingBuddyRequests}
-                onClose={() => setIsDrawerVisible(false)}
-                onNavigate={(target) => {
-                    setIsDrawerVisible(false);
-                    setSelectedInvoice(null);
-                    setManualPrefill(null);
-                    if (PREMIUM_SCREENS.has(target) && !user?.isPremium) {
-                        setScreen("plans");
-                        return;
-                    }
-                    setScreen(target);
-                }}
-                onOpenAccount={() => {
-                    setIsDrawerVisible(false);
-                    setIsUserMenuVisible(true);
-                }}
-            />
 
             <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" ? "light" : "auto"} />
             <ToastHost toasts={toasts} onDismiss={dismissToast} />
@@ -971,6 +960,12 @@ const styles = StyleSheet.create({
         textAlignVertical: "center",
         includeFontPadding: false,
     },
+    headerAvatar: {
+        width: 32,
+        height: 32,
+        alignSelf: "flex-start",
+        zIndex: 1,
+    },
     menuButton: {
         width: 32,
         height: 32,
@@ -983,6 +978,7 @@ const styles = StyleSheet.create({
     },
     sheet: {
         flex: 1,
+        paddingBottom: BOTTOM_NAV_HEIGHT,
         backgroundColor: colors.white,
         borderTopLeftRadius: radius.sheet,
         borderTopRightRadius: radius.sheet,

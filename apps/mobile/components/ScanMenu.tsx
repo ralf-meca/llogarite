@@ -10,7 +10,7 @@ import {
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
-import { colors } from '../lib/theme';
+import { BOTTOM_NAV_HEIGHT, FAB_BOTTOM_OFFSET, FAB_SIZE, colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type ScanMenuProps = {
@@ -81,13 +81,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 32,
+    bottom: FAB_BOTTOM_OFFSET,
     alignItems: 'center',
   },
   fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingBottom: BOTTOM_NAV_HEIGHT + 44,
   },
   menu: {
     minWidth: 220,

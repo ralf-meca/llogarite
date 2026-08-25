@@ -21,23 +21,27 @@ export type CategoryId =
   | 'argetim'
   | 'te_tjera';
 
-export type Category = { id: CategoryId; labelKey: TranslationKey; icon: Icon };
+export type Category = { id: CategoryId; labelKey: TranslationKey; icon: Icon; color: string };
 
 export const CATEGORIES: Category[] = [
-  { id: 'ushqime', labelKey: 'categories.ushqime', icon: ForkKnifeIcon },
-  { id: 'higjene', labelKey: 'categories.higjene', icon: SparkleIcon },
-  { id: 'shtepi', labelKey: 'categories.shtepi', icon: HouseIcon },
-  { id: 'veshje', labelKey: 'categories.veshje', icon: TShirtIcon },
-  { id: 'transport', labelKey: 'categories.transport', icon: CarIcon },
-  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: FirstAidKitIcon },
-  { id: 'argetim', labelKey: 'categories.argetim', icon: TicketIcon },
-  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: DotsThreeCircleIcon },
+  { id: 'ushqime', labelKey: 'categories.ushqime', icon: ForkKnifeIcon, color: '#667EEA' },
+  { id: 'higjene', labelKey: 'categories.higjene', icon: SparkleIcon, color: '#F093FB' },
+  { id: 'shtepi', labelKey: 'categories.shtepi', icon: HouseIcon, color: '#4FACFE' },
+  { id: 'veshje', labelKey: 'categories.veshje', icon: TShirtIcon, color: '#43E97B' },
+  { id: 'transport', labelKey: 'categories.transport', icon: CarIcon, color: '#FA709A' },
+  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: FirstAidKitIcon, color: '#30CFD0' },
+  { id: 'argetim', labelKey: 'categories.argetim', icon: TicketIcon, color: '#A18CD1' },
+  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: DotsThreeCircleIcon, color: '#B0B5BD' },
 ];
 
 export const DEFAULT_CATEGORY: CategoryId = 'te_tjera';
 
 export function categoryLabelKey(id: string | null | undefined): TranslationKey {
   return CATEGORIES.find((category) => category.id === id)?.labelKey ?? categoryLabelKey(DEFAULT_CATEGORY);
+}
+
+export function categoryColor(id: string | null | undefined): string {
+  return CATEGORIES.find((category) => category.id === id)?.color ?? categoryColor(DEFAULT_CATEGORY);
 }
 
 export function categoryIcon(id: string | null | undefined): Icon {

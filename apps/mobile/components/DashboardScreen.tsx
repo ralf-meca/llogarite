@@ -1,44 +1,58 @@
+import { CaretRightIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchBudget } from '../lib/budgetApi';
-import { CATEGORIES, DEFAULT_CATEGORY, categoryLabelKey } from '../lib/categories';
-import { groupByCategory } from '../lib/categorySpending';
+import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey } from '../lib/categories';
+import { groupByCategory, dominantCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import { averageMonthlyThisYear, currentMonthKey, currentMonthTotal, groupByMonth, monthKeyOf } from '../lib/monthlySpending';
-import { toPieSegments } from '../lib/pieSegments';
+import {
+  averageMonthlyThisYear,
+  currentMonthKey,
+  currentMonthTotal,
+  groupByMonth,
+  monthKeyOf,
+} from '../lib/monthlySpending';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
-import { PieChart } from './PieChart';
-import { ProgressBar } from './ProgressBar';
 
 const CATEGORY_IDS = new Set<string>(CATEGORIES.map((category) => category.id));
-
-const PALETTE = [colors.primary, '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#06b6d4', '#a3a3a3'];
 const CHART_WIDTH = Dimensions.get('window').width - 88;
+const TOP_CATEGORIES = 5;
+const RECENT_INVOICES = 5;
+const TREND_MONTHS = 8;
 
-function indexOfMax(values: number[]): number {
-  let maxIndex = 0;
-  values.forEach((value, index) => {
-    if (value > values[maxIndex]) {
-      maxIndex = index;
-    }
-  });
-  return maxIndex;
+function daysLeftInMonth(): number {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.max(1, lastDay - now.getDate() + 1);
+}
+
+function shortDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
 }
 
 type DashboardScreenProps = {
   invoices: SavedInvoice[];
   onSelectBudget: () => void;
   onSelectInvoiceList: () => void;
+  onSelectInvoice?: (invoice: SavedInvoice) => void;
 };
 
-export function DashboardScreen({ invoices, onSelectBudget, onSelectInvoiceList }: DashboardScreenProps) {
+export function DashboardScreen({
+  invoices,
+  onSelectBudget,
+  onSelectInvoiceList,
+  onSelectInvoice,
+}: DashboardScreenProps) {
   const { t, language } = useTranslation();
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
-  const [categorySelection, setCategorySelection] = useState<number | null>(null);
 
   useEffect(() => {
     fetchBudget()
@@ -47,57 +61,76 @@ export function DashboardScreen({ invoices, onSelectBudget, onSelectInvoiceList 
   }, []);
 
   const monthSpent = currentMonthTotal(invoices);
-  const budgetRatio = budgetTarget && budgetTarget > 0 ? monthSpent / budgetTarget : 0;
+  const hasBudget = budgetTarget !== null && budgetTarget > 0;
+  const budgetRatio = hasBudget ? Math.min(1, monthSpent / (budgetTarget as number)) : 0;
+  const remaining = hasBudget ? Math.max(0, (budgetTarget as number) - monthSpent) : 0;
+  const daysLeft = daysLeftInMonth();
 
-  const avgMonthlySpent = averageMonthlyThisYear(invoices);
-  const savedThisMonth = invoices.filter((invoice) => monthKeyOf(invoice.data.dateTimeCreated) === currentMonthKey())
-    .length;
-  const monthlyPoints = [...groupByMonth(invoices, language)]
-    .sort((a, b) => (a.key < b.key ? -1 : 1))
+  const savedThisMonth = invoices.filter(
+    (invoice) => monthKeyOf(invoice.data.dateTimeCreated) === currentMonthKey(),
+  ).length;
+
+  const months = [...groupByMonth(invoices, language)].sort((a, b) => (a.key < b.key ? -1 : 1));
+  const monthlyPoints = months
+    .slice(-TREND_MONTHS)
     .map((entry) => ({ label: entry.label, value: entry.total }));
 
-  const categorySegments = toPieSegments(groupByCategory(invoices), DEFAULT_CATEGORY).map(
-    (segment, index) => ({
-      ...segment,
-      label: CATEGORY_IDS.has(segment.label) ? t(categoryLabelKey(segment.label)) : segment.label,
-      color: PALETTE[index % PALETTE.length],
-    }),
-  );
-  const categoryChartTotal = categorySegments.reduce((sum, segment) => sum + segment.total, 0);
+  // Trend compares the two most recent months that actually have data.
+  const previousMonthTotal = months.length > 1 ? months[months.length - 2].total : 0;
+  const latestMonthTotal = months.length > 0 ? months[months.length - 1].total : 0;
+  const trendPercent =
+    previousMonthTotal > 0
+      ? Math.round(((latestMonthTotal - previousMonthTotal) / previousMonthTotal) * 100)
+      : null;
+
+  const categoryTotals = groupByCategory(invoices);
+  const categoryGrandTotal = categoryTotals.reduce((sum, entry) => sum + entry.total, 0);
+  const topCategories = categoryTotals.slice(0, TOP_CATEGORIES);
+
+  const recent = [...invoices]
+    .sort((a, b) => (a.data.dateTimeCreated < b.data.dateTimeCreated ? 1 : -1))
+    .slice(0, RECENT_INVOICES);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-      {budgetTarget !== null && (
-        <Pressable onPress={onSelectBudget}>
-          <GlassView style={styles.budgetCard}>
-            <Text style={styles.chartTitle}>{t('dashboard.monthlyBudget')}</Text>
-            <Text style={styles.budgetAmount}>
-              {formatAmount(monthSpent)}{' '}
-              <Text style={styles.budgetTarget}>
-                {t('dashboard.of')} {formatAmount(budgetTarget)}
-              </Text>
-            </Text>
-            <View style={styles.budgetProgressWrapper}>
-              <ProgressBar ratio={budgetRatio} />
+      <Pressable onPress={onSelectBudget}>
+        <View style={styles.spendCard}>
+          <Text style={styles.spendAmount}>{formatAmount(monthSpent)}</Text>
+          <Text style={styles.spendMeta}>
+            {hasBudget
+              ? t('dashboard.budgetMeta', {
+                  target: formatAmount(budgetTarget as number),
+                  percent: Math.round(budgetRatio * 100),
+                  days: daysLeft,
+                })
+              : t('dashboard.spentNoBudget')}
+          </Text>
+          {hasBudget && (
+            <View style={styles.spendTrack}>
+              <View style={[styles.spendFill, { width: `${Math.round(budgetRatio * 100)}%` }]} />
             </View>
-          </GlassView>
-        </Pressable>
-      )}
+          )}
+        </View>
+      </Pressable>
 
       <View style={styles.statsRow}>
-        <Pressable style={styles.statCardWrapper} onPress={onSelectInvoiceList}>
-          <GlassView style={styles.statCard}>
-            <Text style={styles.statValue}>{formatAmount(avgMonthlySpent)}</Text>
-            <Text style={styles.statLabel}>{t('dashboard.avgMonthly')}</Text>
-            <Text style={styles.statLabelSub}>{t('dashboard.thisYear')}</Text>
-          </GlassView>
-        </Pressable>
-        <Pressable style={styles.statCardWrapper} onPress={onSelectInvoiceList}>
-          <GlassView style={styles.statCard}>
-            <Text style={styles.statValue}>{savedThisMonth}</Text>
-            <Text style={styles.statLabel}>{t('dashboard.savedInvoices')}</Text>
-            <Text style={styles.statLabelSub}>{t('dashboard.thisMonth')}</Text>
-          </GlassView>
+        <View style={styles.statCard}>
+          <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1}>
+            {hasBudget ? formatAmount(remaining) : '—'}
+          </Text>
+          <Text style={styles.statLabel}>{t('dashboard.remaining')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={[styles.statValue, { color: '#F093FB' }]} numberOfLines={1}>
+            {hasBudget ? formatAmount(remaining / daysLeft) : '—'}
+          </Text>
+          <Text style={styles.statLabel}>{t('dashboard.perDay')}</Text>
+        </View>
+        <Pressable style={styles.statCard} onPress={onSelectInvoiceList}>
+          <Text style={[styles.statValue, { color: '#4FACFE' }]} numberOfLines={1}>
+            {savedThisMonth}
+          </Text>
+          <Text style={styles.statLabel}>{t('dashboard.invoicesShort')}</Text>
         </Pressable>
       </View>
 
@@ -105,48 +138,96 @@ export function DashboardScreen({ invoices, onSelectBudget, onSelectInvoiceList 
         <Text style={styles.emptyText}>{t('dashboard.noInvoicesForStats')}</Text>
       ) : (
         <>
-          {categorySegments.length > 0 && (
-            <GlassView style={styles.chartCard}>
-              <Text style={styles.chartTitle}>{t('dashboard.spendingByCategory')}</Text>
-              <View style={styles.chartRow}>
-                <PieChart
-                  segments={categorySegments.map((segment) => ({
-                    label: segment.label,
-                    value: segment.total,
-                    color: segment.color,
-                  }))}
-                  size={160}
-                  selectedIndex={categorySelection ?? indexOfMax(categorySegments.map((segment) => segment.total))}
-                  onSelectIndex={setCategorySelection}
-                />
-                <View style={styles.legend}>
-                  {categorySegments.map((segment, index) => {
-                    const isSelected =
-                      index === (categorySelection ?? indexOfMax(categorySegments.map((entry) => entry.total)));
-                    return (
-                      <Pressable key={segment.label} onPress={() => setCategorySelection(index)} style={styles.legendRow}>
-                        <View style={[styles.legendSwatch, { backgroundColor: segment.color }]} />
-                        <View style={styles.legendTextGroup}>
-                          <Text style={[styles.legendLabel, isSelected && styles.legendLabelActive]}>
-                            {segment.label}
-                          </Text>
-                          <Text style={[styles.legendValue, isSelected && styles.legendValueActive]}>
-                            {formatAmount(segment.total)}
-                            {categoryChartTotal > 0 ? ` (${Math.round((segment.total / categoryChartTotal) * 100)}%)` : ''}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+          {topCategories.length > 0 && (
+            <GlassView style={styles.card}>
+              <Text style={styles.cardTitle}>{t('dashboard.spendingByCategory')}</Text>
+              {topCategories.map((entry) => {
+                const share = categoryGrandTotal > 0 ? entry.total / categoryGrandTotal : 0;
+                const tint = categoryColor(entry.key);
+                const label = CATEGORY_IDS.has(entry.key)
+                  ? t(categoryLabelKey(entry.key))
+                  : entry.label;
+                return (
+                  <View key={entry.key} style={styles.categoryRow}>
+                    <View style={styles.categoryHeader}>
+                      <View style={[styles.categoryDot, { backgroundColor: tint }]} />
+                      <Text style={styles.categoryLabel} numberOfLines={1}>
+                        {label}
+                      </Text>
+                      <Text style={styles.categoryPercent}>{Math.round(share * 100)}%</Text>
+                      <Text style={styles.categoryAmount}>{formatAmount(entry.total)}</Text>
+                    </View>
+                    <View style={styles.categoryTrack}>
+                      <View
+                        style={[
+                          styles.categoryFill,
+                          { width: `${Math.max(2, Math.round(share * 100))}%`, backgroundColor: tint },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
             </GlassView>
           )}
 
-          <GlassView style={styles.chartCard}>
-            <Text style={styles.chartTitle}>{t('dashboard.spendingByMonth')}</Text>
+          {recent.length > 0 && (
+            <GlassView style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>{t('dashboard.recentInvoices')}</Text>
+                <Pressable onPress={onSelectInvoiceList} hitSlop={8} style={styles.viewAll}>
+                  <Text style={styles.viewAllText}>{t('dashboard.viewAll')}</Text>
+                  <CaretRightIcon size={12} color={colors.primary} weight="bold" />
+                </Pressable>
+              </View>
+              {recent.map((invoice) => {
+                const category = dominantCategory(invoice);
+                const Icon = categoryIcon(category);
+                return (
+                  <Pressable
+                    key={invoice.id}
+                    style={styles.invoiceRow}
+                    onPress={() => onSelectInvoice?.(invoice)}
+                  >
+                    <View style={[styles.invoiceIcon, { backgroundColor: categoryColor(category) }]}>
+                      <Icon size={20} color={colors.white} weight="fill" />
+                    </View>
+                    <View style={styles.invoiceText}>
+                      <Text style={styles.invoiceSeller} numberOfLines={1}>
+                        {invoice.data.seller.name}
+                      </Text>
+                      <Text style={styles.invoiceMeta} numberOfLines={1}>
+                        {shortDate(invoice.data.dateTimeCreated)} · {t(categoryLabelKey(category))}
+                      </Text>
+                    </View>
+                    <Text style={styles.invoiceAmount}>{formatAmount(invoice.data.totalPrice)}</Text>
+                  </Pressable>
+                );
+              })}
+            </GlassView>
+          )}
+
+          <GlassView style={styles.card}>
+            <Text style={styles.cardTitle}>{t('dashboard.spendingByMonth')}</Text>
             <View style={styles.lineChartWrapper}>
-              <LineChart points={monthlyPoints} width={CHART_WIDTH} height={180} />
+              <LineChart points={monthlyPoints} width={CHART_WIDTH} height={160} />
+            </View>
+            <View style={styles.trendRow}>
+              <View style={styles.trendCell}>
+                <Text style={[styles.trendValue, { color: colors.primary }]} numberOfLines={1}>
+                  {formatAmount(averageMonthlyThisYear(invoices))}
+                </Text>
+                <Text style={styles.trendLabel}>{t('dashboard.yearlyAverage')}</Text>
+              </View>
+              <View style={styles.trendCell}>
+                <Text
+                  style={[styles.trendValue, { color: trendPercent !== null && trendPercent > 0 ? '#FA709A' : '#43E97B' }]}
+                  numberOfLines={1}
+                >
+                  {trendPercent === null ? '—' : `${trendPercent > 0 ? '↑' : '↓'} ${Math.abs(trendPercent)}%`}
+                </Text>
+                <Text style={styles.trendLabel}>{t('dashboard.trend')}</Text>
+              </View>
             </View>
           </GlassView>
         </>
@@ -161,113 +242,181 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 140,
-    gap: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    gap: 14,
   },
-  budgetCard: {
-    padding: 20,
+  spendCard: {
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
   },
-  budgetAmount: {
-    fontSize: 20,
+  spendAmount: {
+    fontSize: 36,
     fontWeight: '700',
-    color: colors.textDark,
-    marginTop: 4,
+    color: colors.white,
   },
-  budgetTarget: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textMuted,
+  spendMeta: {
+    fontSize: 11,
+    marginTop: 2,
+    color: colors.white,
+    opacity: 0.85,
   },
-  budgetProgressWrapper: {
-    marginTop: 12,
+  spendTrack: {
+    height: 6,
+    marginTop: 14,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    overflow: 'hidden',
+  },
+  spendFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  statCardWrapper: {
-    flex: 1,
+    gap: 10,
   },
   statCard: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.neutral,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.primary,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 9,
+    marginTop: 2,
+    textTransform: 'uppercase',
     color: colors.textMuted,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  statLabelSub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    opacity: 0.7,
-    textAlign: 'center',
   },
   emptyText: {
     textAlign: 'center',
     color: colors.textMuted,
     marginTop: 40,
   },
-  chartCard: {
-    padding: 20,
+  card: {
+    padding: 18,
   },
-  chartTitle: {
+  cardTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.textDark,
-    marginBottom: 16,
   },
-  chartRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
   },
-  lineChartWrapper: {
+  viewAll: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
   },
-  legend: {
-    flex: 1,
-    gap: 10,
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
-  legendRow: {
+  categoryRow: {
+    marginTop: 14,
+  },
+  categoryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  categoryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  legendTextGroup: {
+  categoryLabel: {
     flex: 1,
-  },
-  legendLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textDark,
-    textTransform: 'capitalize',
   },
-  legendLabelActive: {
-    fontSize: 15,
-    color: colors.primary,
-  },
-  legendValue: {
-    fontSize: 12,
+  categoryPercent: {
+    fontSize: 11,
     color: colors.textMuted,
   },
-  legendValueActive: {
+  categoryAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  categoryTrack: {
+    height: 6,
+    marginTop: 6,
+    borderRadius: 3,
+    backgroundColor: colors.neutral,
+    overflow: 'hidden',
+  },
+  categoryFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 14,
+  },
+  invoiceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invoiceText: {
+    flex: 1,
+  },
+  invoiceSeller: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.textDark,
+  },
+  invoiceMeta: {
+    fontSize: 9,
+    marginTop: 1,
+    color: colors.textMuted,
+  },
+  invoiceAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  lineChartWrapper: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  trendRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.neutral,
+  },
+  trendCell: {
+    flex: 1,
+  },
+  trendValue: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  trendLabel: {
+    fontSize: 9,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
   },
 });
