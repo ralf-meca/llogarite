@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchBudget } from '../lib/budgetApi';
 import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey } from '../lib/categories';
-import { groupByCategory, dominantCategory } from '../lib/categorySpending';
+import { currentMonthCategoryTotals, dominantCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
@@ -83,7 +83,9 @@ export function DashboardScreen({
       ? Math.round(((latestMonthTotal - previousMonthTotal) / previousMonthTotal) * 100)
       : null;
 
-  const categoryTotals = groupByCategory(invoices);
+  // Scoped to the current month so the breakdown agrees with the spend card
+  // above it, which is monthly.
+  const categoryTotals = currentMonthCategoryTotals(invoices);
   const categoryGrandTotal = categoryTotals.reduce((sum, entry) => sum + entry.total, 0);
   const topCategories = categoryTotals.slice(0, TOP_CATEGORIES);
 
