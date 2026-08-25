@@ -897,7 +897,7 @@ function AppContent() {
                 />
             )}
 
-            <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" ? "light" : "auto"} />
+            <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" || screen === "manual" ? "light" : "auto"} />
             <ToastHost toasts={toasts} onDismiss={dismissToast} />
         </View>
     );

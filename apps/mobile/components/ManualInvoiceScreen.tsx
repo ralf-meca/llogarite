@@ -21,7 +21,7 @@ import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/format
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
-import { colors } from '../lib/theme';
+import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
 import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
@@ -303,29 +303,28 @@ export function ManualInvoiceScreen({
 
   return (
     <View style={styles.container}>
-      {isEditing && onBack ? (
-        <View style={styles.headerRow}>
-          <Pressable onPress={onBack} style={styles.iconButtonShadow}>
-            <GlassView style={styles.iconButton}>
-              <ArrowLeftIcon size={18} color="#9ca3af" />
-            </GlassView>
+      <View style={styles.headerRow}>
+        {isEditing && onBack ? (
+          <Pressable onPress={onBack} style={styles.iconButton} hitSlop={10}>
+            <ArrowLeftIcon size={18} color={colors.primary} />
           </Pressable>
-          <Pressable onPress={onClose} style={styles.iconButtonShadow}>
-            <GlassView style={styles.iconButton}>
-              <PencilSlashIcon size={18} color="#111827" />
-            </GlassView>
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable onPress={onClose} style={styles.closeButtonWrapper}>
-          <GlassView style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </GlassView>
+        ) : (
+          <View style={styles.iconButtonSpacer} />
+        )}
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {isEditing ? t('manualInvoice.editTitle') : t('manualInvoice.addTitle')}
+        </Text>
+        <Pressable onPress={onClose} style={styles.iconButton} hitSlop={10}>
+          {isEditing ? (
+            <PencilSlashIcon size={18} color={colors.primary} />
+          ) : (
+            <XIcon size={18} color={colors.primary} weight="bold" />
+          )}
         </Pressable>
-      )}
+      </View>
 
+      <View style={styles.sheet}>
       <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
-        <Text style={styles.title}>{isEditing ? t('manualInvoice.editTitle') : t('manualInvoice.addTitle')}</Text>
 
         <GlassTextInput
           style={styles.input}
@@ -526,6 +525,7 @@ export function ManualInvoiceScreen({
           disabled={isSaving}
         />
       </View>
+      </View>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} bottomOffset={110} />
     </View>
@@ -535,58 +535,51 @@ export function ManualInvoiceScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  closeButtonWrapper: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
-    marginBottom: 12,
-    marginRight: 16,
-    borderRadius: 18,
-    boxShadow: '0px 2px 4px rgba(0,0,0,0.15)',
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: '#111827',
+    marginTop: -HEADER_INSET,
+    paddingTop: HEADER_INSET,
+    backgroundColor: colors.primary,
   },
   headerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    marginBottom: 12,
-    marginHorizontal: 16,
+    paddingHorizontal: 24,
+    height: 52,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.white,
   },
-  iconButtonShadow: {
-    borderRadius: 18,
-    boxShadow: '0px 2px 4px rgba(0,0,0,0.15)',
+  iconButtonSpacer: {
+    width: 32,
+    height: 32,
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    overflow: 'hidden',
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
     paddingBottom: 24,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 16,
   },
   input: {
     marginBottom: 12,
@@ -626,7 +619,7 @@ const styles = StyleSheet.create({
   buddyPillTriggerText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textDark,
     flexShrink: 1,
   },
   card: {
@@ -668,7 +661,7 @@ const styles = StyleSheet.create({
   splitModeOptionText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   splitModeOptionTextActive: {
@@ -678,7 +671,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   buddyRow: {
     flexDirection: 'row',
@@ -699,7 +692,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.textDark,
   },
   buddyPaidToggle: {
     flexDirection: 'row',
@@ -709,7 +702,7 @@ const styles = StyleSheet.create({
   buddyPaidText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   buddyPaidTextOn: {
     color: '#059669',
@@ -717,7 +710,7 @@ const styles = StyleSheet.create({
   buddyShareAmount: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1f2937',
+    color: colors.textDark,
   },
   buddiesSummary: {
     marginTop: 4,
@@ -733,12 +726,12 @@ const styles = StyleSheet.create({
   },
   buddiesSummaryLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   buddiesSummaryValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1f2937',
+    color: colors.textDark,
   },
   assignColumn: {
     width: 38,
@@ -750,18 +743,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.border,
     paddingBottom: 6,
   },
   headerCell: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   itemBlock: {
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: colors.border,
   },
   itemRow: {
     flexDirection: 'row',
@@ -814,24 +807,32 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1f2937',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    color: colors.white,
+    opacity: 0.85,
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1f2937',
+    color: colors.white,
   },
   footer: {
     paddingHorizontal: 24,
+    // Explicit white that reaches just above the button, so the solid-primary
+    // total strip can't butt straight up against the primary submit button.
+    paddingTop: 2,
     paddingBottom: 32,
+    backgroundColor: colors.white,
   },
 });
