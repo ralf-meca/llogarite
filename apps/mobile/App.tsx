@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
@@ -129,6 +130,7 @@ function haveItemsChanged(original: InvoiceItem[], next: InvoiceItem[]): boolean
 
 function AppContent() {
     const { t } = useTranslation();
+    const insets = useSafeAreaInsets();
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isScannerVisible, setIsScannerVisible] = useState(false);
     const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
@@ -673,7 +675,7 @@ function AppContent() {
                         />
                     </View>
 
-                    <View style={styles.sheet}>
+                    <View style={[styles.sheet, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom }]}>
                         {screen === "dashboard" ? (
                             <DashboardScreen
                                 invoices={savedInvoices}
@@ -905,11 +907,13 @@ function AppContent() {
 
 export default function App() {
     return (
-        <KeyboardProvider>
-            <LanguageProvider>
-                <AppContent />
-            </LanguageProvider>
-        </KeyboardProvider>
+        <SafeAreaProvider>
+            <KeyboardProvider>
+                <LanguageProvider>
+                    <AppContent />
+                </LanguageProvider>
+            </KeyboardProvider>
+        </SafeAreaProvider>
     );
 }
 
@@ -978,7 +982,6 @@ const styles = StyleSheet.create({
     },
     sheet: {
         flex: 1,
-        paddingBottom: BOTTOM_NAV_HEIGHT,
         backgroundColor: colors.white,
         borderTopLeftRadius: radius.sheet,
         borderTopRightRadius: radius.sheet,

@@ -9,6 +9,7 @@ import {
 } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, FAB_BOTTOM_OFFSET, FAB_SIZE, colors } from '../lib/theme';
 import { GlassView } from './GlassView';
@@ -29,6 +30,7 @@ const MENU_ITEMS: { key: 'qr' | 'receipt' | 'gallery' | 'manual'; icon: Icon; la
 
 export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromGallery }: ScanMenuProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSelect = (key: (typeof MENU_ITEMS)[number]['key']) => {
@@ -46,7 +48,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
 
   return (
     <>
-      <View style={styles.fabWrapper} pointerEvents="box-none">
+      <View style={[styles.fabWrapper, { bottom: FAB_BOTTOM_OFFSET + insets.bottom }]} pointerEvents="box-none">
         <Pressable onPress={() => setIsOpen((prev) => !prev)}>
           <GlassView style={styles.fab}>
             {isOpen ? (
@@ -60,7 +62,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
-          <View style={styles.menuWrapper} pointerEvents="box-none">
+          <View style={[styles.menuWrapper, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom + 44 }]} pointerEvents="box-none">
             <GlassView style={styles.menu}>
               {MENU_ITEMS.map((item) => (
                 <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>

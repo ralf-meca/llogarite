@@ -12,6 +12,7 @@ import {
 } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, colors, radius } from '../lib/theme';
 
@@ -56,6 +57,7 @@ export function BottomNavBar({
   onNavigate,
 }: BottomNavBarProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   // The "more" slot stands in for whichever hidden screen is active, and carries
@@ -89,7 +91,7 @@ export function BottomNavBar({
 
   return (
     <>
-      <View style={styles.bar}>
+      <View style={[styles.bar, { height: BOTTOM_NAV_HEIGHT + insets.bottom, paddingBottom: insets.bottom }]}>
         {LEFT_ITEMS.map(renderTab)}
 
         {/* Empty slot the floating ScanMenu button sits in. */}
@@ -129,7 +131,7 @@ export function BottomNavBar({
       >
         <Pressable style={styles.backdrop} onPress={() => setIsMoreOpen(false)}>
           <View style={styles.sheetWrapper} pointerEvents="box-none">
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { marginBottom: BOTTOM_NAV_HEIGHT + insets.bottom + 14 }]}>
               {MORE_ITEMS.map((item) => {
                 const isActive = activeScreen === item.key;
                 const isLocked = Boolean(item.premium) && !isPremium;
@@ -216,7 +218,6 @@ const styles = StyleSheet.create({
   },
   sheet: {
     marginHorizontal: 16,
-    marginBottom: BOTTOM_NAV_HEIGHT + 14,
     paddingVertical: 8,
     borderRadius: radius.card,
     backgroundColor: colors.white,

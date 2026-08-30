@@ -12,6 +12,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
@@ -95,6 +96,7 @@ export function ManualInvoiceScreen({
   onSubmit,
 }: ManualInvoiceScreenProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [sellerName, setSellerName] = useState(initialData?.seller.name ?? '');
   const [dateLabel, setDateLabel] = useState(
     initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
@@ -517,7 +519,7 @@ export function ManualInvoiceScreen({
         </GlassView>
       </KeyboardAwareScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 32 + insets.bottom }]}>
         <GlassButton
           label={isSaving ? t('common.saving') : isEditing ? t('manualInvoice.saveChanges') : t('manualInvoice.continue')}
           variant="accent"

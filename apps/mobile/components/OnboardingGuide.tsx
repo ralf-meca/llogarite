@@ -1,5 +1,6 @@
 import { CrownIcon, XIcon } from 'phosphor-react-native';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { FAB_BOTTOM_OFFSET, FAB_SIZE, colors, radius } from '../lib/theme';
@@ -26,10 +27,11 @@ type OnboardingGuideProps = {
 
 export function OnboardingGuide({ step, stepIndex, totalSteps, onNext, onBack, onSkip }: OnboardingGuideProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isLast = stepIndex === totalSteps - 1;
   const { width, height } = Dimensions.get('window');
   const fabCenterX = width / 2;
-  const fabCenterY = height - FAB_BOTTOM_OFFSET - FAB_RADIUS;
+  const fabCenterY = height - FAB_BOTTOM_OFFSET - insets.bottom - FAB_RADIUS;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
