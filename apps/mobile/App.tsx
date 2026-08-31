@@ -1,8 +1,8 @@
 import { scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, BackHandler, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BuddiesScreen } from "./components/BuddiesScreen";
@@ -520,6 +520,74 @@ function AppContent() {
                 showError(error.message);
             });
     };
+
+    // Android hardware/gesture back. Navigation here is a screen state machine
+    // rather than a real navigator, so nothing was intercepting back and it fell
+    // straight through to closing the app. Returning true consumes the press.
+    const handleHardwareBack = (): boolean => {
+        if (isScannerVisible) {
+            setIsScannerVisible(false);
+            return true;
+        }
+        if (isReceiptScannerVisible) {
+            setIsReceiptScannerVisible(false);
+            return true;
+        }
+        if (isUserMenuVisible) {
+            setIsUserMenuVisible(false);
+            return true;
+        }
+        if (isOnboarding) {
+            if (onboardingStep === 0) {
+                finishOnboarding();
+            } else {
+                handleOnboardingBack();
+            }
+            return true;
+        }
+
+        switch (screen) {
+            case "detail":
+                handleCloseDetail();
+                return true;
+            case "manual":
+                handleManualClose();
+                return true;
+            case "invoice":
+                handleClose();
+                return true;
+            case "productDetail":
+                setScreen(productDetailReturnScreen);
+                return true;
+            case "buddyDetail":
+                setScreen("buddies");
+                return true;
+            case "plans":
+                setScreen("dashboard");
+                return true;
+            case "dashboard":
+            case "auth":
+            case "loading":
+                // Home tab (or pre-auth): fall through so Android closes the app.
+                return false;
+            default:
+                // Any other main screen returns to the home tab.
+                setScreen("dashboard");
+                return true;
+        }
+    };
+
+    // Subscribe once, but always run the latest closure — re-subscribing on every
+    // render would be needed otherwise, since the handler closes over screen state.
+    const hardwareBackRef = useRef(handleHardwareBack);
+    hardwareBackRef.current = handleHardwareBack;
+
+    useEffect(() => {
+        const subscription = BackHandler.addEventListener("hardwareBackPress", () =>
+            hardwareBackRef.current(),
+        );
+        return () => subscription.remove();
+    }, []);
 
     const handleReceiptCaptured = (photoUri: string) => {
         setIsProcessingReceipt(true);

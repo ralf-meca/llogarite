@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.rmtech.llogarite",
-      "versionCode": 16,
+      "versionCode": 17,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
