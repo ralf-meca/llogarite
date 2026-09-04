@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
@@ -973,9 +973,13 @@ function AppContent() {
     );
 }
 
+// initialMetrics seeds the insets synchronously from native at startup. Without
+// it the first frame renders with zero insets and only corrects once native
+// reports back — which on some devices (e.g. Oppo/ColorOS) leaves the nav bar
+// sitting under the system buttons.
 export default function App() {
     return (
-        <SafeAreaProvider>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
             <KeyboardProvider>
                 <LanguageProvider>
                     <AppContent />

@@ -383,7 +383,9 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   modalWrapper: {
-    width: '65%',
+    // 65% left the menu rows cramped against their icons on a phone.
+    width: '88%',
+    maxWidth: 420,
   },
   card: {
     padding: 24,
