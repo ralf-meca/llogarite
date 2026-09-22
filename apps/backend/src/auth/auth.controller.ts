@@ -6,6 +6,9 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestCodeDto } from './dto/request-code.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
+import { VerifyCodeDto } from './dto/verify-code.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthResponse } from './types/auth-response.type';
 
@@ -22,6 +25,25 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     login(@Body() dto: LoginDto): Promise<AuthResponse> {
         return this.authService.login(dto);
+    }
+
+    @Post('request-code')
+    @HttpCode(HttpStatus.OK)
+    requestLoginCode(@Body() dto: RequestCodeDto): Promise<void> {
+        return this.authService.requestLoginCode(dto);
+    }
+
+    @Post('verify-code')
+    @HttpCode(HttpStatus.OK)
+    verifyLoginCode(@Body() dto: VerifyCodeDto): Promise<AuthResponse> {
+        return this.authService.verifyLoginCode(dto);
+    }
+
+    @Post('set-password')
+    @HttpCode(HttpStatus.OK)
+    @UseGuards(JwtAuthGuard)
+    setPassword(@CurrentUser() userId: string, @Body() dto: SetPasswordDto): Promise<void> {
+        return this.authService.setPassword(userId, dto);
     }
 
     @Post('google')

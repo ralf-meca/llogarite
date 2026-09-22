@@ -26,7 +26,16 @@ import {
   UsersIcon,
 } from 'phosphor-react-native';
 import { useToasts } from '../hooks/useToasts';
-import { forgotPassword, login, loginWithGoogle, register, type AuthResponse } from '../lib/authApi';
+import {
+  forgotPassword,
+  login,
+  loginWithGoogle,
+  requestLoginCode,
+  setPassword as setAccountPassword,
+  verifyLoginCode,
+  type AuthResponse,
+} from '../lib/authApi';
+import { saveToken } from '../lib/authStorage';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
@@ -77,9 +86,15 @@ type LoginScreenProps = {
   onAuthenticated: (auth: AuthResponse) => void;
 };
 
-type Mode = 'login' | 'register';
+// 'email' asks for the address and mails a code, 'code' takes that code back.
+// 'password' is the fallback for anyone who has set one, and 'setPassword' is
+// the skippable offer made right after a code sign-in.
+type Step = 'email' | 'code' | 'password' | 'setPassword';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const CODE_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 30;
 
 const EMAIL_DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com', 'hotmail.com'];
 
@@ -97,18 +112,21 @@ function getEmailSuggestions(value: string): string[] {
 
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<Mode>('login');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [pendingAuth, setPendingAuth] = useState<AuthResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [pagerHeight, setPagerHeight] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [legalPage, setLegalPage] = useState<'privacy' | 'terms' | null>(null);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
@@ -127,6 +145,14 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     const timer = setTimeout(() => setShowSwipeHint(true), 5000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   useEffect(() => {
     if (!showSwipeHint) {
@@ -153,36 +179,83 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     return () => loop.stop();
   }, [showSwipeHint, fingerX, fingerOpacity, fingerScale]);
 
-  const handleSubmit = () => {
+  const handleSendCode = (isResend = false) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showError(t('login.emailRequired'));
+      return;
+    }
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      showError(t('login.invalidEmail'));
+      return;
+    }
+    setIsSubmitting(true);
+    requestLoginCode(trimmedEmail)
+      .then(() => {
+        setIsSubmitting(false);
+        setCode('');
+        setResendIn(RESEND_COOLDOWN_SECONDS);
+        setStep('code');
+        if (isResend) {
+          showSuccess(t('login.codeResent'));
+        }
+      })
+      .catch((sendError: Error) => {
+        setIsSubmitting(false);
+        showError(sendError.message);
+      });
+  };
+
+  // The code is passed in rather than read from state, so the auto-submit on the
+  // sixth digit doesn't race the state update that triggered it.
+  const handleVerifyCode = (value: string) => {
+    if (isSubmitting) {
+      return;
+    }
+    if (value.length !== CODE_LENGTH) {
+      showError(t('login.codeRequired'));
+      return;
+    }
+    setIsSubmitting(true);
+    verifyLoginCode(email.trim(), value)
+      .then((auth) => {
+        setIsSubmitting(false);
+        if (auth.user.hasPassword) {
+          onAuthenticated(auth);
+          return;
+        }
+        // Store the token before the offer: setting a password is an
+        // authenticated call, and the user is signed in either way from here.
+        return saveToken(auth.accessToken).then(() => {
+          setPendingAuth(auth);
+          setNewPassword('');
+          setConfirmPassword('');
+          setStep('setPassword');
+        });
+      })
+      .catch((verifyError: Error) => {
+        setIsSubmitting(false);
+        setCode('');
+        showError(verifyError.message);
+      });
+  };
+
+  const handleCodeChange = (value: string) => {
+    const digits = value.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH);
+    setCode(digits);
+    if (digits.length === CODE_LENGTH) {
+      handleVerifyCode(digits);
+    }
+  };
+
+  const handlePasswordLogin = () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       showError(t('login.fieldsRequired'));
       return;
     }
-    if (mode === 'register') {
-      if (!firstName.trim() || !lastName.trim()) {
-        showError(t('login.nameRequired'));
-        return;
-      }
-      if (!EMAIL_REGEX.test(trimmedEmail)) {
-        showError(t('login.invalidEmail'));
-        return;
-      }
-      if (password.length < 8) {
-        showError(t('login.passwordTooShort'));
-        return;
-      }
-      if (password !== confirmPassword) {
-        showError(t('login.passwordsDontMatch'));
-        return;
-      }
-    }
     setIsSubmitting(true);
-    const authPromise =
-      mode === 'login'
-        ? login(trimmedEmail, password)
-        : register(trimmedEmail, password, `${firstName.trim()} ${lastName.trim()}`.trim());
-    authPromise
+    login(trimmedEmail, password)
       .then((auth) => {
         setIsSubmitting(false);
         onAuthenticated(auth);
@@ -191,6 +264,36 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         setIsSubmitting(false);
         showError(submitError.message);
       });
+  };
+
+  const handleSetPassword = () => {
+    if (!pendingAuth) {
+      return;
+    }
+    if (newPassword.length < 8) {
+      showError(t('login.passwordTooShort'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showError(t('login.passwordsDontMatch'));
+      return;
+    }
+    setIsSubmitting(true);
+    setAccountPassword(newPassword)
+      .then(() => {
+        setIsSubmitting(false);
+        onAuthenticated({ ...pendingAuth, user: { ...pendingAuth.user, hasPassword: true } });
+      })
+      .catch((passwordError: Error) => {
+        setIsSubmitting(false);
+        showError(passwordError.message);
+      });
+  };
+
+  const handleSkipPassword = () => {
+    if (pendingAuth) {
+      onAuthenticated(pendingAuth);
+    }
   };
 
   const handleGoogleSignIn = () => {
@@ -217,13 +320,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         setIsGoogleSubmitting(false);
         showError(googleError.message);
       });
-  };
-
-  const toggleMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
-    setConfirmPassword('');
-    setFirstName('');
-    setLastName('');
   };
 
   const openForgotPassword = () => {
@@ -254,6 +350,66 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     setActiveSlide(index);
   };
 
+  // The auth form is the page right after the last slide. The indicator is moved
+  // here rather than waiting for onMomentumScrollEnd, so the slide controls hide
+  // immediately even if that callback doesn't fire for a programmatic scroll.
+  const goToAuthForm = () => {
+    setActiveSlide(SLIDES.length);
+    pagerRef.current?.scrollTo({ x: SCREEN_WIDTH * SLIDES.length, animated: true });
+  };
+
+  const emailField = (
+    <>
+      <GlassTextInput
+        style={styles.input}
+        placeholder={t('login.emailPlaceholder')}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+      />
+      {getEmailSuggestions(email).length > 0 && (
+        <View style={styles.emailSuggestions}>
+          {getEmailSuggestions(email).map((suggestion) => (
+            <Pressable key={suggestion} style={styles.emailSuggestionChip} onPress={() => setEmail(suggestion)}>
+              <Text style={styles.emailSuggestionText}>{suggestion}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </>
+  );
+
+  const googleButton = (
+    <Pressable
+      onPress={handleGoogleSignIn}
+      disabled={isSubmitting || isGoogleSubmitting}
+      style={({ pressed }) => [
+        styles.googleButton,
+        (pressed || isSubmitting || isGoogleSubmitting) && styles.googleButtonPressed,
+      ]}
+    >
+      {isGoogleSubmitting ? <ActivityIndicator size="small" color={colors.primary} /> : <GoogleLogo size={20} />}
+      <Text style={styles.googleLabelText} numberOfLines={1}>
+        {isGoogleSubmitting ? t('login.signingInWithGoogle') : t('login.continueWithGoogle')}
+      </Text>
+    </Pressable>
+  );
+
+  const disclaimer = (
+    <Text style={styles.disclaimerText}>
+      {t('login.disclaimerAgree')}{' '}
+      <Text style={styles.disclaimerLink} onPress={() => setLegalPage('terms')}>
+        {t('login.termsLink')}
+      </Text>{' '}
+      {t('login.and')}{' '}
+      <Text style={styles.disclaimerLink} onPress={() => setLegalPage('privacy')}>
+        {t('login.privacyLink')}
+      </Text>
+      .
+    </Text>
+  );
+
   if (legalPage) {
     return <LegalScreen type={legalPage} onBack={() => setLegalPage(null)} />;
   }
@@ -271,6 +427,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       <View style={styles.pagerContainer} onLayout={(event) => setPagerHeight(event.nativeEvent.layout.height)}>
         {pagerHeight > 0 && (
           <ScrollView
+            ref={pagerRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -304,156 +461,149 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
             <View style={[styles.authPage, { width: SCREEN_WIDTH, height: pagerHeight }]}>
               <KeyboardAvoidingView behavior="padding" style={styles.authPageContent}>
-              <Text style={styles.formTitle}>
-                {mode === 'login' ? t('login.welcomeBack') : t('login.createAccount')}
-              </Text>
-
-              {mode === 'register' && (
-                <View style={styles.nameRow}>
-                  <GlassTextInput
-                    style={[styles.input, styles.nameInput]}
-                    placeholder={t('login.firstNamePlaceholder')}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                  />
-                  <GlassTextInput
-                    style={[styles.input, styles.nameInput]}
-                    placeholder={t('login.lastNamePlaceholder')}
-                    value={lastName}
-                    onChangeText={setLastName}
-                  />
-                </View>
-              )}
-
-              <GlassTextInput
-                style={styles.input}
-                placeholder={t('login.emailPlaceholder')}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-              {getEmailSuggestions(email).length > 0 && (
-                <View style={styles.emailSuggestions}>
-                  {getEmailSuggestions(email).map((suggestion) => (
-                    <Pressable
-                      key={suggestion}
-                      style={styles.emailSuggestionChip}
-                      onPress={() => setEmail(suggestion)}
-                    >
-                      <Text style={styles.emailSuggestionText}>{suggestion}</Text>
+                {step === 'email' && (
+                  <>
+                    <Text style={styles.formTitle}>{t('login.welcomeBack')}</Text>
+                    {emailField}
+                    <GlassButton
+                      label={isSubmitting ? t('login.sendingCode') : t('login.sendCode')}
+                      variant="accent"
+                      style={styles.submitButton}
+                      onPress={() => handleSendCode()}
+                      disabled={isSubmitting || isGoogleSubmitting}
+                    />
+                    {googleButton}
+                    <Pressable onPress={() => setStep('password')}>
+                      <Text style={styles.switchMethodText}>{t('login.usePassword')}</Text>
                     </Pressable>
-                  ))}
-                </View>
-              )}
-              <GlassView style={styles.passwordContainer}>
-                <GlassTextInput
-                  style={styles.passwordInput}
-                  placeholder={t('login.passwordPlaceholder')}
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <Pressable
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword((prev) => !prev)}
-                >
-                  {showPassword ? (
-                    <EyeSlashIcon size={22} color={colors.textMuted} />
-                  ) : (
-                    <EyeIcon size={22} color={colors.textMuted} />
-                  )}
-                </Pressable>
-              </GlassView>
-
-              {mode === 'register' && (
-                <GlassView style={styles.passwordContainer}>
-                  <GlassTextInput
-                    style={styles.passwordInput}
-                    placeholder={t('login.confirmPasswordPlaceholder')}
-                    secureTextEntry={!showConfirmPassword}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                  />
-                  <Pressable
-                    style={styles.eyeButton}
-                    onPress={() => setShowConfirmPassword((prev) => !prev)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeSlashIcon size={22} color={colors.textMuted} />
-                    ) : (
-                      <EyeIcon size={22} color={colors.textMuted} />
-                    )}
-                  </Pressable>
-                </GlassView>
-              )}
-
-              {mode === 'login' && (
-                <Pressable onPress={openForgotPassword} style={styles.forgotPasswordLink}>
-                  <Text style={styles.forgotPasswordText}>{t('login.forgotPassword')}</Text>
-                </Pressable>
-              )}
-
-              <GlassButton
-                label={
-                  isSubmitting
-                    ? mode === 'login'
-                      ? t('login.signingIn')
-                      : t('login.registering')
-                    : mode === 'login'
-                      ? t('login.signIn')
-                      : t('login.register')
-                }
-                variant="accent"
-                style={styles.submitButton}
-                onPress={handleSubmit}
-                disabled={isSubmitting || isGoogleSubmitting}
-              />
-
-              <Pressable
-                onPress={handleGoogleSignIn}
-                disabled={isSubmitting || isGoogleSubmitting}
-                style={({ pressed }) => [
-                  styles.googleButton,
-                  (pressed || isSubmitting || isGoogleSubmitting) && styles.googleButtonPressed,
-                ]}
-              >
-                {isGoogleSubmitting ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <GoogleLogo size={20} />
+                    {disclaimer}
+                  </>
                 )}
-                <Text style={styles.googleLabelText} numberOfLines={1}>
-                  {isGoogleSubmitting ? t('login.signingInWithGoogle') : t('login.continueWithGoogle')}
-                </Text>
-              </Pressable>
 
-              <Pressable onPress={toggleMode}>
-                <Text style={styles.toggleText}>{mode === 'login' ? t('login.noAccount') : t('login.hasAccount')}</Text>
-              </Pressable>
+                {step === 'code' && (
+                  <>
+                    <Text style={styles.formTitle}>{t('login.codeTitle')}</Text>
+                    <Text style={styles.stepSubtitle}>{t('login.codeSubtitle', { email: email.trim() })}</Text>
+                    <GlassTextInput
+                      style={[styles.input, styles.codeInput]}
+                      placeholder={t('login.codePlaceholder')}
+                      keyboardType="number-pad"
+                      autoFocus
+                      maxLength={CODE_LENGTH}
+                      value={code}
+                      onChangeText={handleCodeChange}
+                    />
+                    <GlassButton
+                      label={isSubmitting ? t('login.verifyingCode') : t('login.verifyCode')}
+                      variant="accent"
+                      style={styles.submitButton}
+                      onPress={() => handleVerifyCode(code)}
+                      disabled={isSubmitting}
+                    />
+                    <Pressable onPress={() => handleSendCode(true)} disabled={resendIn > 0 || isSubmitting}>
+                      <Text style={[styles.switchMethodText, resendIn > 0 && styles.switchMethodTextMuted]}>
+                        {resendIn > 0 ? t('login.resendCodeIn', { seconds: resendIn }) : t('login.resendCode')}
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => setStep('email')}>
+                      <Text style={styles.switchMethodText}>{t('login.changeEmail')}</Text>
+                    </Pressable>
+                  </>
+                )}
 
-              <Text style={styles.disclaimerText}>
-                {t('login.disclaimerAgree')}{' '}
-                <Text style={styles.disclaimerLink} onPress={() => setLegalPage('terms')}>
-                  {t('login.termsLink')}
-                </Text>{' '}
-                {t('login.and')}{' '}
-                <Text style={styles.disclaimerLink} onPress={() => setLegalPage('privacy')}>
-                  {t('login.privacyLink')}
-                </Text>
-                .
-              </Text>
+                {step === 'password' && (
+                  <>
+                    <Text style={styles.formTitle}>{t('login.welcomeBack')}</Text>
+                    {emailField}
+                    <GlassView style={styles.passwordContainer}>
+                      <GlassTextInput
+                        style={styles.passwordInput}
+                        placeholder={t('login.passwordPlaceholder')}
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                      />
+                      <Pressable style={styles.eyeButton} onPress={() => setShowPassword((prev) => !prev)}>
+                        {showPassword ? (
+                          <EyeSlashIcon size={22} color={colors.textMuted} />
+                        ) : (
+                          <EyeIcon size={22} color={colors.textMuted} />
+                        )}
+                      </Pressable>
+                    </GlassView>
+                    <Pressable onPress={openForgotPassword} style={styles.forgotPasswordLink}>
+                      <Text style={styles.forgotPasswordText}>{t('login.forgotPassword')}</Text>
+                    </Pressable>
+                    <GlassButton
+                      label={isSubmitting ? t('login.signingIn') : t('login.signIn')}
+                      variant="accent"
+                      style={styles.submitButton}
+                      onPress={handlePasswordLogin}
+                      disabled={isSubmitting || isGoogleSubmitting}
+                    />
+                    {googleButton}
+                    <Pressable onPress={() => setStep('email')}>
+                      <Text style={styles.switchMethodText}>{t('login.useCode')}</Text>
+                    </Pressable>
+                    {disclaimer}
+                  </>
+                )}
+
+                {step === 'setPassword' && (
+                  <>
+                    <Text style={styles.formTitle}>{t('login.setPasswordTitle')}</Text>
+                    <Text style={styles.stepSubtitle}>{t('login.setPasswordSubtitle')}</Text>
+                    <GlassView style={styles.passwordContainer}>
+                      <GlassTextInput
+                        style={styles.passwordInput}
+                        placeholder={t('login.newPasswordPlaceholder')}
+                        secureTextEntry={!showNewPassword}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                      />
+                      <Pressable style={styles.eyeButton} onPress={() => setShowNewPassword((prev) => !prev)}>
+                        {showNewPassword ? (
+                          <EyeSlashIcon size={22} color={colors.textMuted} />
+                        ) : (
+                          <EyeIcon size={22} color={colors.textMuted} />
+                        )}
+                      </Pressable>
+                    </GlassView>
+                    <GlassTextInput
+                      style={styles.input}
+                      placeholder={t('login.confirmPasswordPlaceholder')}
+                      secureTextEntry={!showNewPassword}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                    />
+                    <GlassButton
+                      label={isSubmitting ? t('login.savingPassword') : t('login.savePassword')}
+                      variant="accent"
+                      style={styles.submitButton}
+                      onPress={handleSetPassword}
+                      disabled={isSubmitting}
+                    />
+                    <Pressable onPress={handleSkipPassword} disabled={isSubmitting}>
+                      <Text style={styles.switchMethodText}>{t('login.skipForNow')}</Text>
+                    </Pressable>
+                  </>
+                )}
               </KeyboardAvoidingView>
             </View>
           </ScrollView>
         )}
 
         {activeSlide < SLIDES.length && (
-          <View style={styles.dotsRow}>
-            {SLIDES.map((slide, index) => (
-              <View key={slide.titleKey} style={[styles.dot, index === activeSlide && styles.dotActive]} />
-            ))}
-            <SignInIcon size={14} color={colors.primarySubtle} />
+          <View style={styles.bottomBar}>
+            <View style={styles.dotsRow}>
+              {SLIDES.map((slide, index) => (
+                <View key={slide.titleKey} style={[styles.dot, index === activeSlide && styles.dotActive]} />
+              ))}
+            </View>
+            <Pressable style={styles.signInButton} onPress={goToAuthForm} accessibilityRole="button">
+              <SignInIcon size={16} color={colors.primary} weight="bold" />
+              <Text style={styles.signInButtonLabel}>{t('login.signIn')}</Text>
+            </Pressable>
           </View>
         )}
       </View>
@@ -563,7 +713,7 @@ const styles = StyleSheet.create({
   },
   swipeHintWrap: {
     position: 'absolute',
-    bottom: 32,
+    bottom: 108,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -583,15 +733,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
-  dotsRow: {
+  bottomBar: {
     position: 'absolute',
-    bottom: 28,
+    bottom: 24,
     left: 0,
     right: 0,
+    alignItems: 'center',
+    gap: 14,
+  },
+  dotsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
+  },
+  signInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 44,
+    paddingHorizontal: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+  },
+  signInButtonLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   dot: {
     width: 6,
@@ -620,8 +787,21 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginBottom: 20,
   },
+  stepSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textMuted,
+    marginTop: -12,
+    marginBottom: 20,
+  },
   input: {
     marginBottom: 12,
+  },
+  codeInput: {
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 8,
   },
   emailSuggestions: {
     flexDirection: 'row',
@@ -640,13 +820,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  nameInput: {
-    flex: 1,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -696,10 +869,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textDark,
   },
-  toggleText: {
+  switchMethodText: {
     textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.primary,
     marginTop: 16,
+  },
+  switchMethodTextMuted: {
+    color: colors.textMuted,
   },
   disclaimerText: {
     fontSize: 11,

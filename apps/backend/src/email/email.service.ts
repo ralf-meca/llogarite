@@ -28,4 +28,11 @@ export class EmailService {
             this.logger.error(`Failed to send email to ${to}: ${(error as Error).message}`);
         }
     }
+
+    // For mail the caller can't afford to lose: a login code is the way into the
+    // app, so a failed send has to surface instead of leaving someone waiting on
+    // an email that is never coming.
+    async sendMailOrThrow(to: string, subject: string, html: string): Promise<void> {
+        await this.transporter.sendMail({ from: this.from, to, subject, html });
+    }
 }

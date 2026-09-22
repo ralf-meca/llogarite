@@ -58,6 +58,61 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return response.json();
 }
 
+export async function requestLoginCode(email: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/auth/request-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Dërgimi i kodit dështoi. Provo përsëri.'));
+  }
+}
+
+export async function verifyLoginCode(email: string, code: string): Promise<AuthResponse> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/auth/verify-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      describeHttpError(
+        response.status,
+        { 401: 'Kodi është i gabuar ose ka skaduar.' },
+        'Kyçja dështoi. Provo përsëri.',
+      ),
+    );
+  }
+  return response.json();
+}
+
+export async function setPassword(newPassword: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/auth/set-password`, {
+    method: 'POST',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ newPassword }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      describeHttpError(
+        response.status,
+        { 409: 'Kjo llogari ka tashmë një fjalëkalim.' },
+        'Ruajtja e fjalëkalimit dështoi. Provo përsëri.',
+      ),
+    );
+  }
+}
+
 export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
