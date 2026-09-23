@@ -94,7 +94,7 @@ type Step = 'email' | 'code' | 'password' | 'setPassword';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const CODE_LENGTH = 6;
-const RESEND_COOLDOWN_SECONDS = 30;
+const RESEND_COOLDOWN_SECONDS = 60;
 
 const EMAIL_DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com', 'hotmail.com'];
 

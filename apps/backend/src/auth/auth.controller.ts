@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -27,14 +28,25 @@ export class AuthController {
         return this.authService.login(dto);
     }
 
+    // Sending costs an email against a finite quota that every sign-in now
+    // depends on, so cap how many one address can ask for. Kept loose on
+    // purpose: mobile carriers here put many real users behind one address, and
+    // locking them out would be worse than the abuse this deters. The per-email
+    // cooldown in the service is what stops a single inbox being flooded.
     @Post('request-code')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 10, ttl: 600_000 } })
     requestLoginCode(@Body() dto: RequestCodeDto): Promise<void> {
         return this.authService.requestLoginCode(dto);
     }
 
+    // Guessing is already capped at five tries per code; this is the ceiling on
+    // spreading those guesses across many addresses at once.
     @Post('verify-code')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 30, ttl: 600_000 } })
     verifyLoginCode(@Body() dto: VerifyCodeDto): Promise<AuthResponse> {
         return this.authService.verifyLoginCode(dto);
     }

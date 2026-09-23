@@ -68,7 +68,13 @@ export async function requestLoginCode(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Dërgimi i kodit dështoi. Provo përsëri.'));
+    throw new Error(
+      describeHttpError(
+        response.status,
+        { 429: 'Prit pak para se të kërkosh një kod tjetër.' },
+        'Dërgimi i kodit dështoi. Provo përsëri.',
+      ),
+    );
   }
 }
 

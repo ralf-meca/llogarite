@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+    ConflictException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,6 +33,7 @@ const PASSWORD_HASH_ROUNDS = 10;
 const CODE_LENGTH = 6;
 const LOGIN_CODE_TTL_MINUTES = 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
+const LOGIN_CODE_RESEND_COOLDOWN_SECONDS = 60;
 
 // crypto rather than Math.random: each of these codes is a credential on its own.
 function generateNumericCode(): string {
@@ -112,6 +119,26 @@ export class AuthService {
 
     async requestLoginCode(dto: RequestCodeDto): Promise<void> {
         const email = dto.email.toLowerCase().trim();
+
+        // Refuse a second code while a fresh one is still in flight. Without this
+        // the endpoint mails whoever it is told to, as often as it is asked, which
+        // is both a way to flood a stranger's inbox and a way to drain the sending
+        // quota that every sign-in now depends on. It leaks nothing, because a
+        // request for an unknown address is treated exactly like a known one.
+        const lastIssued = await this.loginCodesRepository.findOne({
+            where: { email, consumed: false },
+            order: { createdAt: 'DESC' },
+        });
+        if (lastIssued) {
+            const elapsedSeconds = (Date.now() - lastIssued.createdAt.getTime()) / 1000;
+            const waitSeconds = Math.ceil(LOGIN_CODE_RESEND_COOLDOWN_SECONDS - elapsedSeconds);
+            if (waitSeconds > 0) {
+                throw new HttpException(
+                    `Wait ${waitSeconds}s before requesting another code`,
+                    HttpStatus.TOO_MANY_REQUESTS,
+                );
+            }
+        }
 
         // A new request retires whatever code was still outstanding for this email.
         await this.loginCodesRepository.update({ email, consumed: false }, { consumed: true });

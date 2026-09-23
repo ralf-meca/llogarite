@@ -24,6 +24,6 @@ export class LoginCode {
     @Column({ default: false })
     consumed: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }
