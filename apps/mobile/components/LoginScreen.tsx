@@ -14,6 +14,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
   ChartPieIcon,
@@ -96,6 +97,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
 
+// Both are measured from above the system navigation bar, not the screen edge.
+const BOTTOM_BAR_BOTTOM = 24;
+const SWIPE_HINT_BOTTOM = 108;
+
 const EMAIL_DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com', 'hotmail.com'];
 
 function getEmailSuggestions(value: string): string[] {
@@ -112,6 +117,9 @@ function getEmailSuggestions(value: string): string[] {
 
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { t } = useTranslation();
+  // The screen draws edge to edge, so anything pinned to the bottom has to be
+  // lifted clear of the system navigation bar or it sits underneath it.
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -442,7 +450,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
                 <Text style={styles.slideCaption}>{t(slide.captionKey)}</Text>
                 {showSwipeHint && (
-                  <View style={styles.swipeHintWrap}>
+                  <View style={[styles.swipeHintWrap, { bottom: SWIPE_HINT_BOTTOM + insets.bottom }]}>
                     <Text style={styles.swipeHintLabel}>{t('login.swipeHint')}</Text>
                     <View style={styles.swipeHintTrack}>
                       <Animated.View
@@ -460,7 +468,10 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             ))}
 
             <View style={[styles.authPage, { width: SCREEN_WIDTH, height: pagerHeight }]}>
-              <KeyboardAvoidingView behavior="padding" style={styles.authPageContent}>
+              <KeyboardAvoidingView
+                behavior="padding"
+                style={[styles.authPageContent, { paddingBottom: insets.bottom }]}
+              >
                 {step === 'email' && (
                   <>
                     <Text style={styles.formTitle}>{t('login.welcomeBack')}</Text>
@@ -542,9 +553,12 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                       disabled={isSubmitting || isGoogleSubmitting}
                     />
                     {googleButton}
-                    <Pressable onPress={() => setStep('email')}>
-                      <Text style={styles.switchMethodText}>{t('login.useCode')}</Text>
-                    </Pressable>
+                    <View style={styles.switchMethodBlock}>
+                      <Text style={styles.switchMethodHint}>{t('login.passwordOnlyHint')}</Text>
+                      <Pressable onPress={() => setStep('email')}>
+                        <Text style={styles.switchMethodLink}>{t('login.useCode')}</Text>
+                      </Pressable>
+                    </View>
                     {disclaimer}
                   </>
                 )}
@@ -594,7 +608,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         )}
 
         {activeSlide < SLIDES.length && (
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { bottom: BOTTOM_BAR_BOTTOM + insets.bottom }]}>
             <View style={styles.dotsRow}>
               {SLIDES.map((slide, index) => (
                 <View key={slide.titleKey} style={[styles.dot, index === activeSlide && styles.dotActive]} />
@@ -713,7 +727,6 @@ const styles = StyleSheet.create({
   },
   swipeHintWrap: {
     position: 'absolute',
-    bottom: 108,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -735,7 +748,6 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 24,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -875,6 +887,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
     marginTop: 16,
+  },
+  // The hint reads as a caption on the link below it, so the two are spaced as
+  // one block rather than as two separate rows.
+  switchMethodBlock: {
+    marginTop: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  switchMethodHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  switchMethodLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   switchMethodTextMuted: {
     color: colors.textMuted,

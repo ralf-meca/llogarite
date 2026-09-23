@@ -67,7 +67,8 @@ export const sq: Record<keyof typeof en, string> = {
   'login.resendCodeIn': 'Dërgo përsëri pas {seconds}s',
   'login.codeResent': 'Kodi u dërgua përsëri.',
   'login.changeEmail': 'Ndrysho email-in',
-  'login.usePassword': 'Kyçu me fjalëkalim',
+  'login.usePassword': 'Kam një fjalëkalim',
+  'login.passwordOnlyHint': 'Vetëm për llogaritë që kanë vendosur një fjalëkalim.',
   'login.useCode': 'Kyçu me kod',
   'login.setPasswordTitle': 'Vendos një fjalëkalim',
   'login.setPasswordSubtitle':

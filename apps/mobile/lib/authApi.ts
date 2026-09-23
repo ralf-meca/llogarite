@@ -50,7 +50,9 @@ export async function login(email: string, password: string): Promise<AuthRespon
     throw new Error(
       describeHttpError(
         response.status,
-        { 401: 'Email ose fjalëkalimi është i gabuar.' },
+        {
+          401: 'Email ose fjalëkalimi është i gabuar. Nëse nuk ke vendosur fjalëkalim, kyçu me kod.',
+        },
         'Kyçja dështoi. Provo përsëri.',
       ),
     );
