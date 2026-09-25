@@ -3,35 +3,28 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { CaretDownIcon, CheckIcon } from 'phosphor-react-native';
 import { CATEGORIES, categoryIcon, categoryLabelKey } from '../lib/categories';
 import { useTranslation } from '../lib/i18n';
-import { colors } from '../lib/theme';
+import { colors, radius } from '../lib/theme';
 import { GlassView } from './GlassView';
 
 type CategoryPickerProps = {
   value: string;
   onChange: (categoryId: string) => void;
-  iconOnly?: boolean;
 };
 
-export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProps) {
+export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const ValueIcon = categoryIcon(value);
 
   return (
     <>
-      {iconOnly ? (
-        <Pressable style={styles.iconTrigger} onPress={() => setIsOpen(true)}>
-          <ValueIcon size={18} color="#374151" />
-        </Pressable>
-      ) : (
-        <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-          <ValueIcon size={13} color="#374151" />
-          <Text style={styles.triggerText} numberOfLines={1}>
-            {t(categoryLabelKey(value))}
-          </Text>
-          <CaretDownIcon size={12} color="#6b7280" />
-        </Pressable>
-      )}
+      <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
+        <ValueIcon size={18} color={colors.primary} />
+        <Text style={styles.triggerText} numberOfLines={1}>
+          {t(categoryLabelKey(value))}
+        </Text>
+        <CaretDownIcon size={14} color={colors.textMuted} />
+      </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
@@ -69,28 +62,23 @@ export function CategoryPicker({ value, onChange, iconOnly }: CategoryPickerProp
 }
 
 const styles = StyleSheet.create({
+  // Sits in the item form next to the text fields, so it is shaped like one
+  // rather than like the compact pills in the row above the items table.
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card - 4,
     backgroundColor: colors.primaryTint,
-    borderRadius: 8,
   },
   triggerText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  iconTrigger: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
+    flex: 1,
+    fontSize: 16,
+    color: colors.textDark,
   },
   backdrop: {
     flex: 1,

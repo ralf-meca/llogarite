@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { toDateLabel } from '../lib/date';
-import { formatAmount } from '../lib/formatAmount';
+import { formatAmount, needsCents } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
@@ -46,6 +46,10 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
     unitPrice: item.unitPriceAfterVat,
     buddyQuantities: item.buddyQuantities ?? {},
   }));
+  const showCents = needsCents([
+    result.totalPrice,
+    ...result.items.flatMap((item) => [item.unitPriceAfterVat, item.unitPriceAfterVat * item.quantity]),
+  ]);
   const hasPerRowSplit =
     invoiceBuddies.length > 0 &&
     result.items.some((item) => Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0));
@@ -110,8 +114,12 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
           >
             <Text style={[styles.cell, styles.nameColumn]}>{item.name}</Text>
             <Text style={[styles.cell, styles.qtyColumn]}>{item.quantity}</Text>
-            <Text style={[styles.cell, styles.priceColumn]}>{formatAmount(item.unitPriceAfterVat)}</Text>
-            <Text style={[styles.cell, styles.priceColumn]}>{formatAmount(item.unitPriceAfterVat * item.quantity)}</Text>
+            <Text style={[styles.cell, styles.priceColumn]}>
+              {formatAmount(item.unitPriceAfterVat, showCents)}
+            </Text>
+            <Text style={[styles.cell, styles.priceColumn]}>
+              {formatAmount(item.unitPriceAfterVat * item.quantity, showCents)}
+            </Text>
             {hasPerRowSplit && (
               <View style={styles.splitColumn}>
                 {claimedBuddies.length > 0 && <MultiPersonAvatar people={claimedBuddies} size={22} />}
@@ -123,7 +131,7 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
 
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>{t('invoiceReceipt.total')}</Text>
-        <Text style={styles.totalValue}>{formatAmount(result.totalPrice)}</Text>
+        <Text style={styles.totalValue}>{formatAmount(result.totalPrice, showCents)}</Text>
       </View>
     </GlassView>
   );

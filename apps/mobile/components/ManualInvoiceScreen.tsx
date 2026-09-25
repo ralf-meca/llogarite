@@ -16,19 +16,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
-import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
+import { categoryIcon, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
-import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { formatAmount, needsCents, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { fetchProjects, type Project } from '../lib/projectsApi';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
-import { CategoryPicker } from './CategoryPicker';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ItemAssignPicker } from './ItemAssignPicker';
+import { ItemEditorModal, type ItemEditorValue } from './ItemEditorModal';
 import { ProjectPicker } from './ProjectPicker';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
@@ -42,27 +42,16 @@ type ManualInvoiceScreenProps = {
   onSubmit: (result: InvoiceVerificationResult) => void;
 };
 
-type ItemDraft = {
-  name: string;
-  quantity: string;
-  unitPrice: string;
-  category: string;
-  categoryTouched: boolean;
+// The item screen owns the name/quantity/price/category half of a row. The
+// split across buddies is only reachable from the row itself, so it stays out
+// of that screen rather than being silently dropped on save.
+type ItemDraft = ItemEditorValue & {
   buddyQuantities: Record<string, number>;
   buddySplitTouched: boolean;
 };
 
-function emptyItem(): ItemDraft {
-  return {
-    name: '',
-    quantity: '1',
-    unitPrice: '',
-    category: DEFAULT_CATEGORY,
-    categoryTouched: false,
-    buddyQuantities: {},
-    buddySplitTouched: false,
-  };
-}
+// Which row the item screen is open on, or that it is about to add one.
+type EditorTarget = { mode: 'new' } | { mode: 'edit'; index: number };
 
 function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
   return items.map((item) => ({
@@ -102,7 +91,13 @@ export function ManualInvoiceScreen({
     initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
   );
   const [items, setItems] = useState<ItemDraft[]>(
-    initialData && initialData.items.length > 0 ? toItemDrafts(initialData.items) : [emptyItem()],
+    initialData && initialData.items.length > 0 ? toItemDrafts(initialData.items) : [],
+  );
+  // An invoice that opens with no items has nothing to look at yet, so it goes
+  // straight to the item screen. Only on mount: emptying the table by removing
+  // the last row must not drag the screen back open.
+  const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(
+    initialData && initialData.items.length > 0 ? null : { mode: 'new' },
   );
   const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -140,6 +135,10 @@ export function ManualInvoiceScreen({
       buddyQuantities: item.buddyQuantities,
     };
   });
+  const showCents = needsCents([
+    total,
+    ...itemRows.flatMap((row) => [row.unitPrice, row.unitPrice * row.quantity]),
+  ]);
   const allBuddyIds = selectedBuddies.map((buddy) => buddy.userId);
   const getBuddyShare = (buddyId: string) => computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds);
   const buddiesTotal = allBuddyIds.reduce((sum, buddyId) => sum + getBuddyShare(buddyId), 0);
@@ -250,27 +249,38 @@ export function ManualInvoiceScreen({
     );
   };
 
-  const addItem = () =>
-    setItems((current) => {
-      const draft = emptyItem();
-      if (isItemSplitEnabled && selectedBuddies.length > 0) {
-        const quantity = Number(draft.quantity);
-        draft.buddyQuantities = defaultBuddyQuantities(
-          Number.isFinite(quantity) ? quantity : 0,
-          selectedBuddies.map((buddy) => buddy.userId),
-        );
-      }
-      return [...current, draft];
-    });
+  const handleEditorSave = (value: ItemEditorValue) => {
+    if (editorTarget?.mode === 'edit') {
+      updateItem(editorTarget.index, value);
+    } else {
+      setItems((current) => {
+        const draft: ItemDraft = { ...value, buddyQuantities: {}, buddySplitTouched: false };
+        if (isItemSplitEnabled && selectedBuddies.length > 0) {
+          const quantity = Number(draft.quantity);
+          draft.buddyQuantities = defaultBuddyQuantities(
+            Number.isFinite(quantity) ? quantity : 0,
+            selectedBuddies.map((buddy) => buddy.userId),
+          );
+        }
+        return [...current, draft];
+      });
+    }
+    setEditorTarget(null);
+  };
 
   const removeItem = (index: number) => {
-    setItems((current) => (current.length > 1 ? current.filter((_, i) => i !== index) : current));
+    setItems((current) => current.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
     const date = parseDateLabel(dateLabel);
     if (!date) {
       showError(t('manualInvoice.invalidDate'));
+      return;
+    }
+
+    if (items.length === 0) {
+      showError(t('manualInvoice.noItems'));
       return;
     }
 
@@ -441,80 +451,79 @@ export function ManualInvoiceScreen({
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
-            <View style={styles.categoryColumn} />
             <Text style={[styles.headerCell, styles.nameColumn]}>{t('manualInvoice.itemColumn')}</Text>
             <Text style={[styles.headerCell, styles.qtyColumn]}>{t('manualInvoice.quantityColumn')}</Text>
             <Text style={[styles.headerCell, styles.priceColumn]}>{t('manualInvoice.priceColumn')}</Text>
+            <Text style={[styles.headerCell, styles.priceColumn]}>{t('manualInvoice.totalColumn')}</Text>
             {isItemSplitEnabled && selectedBuddies.length > 0 && <View style={styles.assignColumn} />}
             <View style={styles.removeColumn} />
           </View>
 
-          {items.map((item, index) => (
-            <View key={index} style={styles.itemBlock}>
-              <View style={styles.itemRow}>
-                <View style={styles.categoryColumn}>
-                  <CategoryPicker
-                    value={item.category}
-                    onChange={(categoryId) => updateItem(index, { category: categoryId, categoryTouched: true })}
-                    iconOnly
-                  />
-                </View>
-                <GlassTextInput
-                  style={[styles.cellInput, styles.nameColumn]}
-                  placeholder={t('common.name')}
-                  value={item.name}
-                  onChangeText={(value) =>
-                    updateItem(index, {
-                      name: value,
-                      ...(item.categoryTouched ? null : { category: suggestCategory(value) }),
-                    })
-                  }
-                />
-                <GlassTextInput
-                  style={[styles.cellInput, styles.qtyColumn]}
-                  keyboardType="numeric"
-                  value={item.quantity}
-                  onChangeText={(value) => updateItem(index, { quantity: value })}
-                />
-                <GlassTextInput
-                  style={[styles.cellInput, styles.priceColumn, styles.priceInput]}
-                  keyboardType="numeric"
-                  value={item.unitPrice}
-                  onChangeText={(value) => updateItem(index, { unitPrice: formatAmountInput(value) })}
-                />
-                {isItemSplitEnabled && selectedBuddies.length > 0 && (
-                  <View style={styles.assignColumn}>
-                    <ItemAssignPicker
-                      buddies={selectedBuddies
-                        .map((buddy) => buddies.find((candidate) => candidate.id === buddy.userId))
-                        .filter((buddy): buddy is Buddy => Boolean(buddy))}
-                      rowQuantity={Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0}
-                      unitPrice={
-                        Number.isFinite(parseAmountInput(item.unitPrice)) ? parseAmountInput(item.unitPrice) : 0
-                      }
-                      buddyQuantities={item.buddyQuantities}
-                      onQuantityChange={(buddyId, quantity) => setItemBuddyQuantity(index, buddyId, quantity)}
-                    />
-                  </View>
-                )}
+          {items.length === 0 ? (
+            <Text style={styles.emptyItems}>{t('manualInvoice.emptyItems')}</Text>
+          ) : (
+            items.map((item, index) => {
+              const ItemCategoryIcon = categoryIcon(item.category);
+              const rowQuantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0;
+              const rowUnitPrice = Number.isFinite(parseAmountInput(item.unitPrice))
+                ? parseAmountInput(item.unitPrice)
+                : 0;
+              return (
+                // Read-only row: the whole thing is the way into the item screen,
+                // so nothing here competes with that press except the two controls
+                // that open something of their own.
                 <Pressable
-                  style={styles.removeColumn}
-                  onPress={() => removeItem(index)}
-                  disabled={items.length === 1}
+                  key={index}
+                  style={({ pressed }) => [styles.itemBlock, pressed && styles.itemBlockPressed]}
+                  onPress={() => setEditorTarget({ mode: 'edit', index })}
                 >
-                  {items.length > 1 && <XCircleIcon size={18} weight="fill" color="#dc2626" />}
+                  <View style={styles.itemRow}>
+                    <View style={[styles.nameColumn, styles.nameCell]}>
+                      <Text style={styles.nameText} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <View style={styles.categoryBadge}>
+                        <ItemCategoryIcon size={9} color={colors.primary} weight="fill" />
+                      </View>
+                    </View>
+                    <Text style={[styles.cellText, styles.qtyColumn]}>{item.quantity}</Text>
+                    <Text style={[styles.cellText, styles.priceColumn]}>
+                      {formatAmount(rowUnitPrice, showCents)}
+                    </Text>
+                    <Text style={[styles.cellText, styles.priceColumn]}>
+                      {formatAmount(rowUnitPrice * rowQuantity, showCents)}
+                    </Text>
+                    {isItemSplitEnabled && selectedBuddies.length > 0 && (
+                      <View style={styles.assignColumn}>
+                        <ItemAssignPicker
+                          buddies={selectedBuddies
+                            .map((buddy) => buddies.find((candidate) => candidate.id === buddy.userId))
+                            .filter((buddy): buddy is Buddy => Boolean(buddy))}
+                          rowQuantity={rowQuantity}
+                          unitPrice={rowUnitPrice}
+                          buddyQuantities={item.buddyQuantities}
+                          onQuantityChange={(buddyId, quantity) => setItemBuddyQuantity(index, buddyId, quantity)}
+                        />
+                      </View>
+                    )}
+                    <Pressable style={styles.removeColumn} onPress={() => removeItem(index)} hitSlop={8}>
+                      <XCircleIcon size={18} weight="fill" color="#dc2626" />
+                    </Pressable>
+                  </View>
                 </Pressable>
-              </View>
-            </View>
-          ))}
+              );
+            })
+          )}
 
-          <Pressable onPress={addItem} style={styles.addItemButton}>
+          <Pressable onPress={() => setEditorTarget({ mode: 'new' })} style={styles.addItemButton}>
             <Text style={styles.addItemText}>{t('manualInvoice.addItem')}</Text>
           </Pressable>
 
+          {items.length > 0 && <Text style={styles.tapToEdit}>{t('manualInvoice.tapToEdit')}</Text>}
+
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>{t('manualInvoice.total')}</Text>
-            <Text style={styles.totalValue}>{formatAmount(total)}</Text>
+            <Text style={styles.totalValue}>{formatAmount(total, showCents)}</Text>
           </View>
         </GlassView>
       </KeyboardAwareScrollView>
@@ -528,6 +537,13 @@ export function ManualInvoiceScreen({
         />
       </View>
       </View>
+
+      <ItemEditorModal
+        visible={editorTarget !== null}
+        initialValue={editorTarget?.mode === 'edit' ? items[editorTarget.index] : null}
+        onCancel={() => setEditorTarget(null)}
+        onSave={handleEditorSave}
+      />
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} bottomOffset={110} />
     </View>
@@ -763,37 +779,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  categoryColumn: {
-    width: 28,
-    alignItems: 'center',
+  itemBlockPressed: {
+    opacity: 0.6,
+  },
+  nameCell: {
+    position: 'relative',
     justifyContent: 'center',
   },
-  cellInput: {
-    borderWidth: 0,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+  // Keeps the name from starting underneath the badge on the corner.
+  nameText: {
+    paddingLeft: 12,
     fontSize: 14,
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
+    fontWeight: '600',
+    color: colors.textDark,
+  },
+  // Carries a white ring so it stays legible where it overlaps the row above.
+  categoryBadge: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1.5,
+    borderColor: colors.white,
+  },
+  cellText: {
+    fontSize: 14,
+    color: colors.textDark,
+  },
+  emptyItems: {
+    paddingVertical: 18,
+    textAlign: 'center',
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  tapToEdit: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: colors.textMuted,
   },
   nameColumn: {
     flex: 2.4,
   },
   qtyColumn: {
-    flex: 1,
-    textAlign: 'center',
+    flex: 0.8,
+    textAlign: 'right',
   },
+  // Two money columns now, so they read like the ones on the invoice detail:
+  // right aligned, and narrow enough that the name still has room.
   priceColumn: {
-    flex: 1.5,
-    textAlign: 'center',
-  },
-  priceInput: {
+    flex: 1.3,
     textAlign: 'right',
   },
   removeColumn: {
     width: 20,
-    marginLeft: 16,
+    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
