@@ -8,6 +8,7 @@ import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react
 import { BuddiesScreen } from "./components/BuddiesScreen";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
+import { CategoryFilter } from "./components/CategoryFilter";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GlassView } from "./components/GlassView";
 import { InvoiceScreen } from "./components/InvoiceScreen";
@@ -33,7 +34,7 @@ import { useToasts } from "./hooks/useToasts";
 import type { AuthResponse, AuthUser } from "./lib/authApi";
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from "./lib/authStorage";
 import { categoryIcon } from "./lib/categories";
-import { dominantCategory } from "./lib/categorySpending";
+import { dominantCategory, hasCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
 import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
 import { fetchNotifications, markNotificationRead, syncMonthlyPaymentReminder } from "./lib/notificationsApi";
@@ -149,6 +150,7 @@ function AppContent() {
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
     const [productDetailReturnScreen, setProductDetailReturnScreen] = useState<"products" | "detail">("products");
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
@@ -709,10 +711,11 @@ function AppContent() {
             });
     };
 
-    const filteredInvoices =
-        selectedMonthKey === null
-            ? savedInvoices
-            : savedInvoices.filter((invoice) => monthKeyOf(invoice.data.dateTimeCreated) === selectedMonthKey);
+    const filteredInvoices = savedInvoices.filter(
+        (invoice) =>
+            (selectedMonthKey === null || monthKeyOf(invoice.data.dateTimeCreated) === selectedMonthKey) &&
+            (selectedCategory === null || hasCategory(invoice, selectedCategory)),
+    );
 
     return (
         <View style={styles.container}>
@@ -758,7 +761,18 @@ function AppContent() {
                                 data={filteredInvoices}
                                 keyExtractor={(item) => item.id}
                                 ListHeaderComponent={
-                                    <MonthFilter value={selectedMonthKey} onChange={setSelectedMonthKey} />
+                                    <View style={styles.listFilters}>
+                                        <MonthFilter
+                                            value={selectedMonthKey}
+                                            onChange={setSelectedMonthKey}
+                                            style={styles.monthFilterSlot}
+                                        />
+                                        <CategoryFilter
+                                            value={selectedCategory}
+                                            onChange={setSelectedCategory}
+                                            style={styles.categoryFilterSlot}
+                                        />
+                                    </View>
                                 }
                                 renderItem={({ item }) => (
                                     <Pressable onPress={() => handleSelectInvoice(item)}>
@@ -766,7 +780,9 @@ function AppContent() {
                                             <View style={styles.savedRowLeft}>
                                                 <View style={styles.savedRowIcon}>
                                                     {(() => {
-                                                        const DominantIcon = categoryIcon(dominantCategory(item));
+                                                        const DominantIcon = categoryIcon(
+                                                            selectedCategory ?? dominantCategory(item),
+                                                        );
                                                         return <DominantIcon size={18} color={colors.primary} />;
                                                     })()}
                                                 </View>
@@ -790,7 +806,9 @@ function AppContent() {
                                     <Text style={styles.emptyText}>
                                         {savedInvoices.length === 0
                                             ? t("app.noInvoicesSaved")
-                                            : t("app.noInvoicesThisMonth")}
+                                            : selectedCategory !== null
+                                              ? t("app.noInvoicesForCategory")
+                                              : t("app.noInvoicesThisMonth")}
                                     </Text>
                                 }
                             />
@@ -1073,6 +1091,20 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 120,
         gap: 12,
+    },
+    listFilters: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    // No wrapping: when the two labels are too long for one row the month pill
+    // gives up twice as much width as the category one, because category names
+    // run long ("Argetim & Sherbime") and month names do not.
+    monthFilterSlot: {
+        flexShrink: 2,
+    },
+    categoryFilterSlot: {
+        flexShrink: 1,
     },
     savedRow: {
         flexDirection: "row",

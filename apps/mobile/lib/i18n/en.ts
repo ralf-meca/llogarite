@@ -140,6 +140,7 @@ export const en = {
   'app.invoiceAlreadyExists': 'This invoice is already saved.',
   'app.noInvoicesSaved': 'No saved invoices.',
   'app.noInvoicesThisMonth': 'No invoices for this month.',
+  'app.noInvoicesForCategory': 'No invoices match these filters.',
 
   'dashboard.monthlyBudget': "This month's budget",
   'dashboard.of': 'of',
@@ -314,6 +315,8 @@ export const en = {
   'receiptScanner.processing': 'Reading the invoice...',
   'receiptScanner.cameraPermission': 'Camera access is needed to photograph the invoice.',
 
+  'categoryFilter.allCategories': 'All categories',
+  'categoryFilter.selectCategory': 'Filter by category',
   'monthFilter.allMonths': 'All months',
   'monthFilter.selectMonth': 'Select month',
   'monthFilter.apply': 'Apply',

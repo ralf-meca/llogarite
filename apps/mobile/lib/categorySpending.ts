@@ -30,6 +30,12 @@ export function currentMonthCategoryTotals(invoices: SavedInvoice[]): CategorySp
   return groupByCategory(thisMonth);
 }
 
+// An invoice is rarely all one category, so the list filter matches any line
+// on it rather than only the one dominantCategory picked for the row's icon.
+export function hasCategory(invoice: SavedInvoice, categoryId: string): boolean {
+  return invoice.data.items.some((item) => (item.category ?? DEFAULT_CATEGORY) === categoryId);
+}
+
 export function dominantCategory(invoice: SavedInvoice): string {
   const totals = new Map<string, number>();
   for (const item of invoice.data.items) {

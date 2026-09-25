@@ -143,6 +143,7 @@ export const sq: Record<keyof typeof en, string> = {
   'app.invoiceAlreadyExists': 'Kjo faturë është ruajtur tashmë.',
   'app.noInvoicesSaved': 'Nuk ka fatura të ruajtura.',
   'app.noInvoicesThisMonth': 'Nuk ka fatura për këtë muaj.',
+  'app.noInvoicesForCategory': 'Asnjë faturë nuk përputhet me këto filtra.',
 
   'dashboard.monthlyBudget': 'Buxheti i muajit',
   'dashboard.of': 'nga',
@@ -317,7 +318,9 @@ export const sq: Record<keyof typeof en, string> = {
   'receiptScanner.processing': 'Duke lexuar faturën...',
   'receiptScanner.cameraPermission': 'Nevojitet qasje në kamerë për të fotografuar faturën.',
 
-  'monthFilter.allMonths': 'Të gjitha muajt',
+  'categoryFilter.allCategories': 'Të gjitha kategoritë',
+  'categoryFilter.selectCategory': 'Filtro sipas kategorisë',
+  'monthFilter.allMonths': 'Të gjithë muajt',
   'monthFilter.selectMonth': 'Zgjidh muajin',
   'monthFilter.apply': 'Zbato',
   'monthFilter.january': 'Janar',

@@ -1,6 +1,15 @@
 import { CalendarIcon, CaretDownIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassButton } from './GlassButton';
@@ -8,6 +17,7 @@ import { GlassButton } from './GlassButton';
 type MonthFilterProps = {
   value: string | null;
   onChange: (key: string | null) => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 const MONTH_KEYS: TranslationKey[] = [
@@ -53,7 +63,7 @@ function defaultSelection(value: string | null): { month: number; year: number }
   return { month: now.getMonth(), year: now.getFullYear() };
 }
 
-export function MonthFilter({ value, onChange }: MonthFilterProps) {
+export function MonthFilter({ value, onChange, style }: MonthFilterProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingMonth, setPendingMonth] = useState(() => defaultSelection(value).month);
@@ -82,7 +92,7 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
 
   return (
     <>
-      <Pressable style={styles.trigger} onPress={open}>
+      <Pressable style={[styles.trigger, style]} onPress={open}>
         <CalendarIcon size={14} color="#374151" />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
@@ -140,16 +150,16 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     backgroundColor: '#ffffff',
     borderRadius: 10,
     boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
   },
   triggerText: {
-    fontSize: 13,
+    flexShrink: 1,
+    fontSize: 12,
     fontWeight: '600',
     color: '#374151',
   },
