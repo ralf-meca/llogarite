@@ -1,6 +1,6 @@
 import { ArrowLeftIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
@@ -21,6 +21,12 @@ export type ItemEditorValue = {
   category: string;
   categoryTouched: boolean;
 };
+
+// Long enough for the modal's slide animation to finish. A focus call that
+// lands while the dialog is still animating in takes the caret but not the
+// keyboard, which is how "+ Shto artikull" ended up silent while opening the
+// screen already-visible worked.
+const FOCUS_DELAY_MS = 350;
 
 export function emptyItemEditorValue(): ItemEditorValue {
   return {
@@ -45,6 +51,7 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
   const insets = useSafeAreaInsets();
   const [value, setValue] = useState<ItemEditorValue>(() => initialValue ?? emptyItemEditorValue());
   const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
 
   // The screen stays mounted between openings, so each one has to start from the
   // row it was opened on instead of from whatever the last edit left behind.
@@ -54,6 +61,13 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
     }
     setValue(initialValue ?? emptyItemEditorValue());
     setError(null);
+    if (initialValue) {
+      // Editing: the reason to come here is usually the price, so leave the
+      // keyboard alone rather than opening it on the name.
+      return;
+    }
+    const timer = setTimeout(() => nameInputRef.current?.focus(), FOCUS_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [visible, initialValue]);
 
   const quantity = Number(value.quantity);
@@ -110,11 +124,11 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
           >
             <Text style={styles.label}>{t('common.name')}</Text>
             <GlassTextInput
+              ref={nameInputRef}
               style={styles.field}
               placeholder={t('itemEditor.namePlaceholder')}
               value={value.name}
               onChangeText={handleNameChange}
-              autoFocus={!initialValue}
             />
 
             <View style={styles.fieldRow}>

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 import { colors, radius } from '../lib/theme';
 
-export function GlassTextInput(props: TextInputProps) {
+export const GlassTextInput = forwardRef<TextInput, TextInputProps>(function GlassTextInput(props, ref) {
   const [homeSelection, setHomeSelection] = useState<{ start: number; end: number } | undefined>({
     start: 0,
     end: 0,
@@ -16,6 +16,7 @@ export function GlassTextInput(props: TextInputProps) {
 
   return (
     <TextInput
+      ref={ref}
       placeholderTextColor={colors.textMuted}
       {...props}
       selection={props.selection ?? homeSelection}
@@ -30,7 +31,7 @@ export function GlassTextInput(props: TextInputProps) {
       style={[styles.input, props.style]}
     />
   );
-}
+});
 
 const styles = StyleSheet.create({
   input: {
