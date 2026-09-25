@@ -10,6 +10,13 @@ const path = require('path');
 const PROPERTY = 'android.enableMinifyInReleaseBuilds';
 const MARKER = '# minify-release: see plugins/withMinifyRelease.js';
 
+// R8 holds the whole program graph in memory at once. The generated default of
+// 2048m is not enough for an app this size: the daemon is OOM-killed part way
+// through and Gradle reports only "build daemon disappeared unexpectedly",
+// which reads like a crash rather than a memory limit.
+const JVM_ARGS_PROPERTY = 'org.gradle.jvmargs';
+const JVM_ARGS = '-Xmx6144m -XX:MaxMetaspaceSize=1024m';
+
 // R8 removes and renames anything it cannot see a reference to. A React Native
 // app reaches a great deal of native code by name from JS, which R8 cannot
 // follow, so those entry points have to be kept explicitly. A missing rule
@@ -42,16 +49,19 @@ ${MARKER}
 -renamesourcefileattribute SourceFile
 `;
 
+function setProperty(properties, key, value) {
+  const existing = properties.find((item) => item.type === 'property' && item.key === key);
+  if (existing) {
+    existing.value = value;
+  } else {
+    properties.push({ type: 'property', key, value });
+  }
+}
+
 function withMinifyProperty(config) {
   return withGradleProperties(config, (config) => {
-    const existing = config.modResults.find(
-      (item) => item.type === 'property' && item.key === PROPERTY,
-    );
-    if (existing) {
-      existing.value = 'true';
-    } else {
-      config.modResults.push({ type: 'property', key: PROPERTY, value: 'true' });
-    }
+    setProperty(config.modResults, PROPERTY, 'true');
+    setProperty(config.modResults, JVM_ARGS_PROPERTY, JVM_ARGS);
     return config;
   });
 }
