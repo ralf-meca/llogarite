@@ -31,7 +31,7 @@ type AllocationDraft = { mode: 'percent' | 'amount'; value: string };
 function emptyAllocations(): Record<CategoryId, AllocationDraft> {
   const drafts = {} as Record<CategoryId, AllocationDraft>;
   for (const category of CATEGORIES) {
-    drafts[category.id] = { mode: 'percent', value: '' };
+    drafts[category.id] = { mode: 'amount', value: '' };
   }
   return drafts;
 }
@@ -158,7 +158,12 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   };
 
   return (
-    <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
+    <KeyboardAwareScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      bottomOffset={20}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>{t('budget.title')}</Text>
 
       {!isLoading && target !== null && (
@@ -233,6 +238,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
                       keyboardType="numeric"
                       value={draft.value}
                       onChangeText={(value) => setAllocationValue(category.id, value)}
+                      autoFocus
                     />
 
                     <View style={styles.modeToggle}>
