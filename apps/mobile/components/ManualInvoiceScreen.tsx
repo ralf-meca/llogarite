@@ -340,15 +340,15 @@ export function ManualInvoiceScreen({
 
         <GlassTextInput
           style={styles.input}
-          placeholder={t('manualInvoice.sellerPlaceholder')}
-          value={sellerName}
-          onChangeText={setSellerName}
-        />
-        <GlassTextInput
-          style={styles.input}
           placeholder={t('manualInvoice.datePlaceholder')}
           value={dateLabel}
           onChangeText={setDateLabel}
+        />
+        <GlassTextInput
+          style={styles.input}
+          placeholder={t('manualInvoice.sellerPlaceholder')}
+          value={sellerName}
+          onChangeText={setSellerName}
         />
 
         <View style={styles.pickersRow}>
@@ -530,7 +530,7 @@ export function ManualInvoiceScreen({
 
       <View style={[styles.footer, { paddingBottom: 32 + insets.bottom }]}>
         <GlassButton
-          label={isSaving ? t('common.saving') : isEditing ? t('manualInvoice.saveChanges') : t('manualInvoice.continue')}
+          label={isSaving ? t('common.saving') : isEditing ? t('manualInvoice.saveChanges') : t('common.save')}
           variant="accent"
           onPress={handleSubmit}
           disabled={isSaving}

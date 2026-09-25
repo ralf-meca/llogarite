@@ -143,9 +143,8 @@ function AppContent() {
     const [selectedInvoice, setSelectedInvoice] = useState<SavedInvoice | null>(null);
     const [manualPrefill, setManualPrefill] = useState<InvoiceVerificationResult | null>(null);
     // Set only when the prefilled data came from a successful QR verification, so
-    // handleManualSubmit knows to save it directly (preserving "verified" unless the
-    // user actually changed the item rows) instead of routing back through the
-    // separate review-then-confirm screen used for plain manual entry.
+    // the save can keep the "verified" flag, unless the user actually changed the
+    // item rows.
     const [scannedVerifiedData, setScannedVerifiedData] = useState<InvoiceVerificationResult | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -667,38 +666,14 @@ function AppContent() {
             return;
         }
 
-        if (scannedVerifiedData) {
-            const verified = !haveItemsChanged(scannedVerifiedData.items, data.items);
-            setIsSaving(true);
-            saveInvoice({ ...data, verified })
-                .then(() => {
-                    setIsSaving(false);
-                    setScannedVerifiedData(null);
-                    loadSavedInvoices();
-                    handleClose();
-                    if (!user?.isPremium) {
-                        showInterstitialAd().catch(() => undefined);
-                    }
-                })
-                .catch((error: Error) => {
-                    setIsSaving(false);
-                    showError(error.message);
-                });
-            return;
-        }
-
-        setVerification({ status: "success", data: { ...data, verified: false } });
-        setScreen("invoice");
-    };
-
-    const handleConfirm = () => {
-        if (verification.status !== "success") {
-            return;
-        }
+        // Only a scan can claim an invoice is verified, and only while its rows
+        // still say what the scan read.
+        const verified = scannedVerifiedData ? !haveItemsChanged(scannedVerifiedData.items, data.items) : false;
         setIsSaving(true);
-        saveInvoice(verification.data)
+        saveInvoice({ ...data, verified })
             .then(() => {
                 setIsSaving(false);
+                setScannedVerifiedData(null);
                 loadSavedInvoices();
                 handleClose();
                 if (!user?.isPremium) {
@@ -876,12 +851,7 @@ function AppContent() {
                     onSubmit={handleManualSubmit}
                 />
             ) : screen === "invoice" ? (
-                <InvoiceScreen
-                    verification={verification}
-                    isSaving={isSaving}
-                    onClose={handleClose}
-                    onConfirm={handleConfirm}
-                />
+                <InvoiceScreen verification={verification} onClose={handleClose} />
             ) : screen === "plans" ? (
                 <PlansScreen
                     isPremium={Boolean(user?.isPremium)}

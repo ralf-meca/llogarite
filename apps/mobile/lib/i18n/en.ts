@@ -280,7 +280,6 @@ export const en = {
   'manualInvoice.quantityColumn': 'Qty',
   'manualInvoice.priceColumn': 'Price/unit',
   'manualInvoice.totalColumn': 'Total',
-  'manualInvoice.continue': 'Continue',
   'manualInvoice.addItem': '+ Add item',
   'manualInvoice.total': 'Total',
   'manualInvoice.saveChanges': 'Save changes',

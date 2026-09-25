@@ -283,7 +283,6 @@ export const sq: Record<keyof typeof en, string> = {
   'manualInvoice.quantityColumn': 'Sasia',
   'manualInvoice.priceColumn': 'Çmimi/njësi',
   'manualInvoice.totalColumn': 'Totali',
-  'manualInvoice.continue': 'Vazhdo',
   'manualInvoice.addItem': '+ Shto artikull',
   'manualInvoice.total': 'Totali',
   'manualInvoice.saveChanges': 'Ruaj ndryshimet',
