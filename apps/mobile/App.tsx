@@ -968,6 +968,12 @@ function AppContent() {
                     setIsUserMenuVisible(false);
                     handleRestartOnboarding();
                 }}
+                onOpenPlans={() => {
+                    setIsUserMenuVisible(false);
+                    setSelectedInvoice(null);
+                    setManualPrefill(null);
+                    setScreen("plans");
+                }}
                 onUserUpdated={(updated) => {
                     setUser(updated);
                     saveUser(updated);

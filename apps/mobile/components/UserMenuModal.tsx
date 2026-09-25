@@ -1,6 +1,7 @@
 ﻿import * as ImagePicker from 'expo-image-picker';
 import {
   CameraIcon,
+  CrownSimpleIcon,
   ImagesIcon,
   KeyIcon,
   QuestionIcon,
@@ -27,6 +28,7 @@ type UserMenuModalProps = {
   onClose: () => void;
   onLogout: () => void;
   onRestartTour: () => void;
+  onOpenPlans: () => void;
   onUserUpdated: (user: AuthUser) => void;
 };
 
@@ -44,7 +46,15 @@ function splitName(name: string | null | undefined): { first: string; last: stri
   return { first: parts[0], last: parts[parts.length - 1] };
 }
 
-export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour, onUserUpdated }: UserMenuModalProps) {
+export function UserMenuModal({
+  visible,
+  user,
+  onClose,
+  onLogout,
+  onRestartTour,
+  onOpenPlans,
+  onUserUpdated,
+}: UserMenuModalProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<MenuView>('menu');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -235,6 +245,13 @@ export function UserMenuModal({ visible, user, onClose, onLogout, onRestartTour,
                   )}
                 </View>
 
+                <Pressable style={styles.menuItem} onPress={onOpenPlans}>
+                  <CrownSimpleIcon size={20} color="#1f2937" />
+                  <Text style={styles.menuItemText}>{t('userMenu.subscription')}</Text>
+                  <Text style={styles.menuItemValue}>
+                    {user?.isPremium ? t('plans.premiumPlan') : t('plans.freePlan')}
+                  </Text>
+                </Pressable>
                 {(user?.hasPassword ?? true) && (
                   <Pressable style={styles.menuItem} onPress={() => setView('changePassword')}>
                     <KeyIcon size={20} color="#1f2937" />
@@ -485,6 +502,12 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 16,
     color: '#1f2937',
+  },
+  menuItemValue: {
+    marginLeft: 'auto',
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   dangerText: {
     color: '#dc2626',
