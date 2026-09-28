@@ -52,6 +52,7 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
   const [value, setValue] = useState<ItemEditorValue>(() => initialValue ?? emptyItemEditorValue());
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
+  const priceInputRef = useRef<TextInput>(null);
 
   // The screen stays mounted between openings, so each one has to start from the
   // row it was opened on instead of from whatever the last edit left behind.
@@ -129,6 +130,9 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
               placeholder={t('itemEditor.namePlaceholder')}
               value={value.name}
               onChangeText={handleNameChange}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => priceInputRef.current?.focus()}
             />
 
             <View style={styles.fieldRow}>
@@ -139,11 +143,15 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
                   keyboardType="numeric"
                   value={value.quantity}
                   onChangeText={(quantityInput) => setValue((current) => ({ ...current, quantity: quantityInput }))}
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => priceInputRef.current?.focus()}
                 />
               </View>
               <View style={styles.fieldSlot}>
                 <Text style={styles.label}>{t('itemEditor.priceLabel')}</Text>
                 <GlassTextInput
+                  ref={priceInputRef}
                   style={styles.field}
                   keyboardType="numeric"
                   placeholder="0,00"
@@ -151,6 +159,8 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
                   onChangeText={(priceInput) =>
                     setValue((current) => ({ ...current, unitPrice: formatAmountInput(priceInput) }))
                   }
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             </View>
