@@ -1,6 +1,18 @@
 import mobileAds, { AdEventType, InterstitialAd, TestIds } from 'react-native-google-mobile-ads';
 
-const AD_UNIT_ID = TestIds.INTERSTITIAL;
+// The live unit only in a release build. A dev build keeps Google's sample unit
+// so a reloading Metro session cannot pour requests into the real one.
+const AD_UNIT_ID = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-3717243561831400/9138753257';
+
+// Devices listed here are served test creatives from the live unit. This app is
+// tested on release builds, where __DEV__ is false, so without this the test
+// phone generates real impressions on the account - which AdMob counts as
+// invalid traffic and suspends accounts over. The SDK prints the id to add on
+// its first ad request:
+//   "Use RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList("..."))"
+const TEST_DEVICE_IDS: string[] = [
+  'FEDD6C314E2218E146A820BF430E1637', // the Samsung this app is tested on
+];
 
 // An interstitial has to be fetched over the network before it can be shown,
 // which takes seconds. Loading one at the moment it is wanted puts that wait
@@ -17,9 +29,20 @@ function ensureInitialized(): Promise<void> {
     return Promise.resolve();
   }
   hasInitialized = true;
+  // The allowlist has to be in place before the first request, or that request
+  // is a live one.
   return mobileAds()
-    .initialize()
+    .setRequestConfiguration({ testDeviceIdentifiers: TEST_DEVICE_IDS })
+    .then(() => mobileAds().initialize())
     .then((statuses) => {
+      // Strictly after initialize: the native SDK throws IllegalStateException
+      // if the muted state is set before it. Still before any ad is requested,
+      // since every request waits on this promise.
+      //
+      // The app makes no sound of its own, so an ad that suddenly does is
+      // jarring. The cost is real and accepted: muting narrows video ad
+      // eligibility, which is the better paying inventory.
+      mobileAds().setAppMuted(true);
       console.log('[ads] mobileAds().initialize() resolved', statuses);
     });
 }
