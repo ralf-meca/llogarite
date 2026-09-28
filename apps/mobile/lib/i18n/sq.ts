@@ -28,13 +28,6 @@ export const sq: Record<keyof typeof en, string> = {
   'login.nameRequired': 'Vendos emrin dhe mbiemrin.',
   'login.emailPlaceholder': 'Email',
   'login.forgotPassword': 'Harrove fjalëkalimin?',
-  'login.forgotPasswordTitle': 'Rivendos fjalëkalimin',
-  'login.forgotPasswordMessage':
-    'Shkruaj email-in tënd dhe do të dërgojmë një fjalëkalim të përkohshëm për t\'u kyçur, të cilin mund ta ndryshosh më pas nga Profili yt.',
-  'login.forgotPasswordSend': 'Dërgo kodin',
-  'login.forgotPasswordSending': 'Duke dërguar...',
-  'login.forgotPasswordEmailRequired': 'Shkruaj email-in tënd.',
-  'login.forgotPasswordSuccess': 'Nëse ekziston një llogari me këtë email, kemi dërguar një fjalëkalim të përkohshëm.',
   'login.passwordPlaceholder': 'Fjalëkalimi',
   'login.confirmPasswordPlaceholder': 'Konfirmo fjalëkalimin',
   'login.fieldsRequired': 'Plotëso emailin dhe fjalëkalimin.',

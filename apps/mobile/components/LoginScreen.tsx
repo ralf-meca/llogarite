@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,7 +27,6 @@ import {
 } from 'phosphor-react-native';
 import { useToasts } from '../hooks/useToasts';
 import {
-  forgotPassword,
   login,
   loginWithGoogle,
   requestLoginCode,
@@ -138,9 +136,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const pagerRef = useRef<ScrollView>(null);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [legalPage, setLegalPage] = useState<'privacy' | 'terms' | null>(null);
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingReset, setIsSendingReset] = useState(false);
   const fingerX = useRef(new Animated.Value(0)).current;
   const fingerOpacity = useRef(new Animated.Value(0)).current;
   const fingerScale = useRef(new Animated.Value(0.6)).current;
@@ -331,29 +326,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       });
   };
 
-  const openForgotPassword = () => {
-    setForgotEmail(email);
-    setIsForgotPasswordOpen(true);
-  };
-
-  const handleSendReset = () => {
-    if (!forgotEmail.trim()) {
-      showError(t('login.forgotPasswordEmailRequired'));
-      return;
-    }
-    setIsSendingReset(true);
-    forgotPassword(forgotEmail.trim())
-      .then(() => {
-        setIsSendingReset(false);
-        setIsForgotPasswordOpen(false);
-        showSuccess(t('login.forgotPasswordSuccess'));
-      })
-      .catch((resetError: Error) => {
-        setIsSendingReset(false);
-        showError(resetError.message);
-      });
-  };
-
   const handleCarouselScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setActiveSlide(index);
@@ -541,7 +513,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                         )}
                       </Pressable>
                     </GlassView>
-                    <Pressable onPress={openForgotPassword} style={styles.forgotPasswordLink}>
+                    <Pressable onPress={() => handleSendCode()} style={styles.forgotPasswordLink}>
                       <Text style={styles.forgotPasswordText}>{t('login.forgotPassword')}</Text>
                     </Pressable>
                     <GlassButton
@@ -620,47 +592,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           </View>
         )}
       </View>
-
-      <Modal
-        visible={isForgotPasswordOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsForgotPasswordOpen(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsForgotPasswordOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>{t('login.forgotPasswordTitle')}</Text>
-            <Text style={styles.modalMessage}>{t('login.forgotPasswordMessage')}</Text>
-            <GlassTextInput
-              style={styles.input}
-              placeholder={t('login.emailPlaceholder')}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={forgotEmail}
-              onChangeText={setForgotEmail}
-            />
-            {getEmailSuggestions(forgotEmail).length > 0 && (
-              <View style={styles.emailSuggestions}>
-                {getEmailSuggestions(forgotEmail).map((suggestion) => (
-                  <Pressable
-                    key={suggestion}
-                    style={styles.emailSuggestionChip}
-                    onPress={() => setForgotEmail(suggestion)}
-                  >
-                    <Text style={styles.emailSuggestionText}>{suggestion}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            <GlassButton
-              label={isSendingReset ? t('login.forgotPasswordSending') : t('login.forgotPasswordSend')}
-              variant="accent"
-              onPress={handleSendReset}
-              disabled={isSendingReset}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
@@ -912,30 +843,5 @@ const styles = StyleSheet.create({
   disclaimerLink: {
     color: colors.primary,
     fontWeight: '600',
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalCard: {
-    width: '85%',
-    backgroundColor: colors.white,
-    borderRadius: radius.sheet,
-    padding: 24,
-    boxShadow: '0px 6px 16px rgba(0,0,0,0.2)',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 8,
-  },
-  modalMessage: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginBottom: 16,
   },
 });

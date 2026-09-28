@@ -26,13 +26,6 @@ export const en = {
   'login.nameRequired': 'Enter your first and last name.',
   'login.emailPlaceholder': 'Email',
   'login.forgotPassword': 'Forgot password?',
-  'login.forgotPasswordTitle': 'Reset password',
-  'login.forgotPasswordMessage':
-    "Enter your email and we'll send you a temporary password you can use to sign in, then change it from your Profile.",
-  'login.forgotPasswordSend': 'Send code',
-  'login.forgotPasswordSending': 'Sending...',
-  'login.forgotPasswordEmailRequired': 'Enter your email.',
-  'login.forgotPasswordSuccess': "If an account exists for that email, we've sent a temporary password.",
   'login.passwordPlaceholder': 'Password',
   'login.confirmPasswordPlaceholder': 'Confirm password',
   'login.fieldsRequired': 'Fill in your email and password.',
