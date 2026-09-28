@@ -39,6 +39,7 @@ import {
 import { saveToken } from '../lib/authStorage';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
+import { CodeInput } from './CodeInput';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -495,14 +496,12 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                   <>
                     <Text style={styles.formTitle}>{t('login.codeTitle')}</Text>
                     <Text style={styles.stepSubtitle}>{t('login.codeSubtitle', { email: email.trim() })}</Text>
-                    <GlassTextInput
-                      style={[styles.input, styles.codeInput]}
-                      placeholder={t('login.codePlaceholder')}
-                      keyboardType="number-pad"
-                      autoFocus
-                      maxLength={CODE_LENGTH}
+                    <CodeInput
                       value={code}
+                      length={CODE_LENGTH}
                       onChangeText={handleCodeChange}
+                      editable={!isSubmitting}
+                      autoFocus
                     />
                     <GlassButton
                       label={isSubmitting ? t('login.verifyingCode') : t('login.verifyCode')}
@@ -808,12 +807,6 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
-  },
-  codeInput: {
-    textAlign: 'center',
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 8,
   },
   emailSuggestions: {
     flexDirection: 'row',

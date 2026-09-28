@@ -21,8 +21,8 @@ import {
 } from '../lib/savedInvoicesApi';
 import { colors, radius } from '../lib/theme';
 import { fetchMyCode } from '../lib/usersApi';
+import { CodeInput } from './CodeInput';
 import { GlassButton } from './GlassButton';
-import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
@@ -38,6 +38,9 @@ type BuddiesScreenProps = {
   initialTab?: BuddyTab;
   highlightInvoiceId?: string | null;
 };
+
+// Matches the code the server generates for each account.
+const BUDDY_CODE_LENGTH = 6;
 
 export function BuddiesScreen({
   userId,
@@ -357,12 +360,11 @@ export function BuddiesScreen({
         <Pressable style={styles.backdrop} onPress={() => setIsAddFriendOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>{t('buddies.addWithCode')}</Text>
-            <GlassTextInput
-              style={styles.input}
-              placeholder={t('buddies.codePlaceholder')}
-              keyboardType="numeric"
+            <CodeInput
               value={codeInput}
+              length={BUDDY_CODE_LENGTH}
               onChangeText={(text) => setCodeInput(text.replace(/[^0-9]/g, ''))}
+              editable={!isSending}
               autoFocus
             />
             <GlassButton
