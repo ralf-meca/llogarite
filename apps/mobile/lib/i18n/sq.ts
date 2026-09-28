@@ -389,4 +389,13 @@ export const sq: Record<keyof typeof en, string> = {
   'categories.shendetesi': 'Shëndet & Farmaci',
   'categories.argetim': 'Argëtim & Shërbime',
   'categories.te_tjera': 'Të tjera',
+
+  'places.ushqime': 'Market',
+  'places.higjene': 'Parfumeri',
+  'places.shtepi': 'Dyqan',
+  'places.veshje': 'Butik',
+  'places.transport': 'Karburant',
+  'places.shendetesi': 'Farmaci',
+  'places.argetim': 'Dyqan',
+  'places.te_tjera': 'Dyqan',
 };

@@ -386,4 +386,13 @@ export const en = {
   'categories.shendetesi': 'Health & Pharmacy',
   'categories.argetim': 'Entertainment & Services',
   'categories.te_tjera': 'Other',
+
+  'places.ushqime': 'Market',
+  'places.higjene': 'Drugstore',
+  'places.shtepi': 'Shop',
+  'places.veshje': 'Clothing store',
+  'places.transport': 'Fuel station',
+  'places.shendetesi': 'Pharmacy',
+  'places.argetim': 'Shop',
+  'places.te_tjera': 'Shop',
 } as const;

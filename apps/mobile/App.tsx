@@ -44,7 +44,7 @@ import { VerifiedBadge } from "./components/VerifiedBadge";
 import { useToasts } from "./hooks/useToasts";
 import type { AuthResponse, AuthUser } from "./lib/authApi";
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from "./lib/authStorage";
-import { categoryIcon } from "./lib/categories";
+import { categoryIcon, categoryPlaceKey } from "./lib/categories";
 import { dominantCategory, hasCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
 import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
@@ -825,8 +825,21 @@ function AppContent() {
                                                 </View>
                                                 <View style={styles.savedRowTextGroup}>
                                                     <View style={styles.savedSellerRow}>
-                                                        <Text style={styles.savedSeller} numberOfLines={1}>
-                                                            {item.data.seller.name}
+                                                        {/* Manual invoices often have no seller, which left the
+                                                            row's only identifying line blank. Falls back to the
+                                                            kind of place the invoice reads like, from the category
+                                                            its spending mostly sits in. dominantCategory, not the
+                                                            active filter the icon uses - otherwise every row would
+                                                            say the same word while a filter is on. */}
+                                                        <Text
+                                                            style={[
+                                                                styles.savedSeller,
+                                                                !item.data.seller.name.trim() && styles.savedSellerFallback,
+                                                            ]}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {item.data.seller.name.trim() ||
+                                                                t(categoryPlaceKey(dominantCategory(item)))}
                                                         </Text>
                                                         {item.data.verified && <VerifiedBadge size={15} />}
                                                     </View>
@@ -1193,6 +1206,10 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
         color: colors.textDark,
+    },
+    // Muted, so a guessed place never reads as a name someone actually entered.
+    savedSellerFallback: {
+        color: colors.textMuted,
     },
     savedDate: {
         fontSize: 12,

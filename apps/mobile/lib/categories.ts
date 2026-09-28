@@ -21,23 +21,36 @@ export type CategoryId =
   | 'argetim'
   | 'te_tjera';
 
-export type Category = { id: CategoryId; labelKey: TranslationKey; icon: Icon; color: string };
+// `placeKey` is the kind of place this category is usually bought at, used as a
+// stand-in on an invoice that never got a seller name. It is a guess by
+// definition, so it is shown muted rather than as if it were the real name.
+export type Category = {
+  id: CategoryId;
+  labelKey: TranslationKey;
+  placeKey: TranslationKey;
+  icon: Icon;
+  color: string;
+};
 
 export const CATEGORIES: Category[] = [
-  { id: 'ushqime', labelKey: 'categories.ushqime', icon: ForkKnifeIcon, color: '#667EEA' },
-  { id: 'higjene', labelKey: 'categories.higjene', icon: SparkleIcon, color: '#F093FB' },
-  { id: 'shtepi', labelKey: 'categories.shtepi', icon: HouseIcon, color: '#4FACFE' },
-  { id: 'veshje', labelKey: 'categories.veshje', icon: TShirtIcon, color: '#43E97B' },
-  { id: 'transport', labelKey: 'categories.transport', icon: CarIcon, color: '#FA709A' },
-  { id: 'shendetesi', labelKey: 'categories.shendetesi', icon: FirstAidKitIcon, color: '#30CFD0' },
-  { id: 'argetim', labelKey: 'categories.argetim', icon: TicketIcon, color: '#A18CD1' },
-  { id: 'te_tjera', labelKey: 'categories.te_tjera', icon: DotsThreeCircleIcon, color: '#B0B5BD' },
+  { id: 'ushqime', labelKey: 'categories.ushqime', placeKey: 'places.ushqime', icon: ForkKnifeIcon, color: '#667EEA' },
+  { id: 'higjene', labelKey: 'categories.higjene', placeKey: 'places.higjene', icon: SparkleIcon, color: '#F093FB' },
+  { id: 'shtepi', labelKey: 'categories.shtepi', placeKey: 'places.shtepi', icon: HouseIcon, color: '#4FACFE' },
+  { id: 'veshje', labelKey: 'categories.veshje', placeKey: 'places.veshje', icon: TShirtIcon, color: '#43E97B' },
+  { id: 'transport', labelKey: 'categories.transport', placeKey: 'places.transport', icon: CarIcon, color: '#FA709A' },
+  { id: 'shendetesi', labelKey: 'categories.shendetesi', placeKey: 'places.shendetesi', icon: FirstAidKitIcon, color: '#30CFD0' },
+  { id: 'argetim', labelKey: 'categories.argetim', placeKey: 'places.argetim', icon: TicketIcon, color: '#A18CD1' },
+  { id: 'te_tjera', labelKey: 'categories.te_tjera', placeKey: 'places.te_tjera', icon: DotsThreeCircleIcon, color: '#B0B5BD' },
 ];
 
 export const DEFAULT_CATEGORY: CategoryId = 'te_tjera';
 
 export function categoryLabelKey(id: string | null | undefined): TranslationKey {
   return CATEGORIES.find((category) => category.id === id)?.labelKey ?? categoryLabelKey(DEFAULT_CATEGORY);
+}
+
+export function categoryPlaceKey(id: string | null | undefined): TranslationKey {
+  return CATEGORIES.find((category) => category.id === id)?.placeKey ?? categoryPlaceKey(DEFAULT_CATEGORY);
 }
 
 export function categoryColor(id: string | null | undefined): string {

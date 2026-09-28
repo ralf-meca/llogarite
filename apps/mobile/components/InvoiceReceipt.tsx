@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
+import { categoryPlaceKey } from '../lib/categories';
+import { dominantCategoryOfItems } from '../lib/categorySpending';
 import { toDateLabel } from '../lib/date';
 import { formatAmount, needsCents } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
@@ -58,7 +60,12 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
     <GlassView style={styles.card}>
       <Text style={styles.date}>{toDateLabel(new Date(result.dateTimeCreated))}</Text>
       <View style={styles.sellerRow}>
-        <Text style={styles.sellerName}>{result.seller.name}</Text>
+        {/* Same stand-in the saved list uses, so an invoice that was never
+            given a seller reads the same in both places rather than opening
+            onto a blank heading. */}
+        <Text style={[styles.sellerName, !result.seller.name.trim() && styles.sellerNameFallback]}>
+          {result.seller.name.trim() || t(categoryPlaceKey(dominantCategoryOfItems(result.items)))}
+        </Text>
         {result.verified && <VerifiedBadge />}
       </View>
 
@@ -155,6 +162,10 @@ const styles = StyleSheet.create({
   sellerName: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  // Muted, so a guessed place never reads as a name someone actually entered.
+  sellerNameFallback: {
+    color: colors.textMuted,
   },
   metaRow: {
     flexDirection: 'row',

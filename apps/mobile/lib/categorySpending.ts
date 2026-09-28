@@ -1,5 +1,6 @@
 import { DEFAULT_CATEGORY } from './categories';
 import { currentMonthKey, monthKeyOf } from './monthlySpending';
+import type { InvoiceItem } from './invoiceApi';
 import type { SavedInvoice } from './savedInvoicesApi';
 
 export type CategorySpending = {
@@ -36,9 +37,9 @@ export function hasCategory(invoice: SavedInvoice, categoryId: string): boolean 
   return invoice.data.items.some((item) => (item.category ?? DEFAULT_CATEGORY) === categoryId);
 }
 
-export function dominantCategory(invoice: SavedInvoice): string {
+export function dominantCategoryOfItems(items: InvoiceItem[]): string {
   const totals = new Map<string, number>();
-  for (const item of invoice.data.items) {
+  for (const item of items) {
     const categoryId = item.category ?? DEFAULT_CATEGORY;
     const lineTotal = item.unitPriceAfterVat * item.quantity;
     totals.set(categoryId, (totals.get(categoryId) ?? 0) + lineTotal);
@@ -53,4 +54,8 @@ export function dominantCategory(invoice: SavedInvoice): string {
     }
   }
   return best;
+}
+
+export function dominantCategory(invoice: SavedInvoice): string {
+  return dominantCategoryOfItems(invoice.data.items);
 }
