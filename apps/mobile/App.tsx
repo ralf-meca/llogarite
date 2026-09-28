@@ -40,7 +40,7 @@ import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
 import { fetchNotifications, markNotificationRead, syncMonthlyPaymentReminder } from "./lib/notificationsApi";
 import { addPaymentReminderFiredListener } from "./lib/paymentNotifications";
 import { NotificationBell } from "./components/NotificationBell";
-import { showInterstitialAd } from "./lib/ads";
+import { preloadInterstitialAd, showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { monthKeyOf } from "./lib/monthlySpending";
@@ -248,6 +248,12 @@ function AppContent() {
             loadSavedInvoices();
         }
     }, [screen, loadSavedInvoices]);
+
+    useEffect(() => {
+        if (user && !user.isPremium) {
+            preloadInterstitialAd();
+        }
+    }, [user]);
 
     useEffect(() => {
         if (MAIN_SCREENS.has(screen)) {
@@ -677,7 +683,7 @@ function AppContent() {
                 loadSavedInvoices();
                 handleClose();
                 if (!user?.isPremium) {
-                    showInterstitialAd().catch(() => undefined);
+                    showInterstitialAd();
                 }
             })
             .catch((error: Error) => {
