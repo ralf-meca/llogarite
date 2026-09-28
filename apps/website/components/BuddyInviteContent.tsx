@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ANDROID_PACKAGE as PACKAGE, PLAY_URL } from '../lib/appLinks';
 
-const PACKAGE = 'com.rmtech.llogarite';
-const PLAY_URL = `https://play.google.com/store/apps/details?id=${PACKAGE}`;
 const CODE_PATTERN = /^\d{6}$/;
 
 // Nothing to read here. Anyone with the app is routed straight to it by the
