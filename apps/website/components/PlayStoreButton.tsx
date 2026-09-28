@@ -3,6 +3,11 @@
 import { PLAY_URL } from '../lib/appLinks';
 import { useLanguage } from '../lib/LanguageContext';
 
+// Google's own badge artwork, served from our own public folder rather than
+// hotlinked, so the site does not depend on their URL staying put. The image
+// carries its own padding, which is why the link has none.
+const BADGE_SRC = '/google-play-badge.png';
+
 const LABEL = {
   en: 'Get it on Google Play',
   sq: 'Shkarkoje në Google Play',
@@ -22,12 +27,7 @@ export function PlayStoreButton({ className }: PlayStoreButtonProps) {
       target="_blank"
       rel="noreferrer"
     >
-      {/* A plain monochrome play mark rather than a copy of Google's coloured
-          logo, which may only be reproduced from their own badge asset. */}
-      <svg width="13" height="15" viewBox="0 0 13 15" aria-hidden="true" focusable="false">
-        <path d="M0.8 0.6 L11.6 7.5 L0.8 14.4 Z" fill="currentColor" />
-      </svg>
-      {LABEL[language]}
+      <img src={BADGE_SRC} alt={LABEL[language]} />
     </a>
   );
 }
