@@ -92,6 +92,35 @@ npm run check:env
 
 When a production value changes, change it in **both** files; the check will tell you if you miss one.
 
+### Changing an env value does not rebuild the JS bundle
+
+Gradle's `createBundleReleaseJsAndAssets` task takes the JS **source files** as its
+inputs. `.env`, `.env.production` and `eas.json` are not among them. So a build whose
+only change is an env value -- which is what every config change looks like -- finds the
+task up to date, skips it, and packages the **previous** bundle with the **old** values
+inlined. The build reports success and says nothing.
+
+This cost a debugging round on `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`: the key was correct
+in all three files, the build succeeded, and the app still threw RevenueCat's
+"There is no singleton instance" because `Purchases.configure()` never ran -- the bundle
+still had `undefined` baked in.
+
+After changing any `EXPO_PUBLIC_*` value, force the re-bundle:
+
+```bash
+rm -rf android/app/build/generated/assets/createBundleReleaseJsAndAssets
+```
+
+Then verify rather than trust the build -- the value is a plain string in the bundle:
+
+```bash
+unzip -p android/app/build/outputs/apk/release/app-release.apk assets/index.android.bundle | grep -c '<the value>'
+```
+
+`0` means it did not make it in. Checking logcat is not a substitute: a missing
+`EXPO_PUBLIC_*` reads as `undefined`, and code that guards on it goes quiet rather
+than failing, so the log looks identical to a healthy run.
+
 ### versionCode
 
 `eas.json` has `"appVersionSource": "remote"`, so `eas build` auto-increments versionCode
