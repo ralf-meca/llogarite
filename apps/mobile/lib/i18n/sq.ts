@@ -233,6 +233,8 @@ export const sq: Record<keyof typeof en, string> = {
 
   'buddies.title': 'Shokët e shpenzimeve',
   'buddies.myCode': 'Kodi yt',
+  'buddies.shareCode': 'Ndaj kodin tim',
+  'buddies.shareMessage': 'Shtëmë në Llogarite. Kodi im është {code}: {link}',
   'buddies.myCodeHint': "Jepja këtë kod dikujt për t'u bërë shok shpenzimesh.",
   'buddies.addWithCode': 'Shto shok me kod',
   'buddies.addFriend': 'Shto shok',

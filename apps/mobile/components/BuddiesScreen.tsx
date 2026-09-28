@@ -1,6 +1,13 @@
-import { CheckCircleIcon, CheckIcon, PaperPlaneTiltIcon, UserPlusIcon, XIcon } from 'phosphor-react-native';
+import {
+  CheckCircleIcon,
+  CheckIcon,
+  PaperPlaneTiltIcon,
+  ShareNetworkIcon,
+  UserPlusIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, fetchBuddyRequests, respondToBuddyRequest, sendBuddyRequest, type Buddy } from '../lib/buddiesApi';
 import {
@@ -37,10 +44,18 @@ type BuddiesScreenProps = {
   onSelectInvoice: (invoiceId: string) => void;
   initialTab?: BuddyTab;
   highlightInvoiceId?: string | null;
+  // A code the app was opened on, from someone else's invite link.
+  initialCode?: string | null;
+  onInitialCodeHandled?: () => void;
 };
 
 // Matches the code the server generates for each account.
 const BUDDY_CODE_LENGTH = 6;
+
+// The invite page on the site. It hands the code back to the app when it is
+// installed and sends the reader to the Play Store when it is not, which is
+// something a llogarite:// link on its own cannot do.
+const INVITE_LINK_BASE = 'https://llogarite.site/shoku/';
 
 export function BuddiesScreen({
   userId,
@@ -50,6 +65,8 @@ export function BuddiesScreen({
   onSelectInvoice,
   initialTab,
   highlightInvoiceId,
+  initialCode,
+  onInitialCodeHandled,
 }: BuddiesScreenProps) {
   const { t } = useTranslation();
   const [myCode, setMyCode] = useState<string | null>(null);
@@ -104,6 +121,25 @@ export function BuddiesScreen({
     () => owedByMeShares(owedInvoices, userId).filter((share) => !share.paid),
     [owedInvoices, userId],
   );
+
+  const handleShareCode = () => {
+    if (!myCode) {
+      return;
+    }
+    const link = `${INVITE_LINK_BASE}?code=${myCode}`;
+    Share.share({ message: t('buddies.shareMessage', { code: myCode, link }) }).catch(() => undefined);
+  };
+
+  // Arriving on an invite link: show the reader the popup already filled in,
+  // so the only thing left to do is send the request.
+  useEffect(() => {
+    if (!initialCode) {
+      return;
+    }
+    setCodeInput(initialCode);
+    setIsAddFriendOpen(true);
+    onInitialCodeHandled?.();
+  }, [initialCode, onInitialCodeHandled]);
 
   const handleSendRequest = () => {
     if (!codeInput.trim()) {
@@ -176,7 +212,18 @@ export function BuddiesScreen({
         <View style={styles.codeRow}>
           <GlassView style={[styles.card, styles.codeCard]}>
             <Text style={styles.cardLabel}>{t('buddies.myCode')}</Text>
-            <Text style={styles.myCode}>{myCode ?? '...'}</Text>
+            <View style={styles.myCodeRow}>
+              <Text style={styles.myCode}>{myCode ?? '...'}</Text>
+              <Pressable
+                style={styles.shareTrigger}
+                onPress={handleShareCode}
+                disabled={!myCode}
+                hitSlop={8}
+                accessibilityLabel={t('buddies.shareCode')}
+              >
+                <ShareNetworkIcon size={18} color={colors.primary} />
+              </Pressable>
+            </View>
             <Text style={styles.cardHint}>{t('buddies.myCodeHint')}</Text>
           </GlassView>
 
@@ -409,11 +456,25 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 8,
   },
+  myCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   myCode: {
+    flexShrink: 1,
     fontSize: 26,
     fontWeight: '700',
     color: '#1f2937',
     letterSpacing: 4,
+  },
+  shareTrigger: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTint,
   },
   cardHint: {
     marginTop: 8,

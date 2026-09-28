@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "llogarite",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,6 +17,14 @@
     },
     "android": {
       "package": "com.rmtech.llogarite",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "llogarite.site", "pathPrefix": "/shoku" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "versionCode": 24,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {

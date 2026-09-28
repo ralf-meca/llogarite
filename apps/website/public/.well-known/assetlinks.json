@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.rmtech.llogarite",
+      "sha256_cert_fingerprints": [
+        "D4:83:A5:3B:9B:61:C7:E5:86:C0:C5:4C:9D:49:5D:F5:3B:70:F3:17:96:81:4E:8F:80:13:71:43:00:A9:73:C9"
+      ]
+    }
+  }
+]

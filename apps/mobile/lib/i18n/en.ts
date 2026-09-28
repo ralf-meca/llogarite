@@ -230,6 +230,8 @@ export const en = {
 
   'buddies.title': 'Expense buddies',
   'buddies.myCode': 'Your code',
+  'buddies.shareCode': 'Share my code',
+  'buddies.shareMessage': 'Add me on Llogarite. My code is {code}: {link}',
   'buddies.myCodeHint': "Give this code to someone to become expense buddies.",
   'buddies.addWithCode': 'Add a buddy with a code',
   'buddies.addFriend': 'Add friend',

@@ -2,7 +2,18 @@ import { scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+    ActivityIndicator,
+    Alert,
+    BackHandler,
+    FlatList,
+    Linking,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BuddiesScreen } from "./components/BuddiesScreen";
@@ -157,6 +168,9 @@ function AppContent() {
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const [buddiesInitialTab, setBuddiesInitialTab] = useState<"owedByMe" | "owedToMe">("owedToMe");
+    // Held rather than acted on straight away: a link can arrive before the
+    // session is restored, and the buddies screen is no use while logged out.
+    const [pendingBuddyCode, setPendingBuddyCode] = useState<string | null>(null);
     const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
@@ -312,6 +326,25 @@ function AppContent() {
             syncMonthlyPaymentReminder(payload);
         });
     }, []);
+
+    // llogarite://shoku?code=123456, sent by the invite page on the site.
+    useEffect(() => {
+        const readCode = (url: string | null) => {
+            const match = url?.match(/[?&]code=(\d{6})(?:\D|$)/);
+            if (match) {
+                setPendingBuddyCode(match[1]);
+            }
+        };
+        Linking.getInitialURL().then(readCode).catch(() => undefined);
+        const subscription = Linking.addEventListener("url", (event) => readCode(event.url));
+        return () => subscription.remove();
+    }, []);
+
+    useEffect(() => {
+        if (pendingBuddyCode && user) {
+            setScreen("buddies");
+        }
+    }, [pendingBuddyCode, user]);
 
     const handleNavigate = (target: NavScreen) => {
         setSelectedInvoice(null);
@@ -815,6 +848,8 @@ function AppContent() {
                                 onInvoicesChanged={loadSavedInvoices}
                                 initialTab={buddiesInitialTab}
                                 highlightInvoiceId={highlightInvoiceId}
+                                initialCode={pendingBuddyCode}
+                                onInitialCodeHandled={() => setPendingBuddyCode(null)}
                                 onSelectBuddy={(buddy) => {
                                     setSelectedBuddy(buddy);
                                     setScreen("buddyDetail");
