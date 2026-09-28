@@ -18,12 +18,19 @@ export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
     @Post('register')
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 10, ttl: 600_000 } })
     register(@Body() dto: RegisterDto): Promise<AuthResponse> {
         return this.authService.register(dto);
     }
 
+    // Passwords are guessable at a rate only a limit can set, and this
+    // endpoint had none. Loose enough for a person who mistypes, far below
+    // what trying a dictionary needs.
     @Post('login')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 20, ttl: 600_000 } })
     login(@Body() dto: LoginDto): Promise<AuthResponse> {
         return this.authService.login(dto);
     }
@@ -70,8 +77,11 @@ export class AuthController {
         return this.authService.changePassword(userId, dto);
     }
 
+    // Mails a code, so it is held to the same ceiling as asking for one.
     @Post('forgot-password')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 10, ttl: 600_000 } })
     forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
         return this.authService.forgotPassword(dto);
     }

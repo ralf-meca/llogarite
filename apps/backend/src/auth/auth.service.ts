@@ -11,10 +11,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { EmailService } from '../email/email.service';
 import { loginCodeEmailHtml } from '../email/templates/login-code.template';
-import { passwordResetEmailHtml } from '../email/templates/password-reset.template';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -34,6 +33,9 @@ const CODE_LENGTH = 6;
 const LOGIN_CODE_TTL_MINUTES = 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
 const LOGIN_CODE_RESEND_COOLDOWN_SECONDS = 60;
+// Codes are dead within ten minutes either way. Keeping a day of them leaves
+// room to look into a complaint without the table growing without bound.
+const LOGIN_CODE_RETENTION_HOURS = 24;
 
 // crypto rather than Math.random: each of these codes is a credential on its own.
 function generateNumericCode(): string {
@@ -98,27 +100,22 @@ export class AuthService {
         await this.usersService.updatePassword(user.id, passwordHash);
     }
 
+    // Used to overwrite the account's password with a hash of the six digits
+    // it mailed out. Anyone who knew an address could therefore lock its owner
+    // out at will, and what it left behind was a six digit password on an
+    // endpoint that can be guessed at. Forgetting a password is now answered
+    // the same way signing in is: with a one time code.
     async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
-        const email = dto.email.toLowerCase().trim();
-        const user = await this.usersService.findByEmail(email);
-        if (!user) {
-            // Don't reveal whether an account exists for this email.
-            return;
-        }
-
-        const code = generateNumericCode();
-        const passwordHash = await bcrypt.hash(code, PASSWORD_HASH_ROUNDS);
-        await this.usersService.updatePassword(user.id, passwordHash);
-
-        await this.emailService.sendMail(
-            user.email,
-            'Fjalëkalimi yt i përkohshëm - Llogarite',
-            passwordResetEmailHtml(code),
-        );
+        await this.requestLoginCode({ email: dto.email });
     }
 
     async requestLoginCode(dto: RequestCodeDto): Promise<void> {
         const email = dto.email.toLowerCase().trim();
+
+        // Swept here rather than on a schedule: this is the only thing that
+        // adds rows, so it is the one place the table can grow.
+        const cutoff = new Date(Date.now() - LOGIN_CODE_RETENTION_HOURS * 60 * 60 * 1000);
+        await this.loginCodesRepository.delete({ createdAt: LessThan(cutoff) });
 
         // Refuse a second code while a fresh one is still in flight. Without this
         // the endpoint mails whoever it is told to, as often as it is asked, which
