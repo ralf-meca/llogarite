@@ -148,6 +148,7 @@ function AppContent() {
     const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
     const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
+    const [isPlansOverlayOpen, setIsPlansOverlayOpen] = useState(false);
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -363,6 +364,15 @@ function AppContent() {
             return;
         }
         setScreen(target);
+    };
+
+    const handlePremiumGranted = () => {
+        if (!user) {
+            return;
+        }
+        const updated = { ...user, isPremium: true };
+        setUser(updated);
+        saveUser(updated);
     };
 
     const handleAuthenticated = (auth: AuthResponse) => {
@@ -584,6 +594,10 @@ function AppContent() {
         }
         if (isUserMenuVisible) {
             setIsUserMenuVisible(false);
+            return true;
+        }
+        if (isPlansOverlayOpen) {
+            setIsPlansOverlayOpen(false);
             return true;
         }
         if (isOnboarding) {
@@ -896,8 +910,10 @@ function AppContent() {
                     initialData={selectedInvoice?.data ?? manualPrefill ?? undefined}
                     isEditing={Boolean(selectedInvoice)}
                     isSaving={isSaving}
+                    isPremium={Boolean(user?.isPremium)}
                     onClose={handleManualClose}
                     onBack={handleCloseDetail}
+                    onRequirePremium={() => setIsPlansOverlayOpen(true)}
                     onSubmit={handleManualSubmit}
                 />
             ) : screen === "invoice" ? (
@@ -906,14 +922,7 @@ function AppContent() {
                 <PlansScreen
                     isPremium={Boolean(user?.isPremium)}
                     onBack={() => setScreen("dashboard")}
-                    onPremiumGranted={() => {
-                        if (!user) {
-                            return;
-                        }
-                        const updated = { ...user, isPremium: true };
-                        setUser(updated);
-                        saveUser(updated);
-                    }}
+                    onPremiumGranted={handlePremiumGranted}
                 />
             ) : screen === "productDetail" ? (
                 selectedProduct && (
@@ -976,6 +985,24 @@ function AppContent() {
                         <ActivityIndicator color={colors.primary} size="large" />
                         <Text style={styles.processingText}>{t("receiptScanner.processing")}</Text>
                     </View>
+                </View>
+            </Modal>
+
+            {/* Opened by the locked project/buddy controls on the expense form. An
+                overlay rather than a screen change on purpose: switching screens
+                unmounts the form, and with it the invoice being written. Buying
+                from here therefore lands back on that form, unlocked. */}
+            <Modal
+                visible={isPlansOverlayOpen}
+                animationType="slide"
+                onRequestClose={() => setIsPlansOverlayOpen(false)}
+            >
+                <View style={styles.container}>
+                    <PlansScreen
+                        isPremium={Boolean(user?.isPremium)}
+                        onBack={() => setIsPlansOverlayOpen(false)}
+                        onPremiumGranted={handlePremiumGranted}
+                    />
                 </View>
             </Modal>
 

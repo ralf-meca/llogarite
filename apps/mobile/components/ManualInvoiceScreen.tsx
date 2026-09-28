@@ -2,6 +2,7 @@ import {
   ArrowLeftIcon,
   CaretDownIcon,
   CheckSquareIcon,
+  CrownIcon,
   PencilSlashIcon,
   SquareIcon,
   UserPlusIcon,
@@ -9,8 +10,8 @@ import {
   XCircleIcon,
   XIcon,
 } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
@@ -37,8 +38,10 @@ type ManualInvoiceScreenProps = {
   initialData?: InvoiceVerificationResult;
   isEditing?: boolean;
   isSaving?: boolean;
+  isPremium: boolean;
   onClose: () => void;
   onBack?: () => void;
+  onRequirePremium: () => void;
   onSubmit: (result: InvoiceVerificationResult) => void;
 };
 
@@ -76,12 +79,44 @@ function defaultBuddyQuantities(rowQuantity: number, buddyIds: string[]): Record
   return Object.fromEntries(buddyIds.map((id) => [id, share]));
 }
 
+type PremiumLockProps = {
+  locked: boolean;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+  children: ReactNode;
+};
+
+// Projects and buddies are premium, so on a free account their controls stay
+// where they are, dimmed and inert, and a tap goes to the plans screen instead.
+// It wraps rather than passing `disabled` down because each of these controls
+// owns its own Pressable, which would otherwise take the tap before this one
+// ever sees it. Unlocked it renders the control untouched, so nothing about the
+// paid layout depends on this being in the tree.
+function PremiumLock({ locked, onPress, style, children }: PremiumLockProps) {
+  if (!locked) {
+    return <>{children}</>;
+  }
+  return (
+    <View style={style}>
+      <View pointerEvents="none" style={styles.lockedControl}>
+        {children}
+      </View>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onPress} />
+      <View pointerEvents="none" style={styles.lockBadge}>
+        <CrownIcon size={9} weight="fill" color={colors.white} />
+      </View>
+    </View>
+  );
+}
+
 export function ManualInvoiceScreen({
   initialData,
   isEditing,
   isSaving,
+  isPremium,
   onClose,
   onBack,
+  onRequirePremium,
   onSubmit,
 }: ManualInvoiceScreenProps) {
   const { t } = useTranslation();
@@ -353,18 +388,22 @@ export function ManualInvoiceScreen({
 
         <View style={styles.pickersRow}>
           <View style={styles.pickerSlot}>
-            <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
+            <PremiumLock locked={!isPremium} onPress={onRequirePremium} style={styles.lockWrap}>
+              <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
+            </PremiumLock>
           </View>
           {/* Just a trigger button here (no Modal inside), so hiding it via style when
               buddies exist can't suppress repaints for the shared modal below. */}
           <View style={[styles.pickerSlot, selectedBuddies.length > 0 && styles.hiddenSlot]}>
-            <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
-              <UsersIcon size={14} color="#374151" />
-              <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
-                {t('buddyPicker.addBuddy')}
-              </Text>
-              <CaretDownIcon size={12} color="#6b7280" />
-            </Pressable>
+            <PremiumLock locked={!isPremium} onPress={onRequirePremium} style={styles.lockWrap}>
+              <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
+                <UsersIcon size={14} color="#374151" />
+                <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
+                  {t('buddyPicker.addBuddy')}
+                </Text>
+                <CaretDownIcon size={12} color="#6b7280" />
+              </Pressable>
+            </PremiumLock>
           </View>
         </View>
 
@@ -386,9 +425,15 @@ export function ManualInvoiceScreen({
         >
           <View style={styles.buddiesHeader}>
               <Text style={styles.buddiesTitle}>{t('manualInvoice.buddiesTitle')}</Text>
-              <Pressable style={styles.addBuddyIconTrigger} onPress={() => setIsBuddyPickerOpen(true)} hitSlop={8}>
-                <UserPlusIcon size={16} color={colors.primary} />
-              </Pressable>
+              <PremiumLock locked={!isPremium} onPress={onRequirePremium}>
+                <Pressable
+                  style={styles.addBuddyIconTrigger}
+                  onPress={() => setIsBuddyPickerOpen(true)}
+                  hitSlop={8}
+                >
+                  <UserPlusIcon size={16} color={colors.primary} />
+                </Pressable>
+              </PremiumLock>
             </View>
             <View style={styles.splitModeToggle}>
               <Pressable
@@ -613,6 +658,29 @@ const styles = StyleSheet.create({
   },
   hiddenSlot: {
     display: 'none',
+  },
+  // The controls this wraps size themselves (alignSelf: 'flex-start'), so the
+  // wrapper must not stretch either — otherwise its press target would cover
+  // the empty half of the row next to the pill.
+  lockWrap: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  lockedControl: {
+    opacity: 0.5,
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 15,
+    height: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: colors.white,
   },
   addBuddyIconTrigger: {
     width: 28,
