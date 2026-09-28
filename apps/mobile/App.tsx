@@ -341,9 +341,18 @@ function AppContent() {
     }, []);
 
     useEffect(() => {
-        if (pendingBuddyCode && user) {
-            setScreen("buddies");
+        if (!pendingBuddyCode || !user) {
+            return;
         }
+        // Buddies is a premium screen, and an invite link must not be a way
+        // around that. Same PREMIUM_SCREENS lookup handleNavigate uses, so the
+        // rule cannot drift between the two ways in.
+        if (PREMIUM_SCREENS.has("buddies") && !user.isPremium) {
+            setPendingBuddyCode(null);
+            setScreen("plans");
+            return;
+        }
+        setScreen("buddies");
     }, [pendingBuddyCode, user]);
 
     const handleNavigate = (target: NavScreen) => {
