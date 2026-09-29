@@ -355,7 +355,7 @@ export const en = {
   'plans.featureBuddies': 'Expense buddies',
   'plans.featureNoAds': 'No ads',
   'plans.featureEverythingFree': 'Everything in the Free plan',
-  'plans.cancelSubscription': 'Cancel subscription',
+  'plans.cancelSubscription': 'Cancel the subscription',
   'plans.manageFailed': 'Could not open subscription management.',
   'plans.currentPlan': 'Current plan',
   'plans.buyPremium': 'Buy Premium',
