@@ -79,13 +79,9 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
                   </Pressable>
                 ))}
               </GlassView>
-              {/* Drawn outside the GlassView because that clips its children, and
-                  filled before it is outlined so only the two sloping sides carry
-                  the border - a stroke on the closed path would draw one across
-                  the top, where the tail joins the menu. */}
+              {/* Drawn outside the GlassView, which clips its children. */}
               <Svg width={TAIL_WIDTH} height={TAIL_HEIGHT} style={styles.tail} pointerEvents="none">
                 <Path d={`${TAIL_PATH} Z`} fill={colors.white} />
-                <Path d={TAIL_PATH} stroke={colors.border} strokeWidth={1} fill="none" />
               </Svg>
             </View>
           </View>
@@ -128,14 +124,16 @@ const styles = StyleSheet.create({
   bubble: {
     alignItems: 'center',
   },
-  // Pulled up a pixel so the menu's own bottom border does not draw a line
-  // across the top of the tail; the two should read as one shape.
+  // Overlapped a pixel so no hairline shows between the two white shapes.
   tail: {
     marginTop: -1,
   },
   menu: {
     minWidth: 220,
     paddingVertical: 8,
+    // No border: the tail cannot carry one around its curve without the join
+    // showing, so the menu goes without too and the scrim does the separating.
+    borderWidth: 0,
   },
   menuItem: {
     flexDirection: 'row',
