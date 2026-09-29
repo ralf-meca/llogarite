@@ -5,7 +5,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { redeemDiscountCode } from '../lib/discountCodesApi';
 import { useTranslation } from '../lib/i18n';
-import { getPremiumPackage, purchasePremium } from '../lib/purchases';
+import { getPremiumPackage, openManageSubscription, purchasePremium } from '../lib/purchases';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -70,6 +70,15 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
 
   const discountedPrice =
     discountPercent !== null ? Math.round(PREMIUM_MONTHLY_PRICE * (1 - discountPercent / 100) * 100) / 100 : null;
+
+  const handleCancelSubscription = async () => {
+    try {
+      await openManageSubscription();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
+      showError(message || t('plans.manageFailed'));
+    }
+  };
 
   const handleBuyPremium = async () => {
     setIsPurchasing(true);
@@ -162,6 +171,12 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
             </GlassView>
           </View>
         </View>
+
+        {isPremium && (
+          <Pressable onPress={handleCancelSubscription} style={styles.manageLink}>
+            <Text style={styles.manageLinkText}>{t('plans.cancelSubscription')}</Text>
+          </Pressable>
+        )}
 
         {!isPremium && (
           <GlassView style={styles.codeCard}>
@@ -294,6 +309,16 @@ const styles = StyleSheet.create({
   },
   buyButton: {
     marginTop: 16,
+  },
+  manageLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  manageLinkText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
   activeBadge: {
     flexDirection: 'row',

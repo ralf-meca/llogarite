@@ -358,6 +358,8 @@ export const sq: Record<keyof typeof en, string> = {
   'plans.featureBuddies': 'Shokët e shpenzimeve',
   'plans.featureNoAds': 'Pa reklama',
   'plans.featureEverythingFree': 'Çdo gjë nga plani Falas',
+  'plans.cancelSubscription': 'Anulo abonimin',
+  'plans.manageFailed': 'Nuk u hap dot menaxhimi i abonimit.',
   'plans.currentPlan': 'Plani aktual',
   'plans.buyPremium': 'Bli Premium',
   'plans.paymentsComingSoon': 'Pagesat do të aktivizohen së shpejti.',
