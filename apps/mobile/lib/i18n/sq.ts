@@ -369,10 +369,6 @@ export const sq: Record<keyof typeof en, string> = {
   'plans.purchasing': 'Duke procesuar...',
   'plans.purchaseFailed': 'Blerja dështoi. Provo përsëri.',
   'plans.noPackageAvailable': 'Premium nuk është i disponueshëm tani. Provo më vonë.',
-  'plans.restorePurchases': 'Rikthe blerjet',
-  'plans.restoring': 'Duke rikthyer...',
-  'plans.restoreSuccess': 'Blerja u rikthye!',
-  'plans.restoreNotFound': 'Nuk u gjet asnjë blerje e mëparshme.',
 
   'legal.privacyTitle': 'Politika e Privatësisë',
   'legal.termsTitle': 'Kushtet e Përdorimit',

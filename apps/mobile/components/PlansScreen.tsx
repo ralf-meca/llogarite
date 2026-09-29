@@ -1,10 +1,11 @@
 import { ArrowLeftIcon, CheckCircleIcon, CrownIcon, XCircleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { redeemDiscountCode } from '../lib/discountCodesApi';
 import { useTranslation } from '../lib/i18n';
-import { getPremiumPackage, purchasePremium, restorePurchases } from '../lib/purchases';
+import { getPremiumPackage, purchasePremium } from '../lib/purchases';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -43,7 +44,6 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
   const handleApplyCode = () => {
@@ -94,24 +94,6 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
     }
   };
 
-  const handleRestorePurchases = async () => {
-    setIsRestoring(true);
-    try {
-      const isPremiumNow = await restorePurchases();
-      if (isPremiumNow) {
-        showSuccess(t('plans.restoreSuccess'));
-        onPremiumGranted();
-      } else {
-        showError(t('plans.restoreNotFound'));
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : undefined;
-      showError(message || t('plans.purchaseFailed'));
-    } finally {
-      setIsRestoring(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -121,7 +103,11 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
         <Text style={styles.title}>{t('plans.title')}</Text>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        bottomOffset={20}
+      >
         <View style={styles.plansRow}>
           <GlassView style={styles.planCard}>
             <Text style={styles.planName}>{t('plans.freePlan')}</Text>
@@ -178,14 +164,6 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
         </View>
 
         {!isPremium && (
-          <Pressable onPress={handleRestorePurchases} disabled={isRestoring} style={styles.restoreLink}>
-            <Text style={styles.restoreLinkText}>
-              {isRestoring ? t('plans.restoring') : t('plans.restorePurchases')}
-            </Text>
-          </Pressable>
-        )}
-
-        {!isPremium && (
           <GlassView style={styles.codeCard}>
             <Text style={styles.codeTitle}>{t('plans.haveReferralCode')}</Text>
             <View style={styles.codeRow}>
@@ -206,7 +184,7 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
             </View>
           </GlassView>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
@@ -316,16 +294,6 @@ const styles = StyleSheet.create({
   },
   buyButton: {
     marginTop: 16,
-  },
-  restoreLink: {
-    alignSelf: 'center',
-    paddingVertical: 4,
-  },
-  restoreLinkText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
   },
   activeBadge: {
     flexDirection: 'row',

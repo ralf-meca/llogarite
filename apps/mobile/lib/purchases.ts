@@ -32,7 +32,3 @@ export async function purchasePremium(pkg: PurchasesPackage): Promise<boolean> {
   return Boolean(customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
 }
 
-export async function restorePurchases(): Promise<boolean> {
-  const customerInfo = await Purchases.restorePurchases();
-  return Boolean(customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
-}
