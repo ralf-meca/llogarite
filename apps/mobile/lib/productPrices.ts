@@ -1,5 +1,18 @@
 import type { Language } from './i18n';
-import type { SavedInvoice } from './savedInvoicesApi';
+
+// These screens read four things off an invoice and nothing else, and they now
+// read them from two places: your own saved invoices, and the shared feed of
+// invoices a reviewer has accepted. So the functions take the shape they need
+// rather than either concrete type - SavedInvoice still satisfies it.
+export type PricedInvoice = {
+  id: string;
+  data: {
+    dateTimeCreated: string;
+    verified?: boolean;
+    seller: { name: string };
+    items: { name: string; quantity: number; unitPriceAfterVat: number }[];
+  };
+};
 
 const LOCALE_BY_LANGUAGE: Record<Language, string> = { sq: 'sq-AL', en: 'en-US' };
 
@@ -32,7 +45,7 @@ export function normalizeKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
-export function listProducts(invoices: SavedInvoice[]): ProductSummary[] {
+export function listProducts(invoices: PricedInvoice[]): ProductSummary[] {
   const latestByKey = new Map<string, { name: string; date: Date }>();
 
   for (const invoice of invoices) {
@@ -54,7 +67,7 @@ export function listProducts(invoices: SavedInvoice[]): ProductSummary[] {
     .sort((a, b) => a.name.localeCompare(b.name, 'sq'));
 }
 
-export function getProductRecords(invoices: SavedInvoice[], productKey: string): PriceRecord[] {
+export function getProductRecords(invoices: PricedInvoice[], productKey: string): PriceRecord[] {
   const records: PriceRecord[] = [];
 
   for (const invoice of invoices) {

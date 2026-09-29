@@ -29,6 +29,10 @@ export class User {
     @Column({ default: false })
     isPremium: boolean;
 
+    // Set by hand in the database; there is no route that grants it.
+    @Column({ default: false })
+    isAdmin: boolean;
+
     @CreateDateColumn()
     createdAt: Date;
 }

@@ -255,6 +255,7 @@ export class AuthService {
                 name: user.name ?? null,
                 avatarUrl: user.avatarUrl ?? null,
                 isPremium: Boolean(user.isPremium),
+                isAdmin: Boolean(user.isAdmin),
             },
         };
     }

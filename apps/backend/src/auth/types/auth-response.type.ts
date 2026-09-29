@@ -7,5 +7,6 @@ export type AuthResponse = {
         name: string | null;
         avatarUrl: string | null;
         isPremium: boolean;
+        isAdmin: boolean;
     };
 };

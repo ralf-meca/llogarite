@@ -22,6 +22,7 @@ import { BudgetScreen } from "./components/BudgetScreen";
 import { CategoryFilter } from "./components/CategoryFilter";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GlassView } from "./components/GlassView";
+import { InvoiceReviewScreen } from "./components/InvoiceReviewScreen";
 import { InvoiceScreen } from "./components/InvoiceScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { ManualInvoiceScreen } from "./components/ManualInvoiceScreen";
@@ -55,6 +56,7 @@ import { preloadInterstitialAd, showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { currentMonthKey, monthKeyOf } from "./lib/monthlySpending";
+import { fetchSharedPrices } from "./lib/pricesApi";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import {
@@ -65,7 +67,7 @@ import {
 } from "./lib/pushNotifications";
 import { configurePurchases } from "./lib/purchases";
 import { BOTTOM_NAV_HEIGHT, HEADER_INSET, colors, radius } from "./lib/theme";
-import { normalizeKey, type ProductSummary } from "./lib/productPrices";
+import { normalizeKey, type PricedInvoice, type ProductSummary } from "./lib/productPrices";
 import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
 import {
@@ -102,6 +104,7 @@ const MAIN_SCREENS = new Set<Screen>([
     "projects",
     "products",
     "buddies",
+    "review",
 ]);
 
 const PREMIUM_SCREENS = new Set<NavScreen>(["projects", "products", "buddies"]);
@@ -149,6 +152,9 @@ function AppContent() {
     const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
     const [isPlansOverlayOpen, setIsPlansOverlayOpen] = useState(false);
+    // Everyone's accepted invoices, not the signed-in user's own: the price
+    // screens compare across people now, which is the point of reviewing them.
+    const [sharedPrices, setSharedPrices] = useState<PricedInvoice[]>([]);
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -365,6 +371,17 @@ function AppContent() {
         }
         setScreen(target);
     };
+
+    // Fetched on arrival rather than at startup: it is everyone's data, it only
+    // grows, and most sessions never open these two screens.
+    useEffect(() => {
+        if (screen !== "products" && screen !== "productDetail") {
+            return;
+        }
+        fetchSharedPrices()
+            .then(setSharedPrices)
+            .catch(() => setSharedPrices([]));
+    }, [screen]);
 
     const handlePremiumGranted = () => {
         if (!user) {
@@ -876,9 +893,11 @@ function AppContent() {
                             <MonthlyPaymentsScreen />
                         ) : screen === "projects" ? (
                             <ProjectsScreen invoices={savedInvoices} />
+                        ) : screen === "review" ? (
+                            <InvoiceReviewScreen />
                         ) : screen === "products" ? (
                             <ProductsScreen
-                                invoices={savedInvoices}
+                                invoices={sharedPrices}
                                 onSelectProduct={(product) => {
                                     setSelectedProduct(product);
                                     setProductDetailReturnScreen("products");
@@ -911,6 +930,7 @@ function AppContent() {
                     <BottomNavBar
                         activeScreen={screen}
                         isPremium={Boolean(user?.isPremium)}
+                        isAdmin={Boolean(user?.isAdmin)}
                         pendingBuddyRequests={pendingBuddyRequests}
                         onNavigate={handleNavigate}
                     />
@@ -950,7 +970,7 @@ function AppContent() {
                     <ProductDetailScreen
                         productKey={selectedProduct.key}
                         productName={selectedProduct.name}
-                        invoices={savedInvoices}
+                        invoices={sharedPrices}
                         onBack={() => setScreen(productDetailReturnScreen)}
                     />
                 )

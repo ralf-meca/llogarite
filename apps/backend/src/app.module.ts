@@ -2,12 +2,14 @@ import {Module} from '@nestjs/common';
 import {ConfigModule, ConfigService} from '@nestjs/config';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {AppController} from './app.controller';
+import {AdminModule} from './admin/admin.module';
 import {AuthModule} from './auth/auth.module';
 import {BuddiesModule} from './buddies/buddies.module';
 import {BudgetModule} from './budget/budget.module';
 import {DiscountCodesModule} from './discount-codes/discount-codes.module';
 import {InvoicesModule} from './invoices/invoices.module';
 import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
+import {PricesModule} from './prices/prices.module';
 import {ProjectsModule} from './projects/projects.module';
 import {UsersModule} from './users/users.module';
 import {RevenueCatWebhookModule} from './webhooks/revenuecat-webhook.module';
@@ -41,6 +43,8 @@ import {RevenueCatWebhookModule} from './webhooks/revenuecat-webhook.module';
         UsersModule,
         AuthModule,
         RevenueCatWebhookModule,
+        AdminModule,
+        PricesModule,
     ],
 })
 export class AppModule {

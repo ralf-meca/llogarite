@@ -2,14 +2,13 @@ import { CaretRightIcon } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
-import { listProducts, type ProductSummary } from '../lib/productPrices';
-import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { listProducts, type PricedInvoice, type ProductSummary } from '../lib/productPrices';
 import { colors } from '../lib/theme';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 
 type ProductsScreenProps = {
-  invoices: SavedInvoice[];
+  invoices: PricedInvoice[];
   onSelectProduct: (product: ProductSummary) => void;
 };
 

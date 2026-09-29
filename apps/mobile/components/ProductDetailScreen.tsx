@@ -8,8 +8,8 @@ import {
   monthlyChartPoints,
   priceStats,
   yearlyChartPoints,
+  type PricedInvoice,
 } from '../lib/productPrices';
-import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
@@ -17,7 +17,7 @@ import { LineChart } from './LineChart';
 type ProductDetailScreenProps = {
   productKey: string;
   productName: string;
-  invoices: SavedInvoice[];
+  invoices: PricedInvoice[];
   onBack: () => void;
 };
 

@@ -1,5 +1,6 @@
 import {
   CalendarIcon,
+  SealCheckIcon,
   CrownIcon,
   DotsThreeOutlineIcon,
   FolderIcon,
@@ -24,9 +25,10 @@ export type NavScreen =
   | 'monthlyPayments'
   | 'projects'
   | 'products'
-  | 'buddies';
+  | 'buddies'
+  | 'review';
 
-type NavItem = { key: NavScreen; icon: Icon; labelKey: TranslationKey; premium?: boolean };
+type NavItem = { key: NavScreen; icon: Icon; labelKey: TranslationKey; premium?: boolean; admin?: boolean };
 
 // Slots 1-2 sit left of the FAB, slot 4 right of it, slot 5 is the "more" button.
 const LEFT_ITEMS: NavItem[] = [
@@ -42,11 +44,13 @@ const MORE_ITEMS: NavItem[] = [
   { key: 'projects', icon: FolderIcon, labelKey: 'drawer.projects', premium: true },
   { key: 'products', icon: TrendUpIcon, labelKey: 'drawer.products', premium: true },
   { key: 'buddies', icon: UsersIcon, labelKey: 'drawer.buddies', premium: true },
+  { key: 'review', icon: SealCheckIcon, labelKey: 'drawer.review', admin: true },
 ];
 
 type BottomNavBarProps = {
   activeScreen: string;
   isPremium: boolean;
+  isAdmin: boolean;
   pendingBuddyRequests: number;
   onNavigate: (target: NavScreen) => void;
 };
@@ -54,6 +58,7 @@ type BottomNavBarProps = {
 export function BottomNavBar({
   activeScreen,
   isPremium,
+  isAdmin,
   pendingBuddyRequests,
   onNavigate,
 }: BottomNavBarProps) {
@@ -72,7 +77,10 @@ export function BottomNavBar({
 
   // The "more" slot stands in for whichever hidden screen is active, and carries
   // the buddy-request badge since buddies lives behind it.
-  const isMoreActive = MORE_ITEMS.some((item) => item.key === activeScreen);
+  // Reviewing is not a locked feature anyone can buy into, so unlike the
+  // premium rows it is absent rather than shown with a crown.
+  const moreItems = MORE_ITEMS.filter((item) => !item.admin || isAdmin);
+  const isMoreActive = moreItems.some((item) => item.key === activeScreen);
 
   const handleNavigate = (target: NavScreen) => {
     setIsMoreOpen(false);
@@ -142,7 +150,7 @@ export function BottomNavBar({
         <Pressable style={styles.backdrop} onPress={() => setIsMoreOpen(false)}>
           <View style={styles.sheetWrapper} pointerEvents="box-none">
             <View style={[styles.sheet, { marginBottom: sheetGap + POPOVER_TAIL_HEIGHT }]}>
-              {MORE_ITEMS.map((item) => {
+              {moreItems.map((item) => {
                 const isActive = activeScreen === item.key;
                 const isLocked = Boolean(item.premium) && !isPremium;
                 return (

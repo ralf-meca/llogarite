@@ -9,6 +9,7 @@ export type AuthUser = {
   name: string | null;
   avatarUrl: string | null;
   isPremium: boolean;
+  isAdmin: boolean;
 };
 
 export type AuthResponse = {
