@@ -89,6 +89,7 @@ export class UsersService {
                 name: true,
                 avatarUrl: true,
                 isPremium: true,
+                isAdmin: true,
                 createdAt: true,
             },
         });
@@ -112,6 +113,7 @@ export class UsersService {
                 name: true,
                 avatarUrl: true,
                 isPremium: true,
+                isAdmin: true,
                 createdAt: true,
             },
         });
