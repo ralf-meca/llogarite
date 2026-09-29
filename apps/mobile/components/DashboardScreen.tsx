@@ -42,6 +42,7 @@ type DashboardScreenProps = {
   invoices: SavedInvoice[];
   onSelectBudget: () => void;
   onSelectInvoiceList: () => void;
+  onSelectCategory: (categoryId: string) => void;
   onSelectInvoice?: (invoice: SavedInvoice) => void;
 };
 
@@ -49,6 +50,7 @@ export function DashboardScreen({
   invoices,
   onSelectBudget,
   onSelectInvoiceList,
+  onSelectCategory,
   onSelectInvoice,
 }: DashboardScreenProps) {
   const { t, language } = useTranslation();
@@ -150,7 +152,11 @@ export function DashboardScreen({
                   ? t(categoryLabelKey(entry.key))
                   : entry.label;
                 return (
-                  <View key={entry.key} style={styles.categoryRow}>
+                  <Pressable
+                    key={entry.key}
+                    style={({ pressed }) => [styles.categoryRow, pressed && styles.categoryRowPressed]}
+                    onPress={() => onSelectCategory(entry.key)}
+                  >
                     <View style={styles.categoryHeader}>
                       <View style={[styles.categoryDot, { backgroundColor: tint }]} />
                       <Text style={styles.categoryLabel} numberOfLines={1}>
@@ -167,7 +173,7 @@ export function DashboardScreen({
                         ]}
                       />
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })}
             </GlassView>
@@ -333,6 +339,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
+  },
+  categoryRowPressed: {
+    opacity: 0.6,
   },
   categoryRow: {
     marginTop: 14,

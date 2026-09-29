@@ -54,7 +54,7 @@ import { NotificationBell } from "./components/NotificationBell";
 import { preloadInterstitialAd, showInterstitialAd } from "./lib/ads";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
-import { monthKeyOf } from "./lib/monthlySpending";
+import { currentMonthKey, monthKeyOf } from "./lib/monthlySpending";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import {
@@ -789,6 +789,14 @@ function AppContent() {
                                 invoices={savedInvoices}
                                 onSelectBudget={() => setScreen("budget")}
                                 onSelectInvoiceList={() => setScreen("list")}
+                                onSelectCategory={(categoryId) => {
+                                    // The card counts this month only, so the list it opens is
+                                    // scoped the same way - otherwise tapping a figure lands you
+                                    // on a list that disagrees with it.
+                                    setSelectedCategory(categoryId);
+                                    setSelectedMonthKey(currentMonthKey());
+                                    setScreen("list");
+                                }}
                                 onSelectInvoice={(invoice) => handleSelectInvoice(invoice, "list")}
                             />
                         ) : screen === "list" ? (
