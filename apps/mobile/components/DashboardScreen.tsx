@@ -2,7 +2,7 @@ import { CaretRightIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchBudget } from '../lib/budgetApi';
-import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey } from '../lib/categories';
+import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from '../lib/categories';
 import { currentMonthCategoryTotals, dominantCategory } from '../lib/categorySpending';
 import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
@@ -195,8 +195,16 @@ export function DashboardScreen({
                       <Icon size={20} color={colors.white} weight="fill" />
                     </View>
                     <View style={styles.invoiceText}>
-                      <Text style={styles.invoiceSeller} numberOfLines={1}>
-                        {invoice.data.seller.name}
+                      {/* Same stand-in as the saved list. The category is already
+                          in hand here for the icon, so the row costs nothing extra. */}
+                      <Text
+                        style={[
+                          styles.invoiceSeller,
+                          !invoice.data.seller.name.trim() && styles.invoiceSellerFallback,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {invoice.data.seller.name.trim() || t(categoryPlaceKey(category))}
                       </Text>
                       <Text style={styles.invoiceMeta} numberOfLines={1}>
                         {shortDate(invoice.data.dateTimeCreated)} · {t(categoryLabelKey(category))}
@@ -385,6 +393,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textDark,
+  },
+  // Muted, so a guessed place never reads as a name someone actually entered.
+  invoiceSellerFallback: {
+    color: colors.textMuted,
   },
   invoiceMeta: {
     fontSize: 9,
