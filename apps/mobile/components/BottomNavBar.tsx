@@ -11,10 +11,11 @@ import {
   type Icon,
 } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, colors, radius } from '../lib/theme';
+import { POPOVER_TAIL_HEIGHT, POPOVER_TAIL_WIDTH, PopoverTail } from './PopoverTail';
 
 export type NavScreen =
   | 'dashboard'
@@ -58,7 +59,16 @@ export function BottomNavBar({
 }: BottomNavBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+
+  // The bar is five equal slots and "more" is the last, so its centre sits a
+  // tenth of the screen in from the right. The tail is placed against that
+  // rather than centred on the sheet, which spans nearly the full width.
+  const tailRight = width / 10 - POPOVER_TAIL_WIDTH / 2;
+  // Clears the bar: the sheet rises by the tail's height so the tail hangs in
+  // the gap instead of reaching down over the buttons.
+  const sheetGap = BOTTOM_NAV_HEIGHT + insets.bottom + 14;
 
   // The "more" slot stands in for whichever hidden screen is active, and carries
   // the buddy-request badge since buddies lives behind it.
@@ -131,7 +141,7 @@ export function BottomNavBar({
       >
         <Pressable style={styles.backdrop} onPress={() => setIsMoreOpen(false)}>
           <View style={styles.sheetWrapper} pointerEvents="box-none">
-            <View style={[styles.sheet, { marginBottom: BOTTOM_NAV_HEIGHT + insets.bottom + 14 }]}>
+            <View style={[styles.sheet, { marginBottom: sheetGap + POPOVER_TAIL_HEIGHT }]}>
               {MORE_ITEMS.map((item) => {
                 const isActive = activeScreen === item.key;
                 const isLocked = Boolean(item.premium) && !isPremium;
@@ -156,6 +166,10 @@ export function BottomNavBar({
               })}
 
             </View>
+            {/* Absolute rather than in flow: the sheet is a sibling with its own
+                margin, and the tail has to sit against the right edge of the
+                screen, not the sheet's. The extra pixel overlaps the seam. */}
+            <PopoverTail style={{ position: 'absolute', right: tailRight, bottom: sheetGap + 1 }} />
           </View>
         </Pressable>
       </Modal>
@@ -221,8 +235,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.card,
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   row: {
     flexDirection: 'row',

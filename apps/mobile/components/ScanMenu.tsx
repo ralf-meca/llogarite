@@ -9,11 +9,11 @@ import {
 } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, FAB_BOTTOM_OFFSET, FAB_SIZE, colors } from '../lib/theme';
 import { GlassView } from './GlassView';
+import { PopoverTail } from './PopoverTail';
 
 type ScanMenuProps = {
   onScanQr: () => void;
@@ -21,12 +21,6 @@ type ScanMenuProps = {
   onScanReceipt: () => void;
   onUploadFromGallery: () => void;
 };
-
-// A soft teardrop rather than a triangle: both curves leave the tip
-// horizontally, so the two sides meet in a rounded point instead of a corner.
-const TAIL_WIDTH = 30;
-const TAIL_HEIGHT = 22;
-const TAIL_PATH = 'M0 0 C9.5 0 11.5 20.5 15 20.5 C18.5 20.5 20.5 0 30 0';
 
 const MENU_ITEMS: { key: 'qr' | 'receipt' | 'gallery' | 'manual'; icon: Icon; labelKey: TranslationKey }[] = [
   { key: 'qr', icon: QrCodeIcon, labelKey: 'scanMenu.scanQr' },
@@ -79,10 +73,8 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
                   </Pressable>
                 ))}
               </GlassView>
-              {/* Drawn outside the GlassView, which clips its children. */}
-              <Svg width={TAIL_WIDTH} height={TAIL_HEIGHT} style={styles.tail} pointerEvents="none">
-                <Path d={`${TAIL_PATH} Z`} fill={colors.white} />
-              </Svg>
+              {/* Outside the GlassView, which clips its children. */}
+              <PopoverTail style={styles.tail} />
             </View>
           </View>
         </Pressable>
