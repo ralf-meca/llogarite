@@ -15,8 +15,16 @@ type PopoverTailProps = {
   // Which way the tip points. A popover that opens below whatever opened it
   // needs the same shape the other way up.
   pointing?: 'down' | 'up';
+  // Drawn through a viewBox, so a smaller popover can wear a smaller tail
+  // without a second copy of the curve. Callers placing it by hand should
+  // size their offsets off popoverTailSize(scale).
+  scale?: number;
   style?: StyleProp<ViewStyle>;
 };
+
+export function popoverTailSize(scale = 1) {
+  return { width: POPOVER_TAIL_WIDTH * scale, height: POPOVER_TAIL_HEIGHT * scale };
+}
 
 // Hangs under a popover and points at whatever opened it. Fill only, with no
 // outline: a border cannot follow this curve into the popover's own edge
@@ -24,11 +32,13 @@ type PopoverTailProps = {
 // the scrim do the separating. Callers place it — the tail has no opinion about
 // where the thing it points at happens to be — and are expected to overlap it a
 // pixel into the popover so no hairline shows between the two white shapes.
-export function PopoverTail({ pointing = 'down', style }: PopoverTailProps) {
+export function PopoverTail({ pointing = 'down', scale = 1, style }: PopoverTailProps) {
+  const { width, height } = popoverTailSize(scale);
   return (
     <Svg
-      width={POPOVER_TAIL_WIDTH}
-      height={POPOVER_TAIL_HEIGHT}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${POPOVER_TAIL_WIDTH} ${POPOVER_TAIL_HEIGHT}`}
       style={[pointing === 'up' && styles.flipped, style]}
       pointerEvents="none"
     >

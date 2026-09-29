@@ -5,7 +5,11 @@ import { toDateLabel } from '../lib/date';
 import { useTranslation } from '../lib/i18n';
 import { fetchNotifications, markAllNotificationsRead, type AppNotification } from '../lib/notificationsApi';
 import { colors } from '../lib/theme';
-import { POPOVER_TAIL_HEIGHT, POPOVER_TAIL_WIDTH, PopoverTail } from './PopoverTail';
+import { PopoverTail, popoverTailSize } from './PopoverTail';
+
+// Smaller than the bottom-bar popovers wear; this panel is a lighter thing.
+const TAIL_SCALE = 0.7;
+const TAIL = popoverTailSize(TAIL_SCALE);
 
 type NotificationBellProps = {
   unreadCount: number;
@@ -66,7 +70,6 @@ export function NotificationBell({
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <Pressable style={styles.panelWrapper} onPress={(event) => event.stopPropagation()}>
-            <PopoverTail pointing="up" style={styles.tail} />
             <View style={styles.panel}>
               <Text style={styles.panelTitle}>{t('notifications.title')}</Text>
               <ScrollView style={styles.list} bounces={false}>
@@ -94,6 +97,8 @@ export function NotificationBell({
                 )}
               </ScrollView>
             </View>
+            {/* After the panel, so nothing of the panel is painted over it. */}
+            <PopoverTail pointing="up" scale={TAIL_SCALE} style={styles.tail} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -135,7 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingTop: 86,
     paddingRight: 16,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.scrim,
   },
   panelWrapper: {
     width: '85%',
@@ -145,8 +150,8 @@ const styles = StyleSheet.create({
   // A pixel of it sits under the panel so no hairline shows at the join.
   tail: {
     position: 'absolute',
-    top: -(POPOVER_TAIL_HEIGHT - 1),
-    right: 24 - POPOVER_TAIL_WIDTH / 2,
+    top: -(TAIL.height - 1),
+    right: 24 - TAIL.width / 2,
   },
   panel: {
     backgroundColor: '#ffffff',
@@ -156,7 +161,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 6,
     padding: 12,
     maxHeight: 420,
-    boxShadow: '0px 8px 24px rgba(0,0,0,0.2)',
   },
   panelTitle: {
     fontSize: 14,
