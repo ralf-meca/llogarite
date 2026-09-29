@@ -5,6 +5,7 @@ import { toDateLabel } from '../lib/date';
 import { useTranslation } from '../lib/i18n';
 import { fetchNotifications, markAllNotificationsRead, type AppNotification } from '../lib/notificationsApi';
 import { colors } from '../lib/theme';
+import { POPOVER_TAIL_HEIGHT, POPOVER_TAIL_WIDTH, PopoverTail } from './PopoverTail';
 
 type NotificationBellProps = {
   unreadCount: number;
@@ -65,7 +66,7 @@ export function NotificationBell({
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <Pressable style={styles.panelWrapper} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.tail} />
+            <PopoverTail pointing="up" style={styles.tail} />
             <View style={styles.panel}>
               <Text style={styles.panelTitle}>{t('notifications.title')}</Text>
               <ScrollView style={styles.list} bounces={false}>
@@ -140,22 +141,19 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 340,
   },
+  // Keeps the centre the old triangle had, so it still points where it did.
+  // A pixel of it sits under the panel so no hairline shows at the join.
   tail: {
     position: 'absolute',
-    top: -8,
-    right: 16,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderBottomWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#ffffff',
+    top: -(POPOVER_TAIL_HEIGHT - 1),
+    right: 24 - POPOVER_TAIL_WIDTH / 2,
   },
   panel: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
+    // The tail meets this edge inside the full corner radius, which would have
+    // it hanging off a slope rather than a flat edge.
+    borderTopRightRadius: 6,
     padding: 12,
     maxHeight: 420,
     boxShadow: '0px 8px 24px rgba(0,0,0,0.2)',

@@ -234,6 +234,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingVertical: 8,
     borderRadius: radius.card,
+    // The tail meets this edge about ten in from the right, which the full
+    // corner radius is already curving away through - so the tail read as
+    // hanging off a slope. Tightened just here so it joins a flat edge.
+    borderBottomRightRadius: 6,
     backgroundColor: colors.white,
   },
   row: {
