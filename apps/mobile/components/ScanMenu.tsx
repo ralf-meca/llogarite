@@ -25,8 +25,8 @@ type ScanMenuProps = {
 // A soft teardrop rather than a triangle: both curves leave the tip
 // horizontally, so the two sides meet in a rounded point instead of a corner.
 const TAIL_WIDTH = 30;
-const TAIL_HEIGHT = 15;
-const TAIL_PATH = 'M0 0 C9.5 0 11.5 13.5 15 13.5 C18.5 13.5 20.5 0 30 0';
+const TAIL_HEIGHT = 22;
+const TAIL_PATH = 'M0 0 C9.5 0 11.5 20.5 15 20.5 C18.5 20.5 20.5 0 30 0';
 
 const MENU_ITEMS: { key: 'qr' | 'receipt' | 'gallery' | 'manual'; icon: Icon; labelKey: TranslationKey }[] = [
   { key: 'qr', icon: QrCodeIcon, labelKey: 'scanMenu.scanQr' },
