@@ -96,8 +96,11 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.white,
   },
+  // Same scrim the More menu uses, so the two bottom-bar popups dim the page
+  // the same way rather than one of them floating over an undimmed screen.
   backdrop: {
     flex: 1,
+    backgroundColor: colors.scrim,
   },
   menuWrapper: {
     flex: 1,
