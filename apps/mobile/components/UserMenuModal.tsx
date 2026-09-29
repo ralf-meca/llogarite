@@ -1,4 +1,5 @@
-﻿import * as ImagePicker from 'expo-image-picker';
+﻿import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
 import {
   CameraIcon,
   CrownSimpleIcon,
@@ -10,6 +11,10 @@ import {
   TrashIcon,
 } from 'phosphor-react-native';
 import { useState } from 'react';
+
+// Read from the app config rather than written here, so it cannot drift from
+// what was actually shipped.
+const APP_VERSION = Constants.expoConfig?.version ?? '';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { changePassword, deleteAccount, removeAvatar, updateAvatar, type AuthUser } from '../lib/authApi';
@@ -279,6 +284,8 @@ export function UserMenuModal({
                   <SignOutIcon size={20} color="#dc2626" />
                   <Text style={[styles.menuItemText, styles.dangerText]}>{t('userMenu.logout')}</Text>
                 </Pressable>
+
+                {APP_VERSION !== '' && <Text style={styles.version}>v{APP_VERSION}</Text>}
               </>
             )}
 
@@ -508,6 +515,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
+  },
+  // Quiet on purpose: it is here to be found when someone is reporting a
+  // problem, not to be read every time this opens.
+  version: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 11,
+    color: colors.textMuted,
   },
   dangerText: {
     color: '#dc2626',
