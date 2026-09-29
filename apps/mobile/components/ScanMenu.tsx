@@ -9,6 +9,7 @@ import {
 } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, FAB_BOTTOM_OFFSET, FAB_SIZE, colors } from '../lib/theme';
@@ -20,6 +21,12 @@ type ScanMenuProps = {
   onScanReceipt: () => void;
   onUploadFromGallery: () => void;
 };
+
+// A soft teardrop rather than a triangle: both curves leave the tip
+// horizontally, so the two sides meet in a rounded point instead of a corner.
+const TAIL_WIDTH = 30;
+const TAIL_HEIGHT = 15;
+const TAIL_PATH = 'M0 0 C9.5 0 11.5 13.5 15 13.5 C18.5 13.5 20.5 0 30 0';
 
 const MENU_ITEMS: { key: 'qr' | 'receipt' | 'gallery' | 'manual'; icon: Icon; labelKey: TranslationKey }[] = [
   { key: 'qr', icon: QrCodeIcon, labelKey: 'scanMenu.scanQr' },
@@ -63,14 +70,24 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <View style={[styles.menuWrapper, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom + 44 }]} pointerEvents="box-none">
-            <GlassView style={styles.menu}>
-              {MENU_ITEMS.map((item) => (
-                <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
-                  <item.icon size={20} color="#1f2937" />
-                  <Text style={styles.menuItemText}>{t(item.labelKey)}</Text>
-                </Pressable>
-              ))}
-            </GlassView>
+            <View style={styles.bubble}>
+              <GlassView style={styles.menu}>
+                {MENU_ITEMS.map((item) => (
+                  <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
+                    <item.icon size={20} color="#1f2937" />
+                    <Text style={styles.menuItemText}>{t(item.labelKey)}</Text>
+                  </Pressable>
+                ))}
+              </GlassView>
+              {/* Drawn outside the GlassView because that clips its children, and
+                  filled before it is outlined so only the two sloping sides carry
+                  the border - a stroke on the closed path would draw one across
+                  the top, where the tail joins the menu. */}
+              <Svg width={TAIL_WIDTH} height={TAIL_HEIGHT} style={styles.tail} pointerEvents="none">
+                <Path d={`${TAIL_PATH} Z`} fill={colors.white} />
+                <Path d={TAIL_PATH} stroke={colors.border} strokeWidth={1} fill="none" />
+              </Svg>
+            </View>
           </View>
         </Pressable>
       </Modal>
@@ -107,6 +124,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: BOTTOM_NAV_HEIGHT + 44,
+  },
+  bubble: {
+    alignItems: 'center',
+  },
+  // Pulled up a pixel so the menu's own bottom border does not draw a line
+  // across the top of the tail; the two should read as one shape.
+  tail: {
+    marginTop: -1,
   },
   menu: {
     minWidth: 220,
