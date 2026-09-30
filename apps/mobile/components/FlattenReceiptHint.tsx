@@ -42,9 +42,15 @@ const CREASES = 'M11 14 L35 18 M10 30 L36 27 M12 44 L34 47';
 // came out as pincers, so this is the traced artwork - one path, its own box.
 const PINCH_HAND_VIEWBOX = '0 0 325 239';
 const PINCH_HAND = 'M316.0,60.0 L314.0,53.0 L306.0,44.0 L299.0,41.0 L288.0,39.0 L289.0,27.0 L285.0,18.0 L279.0,12.0 L270.0,8.0 L258.0,8.0 L181.0,35.0 L169.0,31.0 L160.0,31.0 L57.0,52.0 L14.0,30.0 L11.0,30.0 L8.0,34.0 L8.0,124.0 L10.0,127.0 L41.0,142.0 L53.0,156.0 L67.0,168.0 L86.0,176.0 L99.0,177.0 L176.0,227.0 L184.0,230.0 L195.0,230.0 L204.0,226.0 L214.0,214.0 L219.0,216.0 L227.0,216.0 L236.0,212.0 L242.0,205.0 L244.0,199.0 L244.0,144.0 L223.0,115.0 L227.0,114.0 L229.0,116.0 L239.0,119.0 L243.0,122.0 L286.0,140.0 L300.0,140.0 L306.0,137.0 L312.0,131.0 L315.0,125.0 L315.0,110.0 L308.0,100.0 L286.0,89.0 L285.0,87.0 L299.0,85.0 L306.0,82.0 L312.0,76.0 L315.0,70.0 Z M18.0,43.0 L54.0,61.0 L62.0,61.0 L163.0,40.0 L170.0,41.0 L300.0,106.0 L306.0,113.0 L306.0,122.0 L301.0,129.0 L297.0,131.0 L290.0,131.0 L262.0,120.0 L260.0,118.0 L257.0,118.0 L248.0,113.0 L244.0,114.0 L243.0,111.0 L209.0,97.0 L207.0,97.0 L206.0,99.0 L205.0,97.0 L202.0,98.0 L202.0,104.0 L235.0,147.0 L235.0,196.0 L233.0,201.0 L229.0,205.0 L222.0,207.0 L218.0,206.0 L215.0,203.0 L214.0,197.0 L211.0,192.0 L210.0,153.0 L166.0,110.0 L160.0,108.0 L152.0,108.0 L142.0,112.0 L137.0,118.0 L136.0,123.0 L134.0,125.0 L134.0,134.0 L139.0,144.0 L202.0,195.0 L202.0,201.0 L205.0,206.0 L202.0,215.0 L195.0,220.0 L186.0,221.0 L181.0,219.0 L105.0,169.0 L85.0,166.0 L74.0,161.0 L67.0,156.0 L48.0,135.0 L17.0,119.0 Z M206.0,48.0 L231.0,47.0 L297.0,50.0 L304.0,55.0 L306.0,59.0 L306.0,67.0 L304.0,71.0 L297.0,76.0 L266.0,79.0 Z M149.0,119.0 L154.0,117.0 L159.0,117.0 L202.0,159.0 L201.0,180.0 L199.0,180.0 L146.0,137.0 L143.0,128.0 Z M280.0,30.0 L279.0,38.0 L277.0,40.0 L221.0,38.0 L209.0,36.0 L210.0,34.0 L261.0,17.0 L268.0,17.0 L275.0,21.0 Z M176.0,58.0 L174.0,61.0 L175.0,66.0 L193.0,89.0 L197.0,89.0 L200.0,85.0 L199.0,81.0 L181.0,58.0 Z';
-// Filled white and outlined rather than left as line art: half of each hand
-// sits over a white receipt, where white on white would be nothing at all.
+// Filled and outlined rather than left as line art: half of each hand sits
+// over a white receipt, where white on white would be nothing at all.
+//
+// Off-white rather than white, and a thin outline rather than a thick one. At
+// nine the outline expanded into the gaps between the fingers and welded them
+// into solid white blobs; at four the fingers stay separate lines.
+const HAND_FILL = '#d9dde0';
 const HAND_OUTLINE = 'rgba(0,0,0,0.45)';
+const HAND_OUTLINE_WIDTH = 4;
 
 // Mirrored inside the drawing rather than on the container: the container also
 // carries the quarter turn, and a mirror and a rotation compose differently
@@ -55,10 +61,10 @@ function PinchHand({ flip = false }: { flip?: boolean }) {
       <G transform={flip ? 'translate(325, 0) scale(-1, 1)' : undefined}>
         <Path
           d={PINCH_HAND}
-          fill={colors.white}
+          fill={HAND_FILL}
           fillRule="evenodd"
           stroke={HAND_OUTLINE}
-          strokeWidth={9}
+          strokeWidth={HAND_OUTLINE_WIDTH}
           strokeLinejoin="round"
         />
       </G>
@@ -148,12 +154,12 @@ export function FlattenReceiptHint() {
         <Animated.View
           style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }, { rotate: '90deg' }] }]}
         >
-          <PinchHand />
+          <PinchHand flip />
         </Animated.View>
         <Animated.View
           style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { rotate: '90deg' }] }]}
         >
-          <PinchHand flip />
+          <PinchHand />
         </Animated.View>
       </Animated.View>
 
