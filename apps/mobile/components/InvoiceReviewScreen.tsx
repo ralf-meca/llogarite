@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CheckIcon, XIcon } from 'phosphor-react-native';
+import { ArrowCounterClockwiseIcon, ArrowLeftIcon, CheckIcon, XIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -88,23 +88,35 @@ export function InvoiceReviewScreen() {
           <InvoiceReceipt result={openInvoice.data} />
         </ScrollView>
 
+        {/* Only the decision that would change something: an accepted invoice
+            can be pulled, a denied one put back, and an undecided one either. */}
         <View style={styles.decisionBar}>
-          <Pressable
-            style={[styles.decisionButton, styles.denyButton]}
-            onPress={() => decide(openInvoice, 'denied')}
-            disabled={savingId === openInvoice.id}
-          >
-            <XIcon size={18} weight="bold" color={colors.white} />
-            <Text style={styles.decisionText}>{t('review.deny')}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.decisionButton, styles.acceptButton]}
-            onPress={() => decide(openInvoice, 'accepted')}
-            disabled={savingId === openInvoice.id}
-          >
-            <CheckIcon size={18} weight="bold" color={colors.white} />
-            <Text style={styles.decisionText}>{t('review.accept')}</Text>
-          </Pressable>
+          {status !== 'denied' && (
+            <Pressable
+              style={[styles.decisionButton, styles.denyButton]}
+              onPress={() => decide(openInvoice, 'denied')}
+              disabled={savingId === openInvoice.id}
+            >
+              <XIcon size={18} weight="bold" color={colors.white} />
+              <Text style={styles.decisionText}>{t('review.deny')}</Text>
+            </Pressable>
+          )}
+          {status !== 'accepted' && (
+            <Pressable
+              style={[styles.decisionButton, styles.acceptButton]}
+              onPress={() => decide(openInvoice, 'accepted')}
+              disabled={savingId === openInvoice.id}
+            >
+              {status === 'denied' ? (
+                <ArrowCounterClockwiseIcon size={18} weight="bold" color={colors.white} />
+              ) : (
+                <CheckIcon size={18} weight="bold" color={colors.white} />
+              )}
+              <Text style={styles.decisionText}>
+                {t(status === 'denied' ? 'review.restore' : 'review.accept')}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         <ToastHost toasts={toasts} onDismiss={dismissToast} bottomOffset={110} />
@@ -159,22 +171,30 @@ export function InvoiceReviewScreen() {
                 <View style={styles.rowRight}>
                   <Text style={styles.rowTotal}>{formatAmount(invoice.data.totalPrice)}</Text>
                   <View style={styles.rowActions}>
-                    <Pressable
-                      style={[styles.iconButton, styles.denyButton]}
-                      onPress={() => decide(invoice, 'denied')}
-                      disabled={savingId === invoice.id}
-                      hitSlop={6}
-                    >
-                      <XIcon size={16} weight="bold" color={colors.white} />
-                    </Pressable>
-                    <Pressable
-                      style={[styles.iconButton, styles.acceptButton]}
-                      onPress={() => decide(invoice, 'accepted')}
-                      disabled={savingId === invoice.id}
-                      hitSlop={6}
-                    >
-                      <CheckIcon size={16} weight="bold" color={colors.white} />
-                    </Pressable>
+                    {status !== 'denied' && (
+                      <Pressable
+                        style={[styles.iconButton, styles.denyButton]}
+                        onPress={() => decide(invoice, 'denied')}
+                        disabled={savingId === invoice.id}
+                        hitSlop={6}
+                      >
+                        <XIcon size={16} weight="bold" color={colors.white} />
+                      </Pressable>
+                    )}
+                    {status !== 'accepted' && (
+                      <Pressable
+                        style={[styles.iconButton, styles.acceptButton]}
+                        onPress={() => decide(invoice, 'accepted')}
+                        disabled={savingId === invoice.id}
+                        hitSlop={6}
+                      >
+                        {status === 'denied' ? (
+                          <ArrowCounterClockwiseIcon size={16} weight="bold" color={colors.white} />
+                        ) : (
+                          <CheckIcon size={16} weight="bold" color={colors.white} />
+                        )}
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               </GlassView>

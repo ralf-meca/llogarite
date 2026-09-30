@@ -382,6 +382,7 @@ export const en = {
   'review.denied': 'Denied',
   'review.accept': 'Accept',
   'review.deny': 'Deny',
+  'review.restore': 'Restore',
   'review.acceptedToast': 'Invoice accepted.',
   'review.deniedToast': 'Invoice denied.',
   'review.empty': 'No invoices here.',

@@ -385,6 +385,7 @@ export const sq: Record<keyof typeof en, string> = {
   'review.denied': 'Të refuzuara',
   'review.accept': 'Prano',
   'review.deny': 'Refuzo',
+  'review.restore': 'Rikthe',
   'review.acceptedToast': 'Fatura u pranua.',
   'review.deniedToast': 'Fatura u refuzua.',
   'review.empty': 'Asnjë faturë këtu.',
