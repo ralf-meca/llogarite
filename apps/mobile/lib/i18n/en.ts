@@ -166,6 +166,7 @@ export const en = {
   'budget.amountPlaceholder': "0'000",
   'budget.invalidAmount': 'Enter a valid amount.',
   'budget.splitByCategory': 'Split by category',
+  'budget.editAll': 'Edit all',
   'budget.categoryAllocationHint': 'Divide your budget across categories, as a percentage or a fixed amount.',
   'budget.percentMode': 'Percent',
   'budget.amountMode': 'ALL',

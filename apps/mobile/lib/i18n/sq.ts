@@ -169,6 +169,7 @@ export const sq: Record<keyof typeof en, string> = {
   'budget.amountPlaceholder': "0'000",
   'budget.invalidAmount': 'Shkruaj një shumë të vlefshme.',
   'budget.splitByCategory': 'Ndaj sipas kategorive',
+  'budget.editAll': 'Ndrysho të gjitha',
   'budget.categoryAllocationHint': 'Ndaj buxhetin tënd sipas kategorive, në përqindje ose në shumë fikse.',
   'budget.percentMode': 'Përqindje',
   'budget.amountMode': 'ALL',

@@ -143,6 +143,20 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
     persistBudget(() => setEditingCategoryIds(new Set()));
   };
 
+  // One control for the whole grid: opening twelve cards one pencil at a time
+  // is the slow way to do what is nearly always wanted, which is a pass over
+  // all of them. Saves and closes them together too, so the same button ends
+  // the job it started.
+  const isEditingAnyCategory = editingCategoryIds.size > 0;
+
+  const handleToggleEditAll = () => {
+    if (isEditingAnyCategory) {
+      handleSave();
+      return;
+    }
+    setEditingCategoryIds(new Set(CATEGORIES.map((category) => category.id)));
+  };
+
   const startEditingCategory = (categoryId: CategoryId) => {
     setEditingCategoryIds((current) => new Set(current).add(categoryId));
   };
@@ -197,6 +211,17 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
             <Text style={styles.sectionLabel}>{t('budget.splitByCategory')}</Text>
             <Text style={styles.sectionHint}>{t('budget.categoryAllocationHint')}</Text>
           </View>
+
+          <Pressable style={styles.editAllButton} onPress={handleToggleEditAll} hitSlop={8}>
+            {isEditingAnyCategory ? (
+              <CheckIcon size={13} weight="bold" color={colors.primary} />
+            ) : (
+              <PencilSimpleIcon size={13} color={colors.primary} />
+            )}
+            <Text style={styles.editAllText}>
+              {t(isEditingAnyCategory ? 'common.save' : 'budget.editAll')}
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.categoryGrid}>
@@ -367,6 +392,20 @@ const styles = StyleSheet.create({
   },
   categorySectionHeaderText: {
     flex: 1,
+  },
+  editAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: colors.primaryTint,
+  },
+  editAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   sectionLabel: {
     marginTop: 8,
