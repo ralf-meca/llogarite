@@ -1,4 +1,4 @@
-import { HandPalmIcon } from 'phosphor-react-native';
+import { HandGrabbingIcon } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import Svg, { G, Path, Rect } from 'react-native-svg';
@@ -16,10 +16,15 @@ const PRESS_MS = 520;
 const HOLD_MS = 700;
 const FADE_MS = 220;
 const RESTART_MS = 320;
-const HAND_TRAVEL = 9;
+const HAND_TRAVEL = 6;
 
 const PAPER_W = 46;
 const PAPER_H = 58;
+const HAND_SIZE = 26;
+// The hands overlap the paper's edges rather than sitting beside it, so they
+// read as holding it rather than gesturing at it.
+const HAND_OVERLAP = 9;
+const STAGE_W = PAPER_W + 2 * (HAND_SIZE - HAND_OVERLAP);
 
 // Both long edges bow in and out - what a receipt that has been in a pocket
 // looks like from the front.
@@ -82,10 +87,6 @@ export function FlattenReceiptHint() {
   return (
     <View pointerEvents="none" style={styles.container}>
       <Animated.View style={[styles.stage, { opacity: fade }]}>
-        <Animated.View style={{ transform: [{ translateX: leftHand }] }}>
-          <HandPalmIcon size={26} weight="fill" color={colors.white} />
-        </Animated.View>
-
         <Animated.View style={[styles.paper, { transform: [{ rotate: straighten }] }]}>
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: crumpledOpacity }]}>
             <Svg width={PAPER_W} height={PAPER_H} viewBox={`0 0 ${PAPER_W} ${PAPER_H}`}>
@@ -107,9 +108,16 @@ export function FlattenReceiptHint() {
           </Animated.View>
         </Animated.View>
 
-        {/* Mirrored rather than a second icon, so both hands are the same shape. */}
-        <Animated.View style={{ transform: [{ translateX: rightHand }, { scaleX: -1 }] }}>
-          <HandPalmIcon size={26} weight="fill" color={colors.white} />
+        {/* Drawn after the paper so the grip sits over its edges, and pulling
+            outward from there is what takes the creases out. Mirrored rather
+            than a second icon, so both hands are the same shape. */}
+        <Animated.View style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }] }]}>
+          <HandGrabbingIcon size={HAND_SIZE} weight="fill" color={colors.white} />
+        </Animated.View>
+        <Animated.View
+          style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { scaleX: -1 }] }]}
+        >
+          <HandGrabbingIcon size={HAND_SIZE} weight="fill" color={colors.white} />
         </Animated.View>
       </Animated.View>
 
@@ -124,13 +132,24 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stage: {
-    flexDirection: 'row',
+    width: STAGE_W,
+    height: PAPER_H,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
   paper: {
     width: PAPER_W,
     height: PAPER_H,
+  },
+  hand: {
+    position: 'absolute',
+    top: (PAPER_H - HAND_SIZE) / 2,
+  },
+  handLeft: {
+    left: 0,
+  },
+  handRight: {
+    right: 0,
   },
   caption: {
     fontSize: 13,
