@@ -69,8 +69,10 @@ export function FlattenReceiptHint() {
     return () => loop.stop();
   }, [press, fade]);
 
-  const leftHand = press.interpolate({ inputRange: [0, 1], outputRange: [-HAND_TRAVEL, 0] });
-  const rightHand = press.interpolate({ inputRange: [0, 1], outputRange: [HAND_TRAVEL, 0] });
+  // Outward from the middle, which is how paper actually gets smoothed flat -
+  // pressing inward would crease it further.
+  const leftHand = press.interpolate({ inputRange: [0, 1], outputRange: [0, -HAND_TRAVEL] });
+  const rightHand = press.interpolate({ inputRange: [0, 1], outputRange: [0, HAND_TRAVEL] });
   // Crossfaded over the first half of the press, so the paper settles before
   // the hands finish arriving rather than changing after they stop.
   const crumpledOpacity = press.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0, 0] });
