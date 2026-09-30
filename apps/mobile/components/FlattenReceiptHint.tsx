@@ -160,7 +160,9 @@ export function FlattenReceiptHint() {
         <Animated.View
           style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }] }]}
         >
-          <PinchHand />
+          <View style={styles.handRightFlip}>
+            <PinchHand />
+          </View>
         </Animated.View>
       </Animated.View>
 
@@ -192,6 +194,11 @@ const styles = StyleSheet.create({
   // the receipt rather than away from it.
   handLeftFlip: {
     transform: [{ scaleX: -1 }, { scaleY: -1 }],
+  },
+  // One axis here, both on the left: the two are a mirrored pair, not the same
+  // hand twice, so their flips are not the same either.
+  handRightFlip: {
+    transform: [{ scaleY: -1 }],
   },
   hand: {
     position: 'absolute',
