@@ -1,6 +1,6 @@
-import { CheckIcon, PencilSimpleIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { PencilSimpleIcon } from 'phosphor-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type TextInput } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import {
@@ -48,6 +48,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingCategoryIds, setEditingCategoryIds] = useState<Set<CategoryId>>(new Set());
+  const categoryInputs = useRef<Partial<Record<CategoryId, TextInput | null>>>({});
   const { toasts, showError, dismissToast } = useToasts();
 
   useEffect(() => {
@@ -143,32 +144,26 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
     persistBudget(() => setEditingCategoryIds(new Set()));
   };
 
-  // One control for the whole grid: opening twelve cards one pencil at a time
+  // One control for the whole grid: opening eight cards one pencil at a time
   // is the slow way to do what is nearly always wanted, which is a pass over
-  // all of them. Saves and closes them together too, so the same button ends
-  // the job it started.
+  // all of them.
   const isEditingAnyCategory = editingCategoryIds.size > 0;
 
-  const handleToggleEditAll = () => {
-    if (isEditingAnyCategory) {
-      handleSave();
-      return;
-    }
+  // Named rather than left to autoFocus, which would hand the keyboard to
+  // whichever input mounted last instead of the first card.
+  const focusCategory = (categoryId: CategoryId) => {
+    // A frame past the mount. Focus asked for during it is dropped.
+    setTimeout(() => categoryInputs.current[categoryId]?.focus(), 80);
+  };
+
+  const handleEditAll = () => {
     setEditingCategoryIds(new Set(CATEGORIES.map((category) => category.id)));
+    focusCategory(CATEGORIES[0].id);
   };
 
   const startEditingCategory = (categoryId: CategoryId) => {
     setEditingCategoryIds((current) => new Set(current).add(categoryId));
-  };
-
-  const handleSaveCategory = (categoryId: CategoryId) => {
-    persistBudget(() => {
-      setEditingCategoryIds((current) => {
-        const next = new Set(current);
-        next.delete(categoryId);
-        return next;
-      });
-    });
+    focusCategory(categoryId);
   };
 
   return (
@@ -212,43 +207,46 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
             <Text style={styles.sectionHint}>{t('budget.categoryAllocationHint')}</Text>
           </View>
 
-          <Pressable style={styles.editAllButton} onPress={handleToggleEditAll} hitSlop={8}>
-            {isEditingAnyCategory ? (
-              <CheckIcon size={13} weight="bold" color={colors.primary} />
-            ) : (
-              <PencilSimpleIcon size={13} color={colors.primary} />
-            )}
-            <Text style={styles.editAllText}>
-              {t(isEditingAnyCategory ? 'common.save' : 'budget.editAll')}
-            </Text>
-          </Pressable>
+          {/* Gone once the grid is open: there is one way out of editing and it
+              is the save at the bottom. */}
+          {!isEditingAnyCategory && (
+            <Pressable
+              style={styles.editAllButton}
+              onPress={handleEditAll}
+              hitSlop={10}
+              accessibilityLabel={t('budget.editAll')}
+            >
+              <PencilSimpleIcon size={15} color={colors.primary} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map((category) => {
+          {CATEGORIES.map((category, index) => {
             const draft = allocations[category.id];
             const allocation = parsedAllocations[category.id];
             const resolvedAmount = resolveAllocationAmount(allocation, parseAmountInput(input) || 0);
             const categorySpent = spentByCategory.get(category.id) ?? 0;
             const categoryRatio = resolvedAmount > 0 ? categorySpent / resolvedAmount : 0;
             const isEditingCategory = editingCategoryIds.has(category.id);
+            // The next card still open, so the keyboard's next key walks the
+            // grid in order and only the last one offers done.
+            const nextEditingId = CATEGORIES.slice(index + 1).find((candidate) =>
+              editingCategoryIds.has(candidate.id),
+            )?.id;
             const CategoryIcon = categoryIcon(category.id);
 
             return (
               <View key={category.id} style={styles.categoryCube}>
-                <Pressable
-                  style={styles.categoryEditButton}
-                  onPress={() =>
-                    isEditingCategory ? handleSaveCategory(category.id) : startEditingCategory(category.id)
-                  }
-                  disabled={isSaving}
-                >
-                  {isEditingCategory ? (
-                    <CheckIcon size={14} weight="bold" color={colors.primary} />
-                  ) : (
+                {!isEditingCategory && (
+                  <Pressable
+                    style={styles.categoryEditButton}
+                    onPress={() => startEditingCategory(category.id)}
+                    disabled={isSaving}
+                  >
                     <PencilSimpleIcon size={14} color={colors.primary} />
-                  )}
-                </Pressable>
+                  </Pressable>
+                )}
 
                 <CategoryIcon size={32} color={colors.primary} />
                 <Text style={styles.categoryLabel} numberOfLines={1}>
@@ -263,7 +261,16 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
                       keyboardType="numeric"
                       value={draft.value}
                       onChangeText={(value) => setAllocationValue(category.id, value)}
-                      autoFocus
+                      ref={(node) => {
+                        categoryInputs.current[category.id] = node;
+                      }}
+                      returnKeyType={nextEditingId ? 'next' : 'done'}
+                      // Keeps the keyboard up between cards; without it every
+                      // hop closes and reopens it.
+                      submitBehavior={nextEditingId ? 'submit' : 'blurAndSubmit'}
+                      onSubmitEditing={() =>
+                        nextEditingId ? categoryInputs.current[nextEditingId]?.focus() : handleSave()
+                      }
                     />
 
                     <View style={styles.modeToggle}>
@@ -394,19 +401,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    width: 30,
+    height: 30,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primaryTint,
   },
-  editAllText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
+
   sectionLabel: {
     marginTop: 8,
     fontSize: 15,
