@@ -24,6 +24,11 @@ const TOP_CATEGORIES = 5;
 const RECENT_INVOICES = 5;
 const TREND_MONTHS = 8;
 
+// Today counts: on the 1st you have spent a day's worth, not nothing.
+function daysElapsedInMonth(): number {
+  return new Date().getDate();
+}
+
 function daysLeftInMonth(): number {
   const now = new Date();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -67,6 +72,7 @@ export function DashboardScreen({
   const budgetRatio = hasBudget ? Math.min(1, monthSpent / (budgetTarget as number)) : 0;
   const remaining = hasBudget ? Math.max(0, (budgetTarget as number) - monthSpent) : 0;
   const daysLeft = daysLeftInMonth();
+  const daysElapsed = daysElapsedInMonth();
 
   const savedThisMonth = invoices.filter(
     (invoice) => monthKeyOf(invoice.data.dateTimeCreated) === currentMonthKey(),
@@ -125,8 +131,13 @@ export function DashboardScreen({
           <Text style={styles.statLabel}>{t('dashboard.remaining')}</Text>
         </View>
         <View style={styles.statCard}>
+          {/* What has been spent per day, not what is left to spend per day.
+              The budget bar above already answers the second, and the second
+              read as the first anyway - on the last of the month it equalled
+              the remaining balance exactly, since there was one day to divide
+              by. Needs no budget set, unlike everything beside it. */}
           <Text style={[styles.statValue, { color: '#F093FB' }]} numberOfLines={1}>
-            {hasBudget ? formatAmountLoose(remaining / daysLeft) : '—'}
+            {formatAmountLoose(monthSpent / daysElapsed)}
           </Text>
           <Text style={styles.statLabel}>{t('dashboard.perDay')}</Text>
         </View>

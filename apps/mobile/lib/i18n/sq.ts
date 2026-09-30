@@ -151,7 +151,7 @@ export const sq: Record<keyof typeof en, string> = {
   'dashboard.budgetMeta': 'nga {target} · {percent}% · {days} ditë të mbetura',
   'dashboard.spentNoBudget': 'shpenzuar këtë muaj',
   'dashboard.remaining': 'mbeten',
-  'dashboard.perDay': 'në ditë',
+  'dashboard.perDay': 'mesatarja/ditë',
   'dashboard.invoicesShort': 'fatura',
   'dashboard.recentInvoices': 'Faturat e fundit',
   'dashboard.viewAll': 'Të gjitha',

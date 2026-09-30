@@ -148,7 +148,7 @@ export const en = {
   'dashboard.budgetMeta': 'of {target} · {percent}% · {days} days left',
   'dashboard.spentNoBudget': 'spent this month',
   'dashboard.remaining': 'remaining',
-  'dashboard.perDay': 'per day',
+  'dashboard.perDay': 'avg. per day',
   'dashboard.invoicesShort': 'invoices',
   'dashboard.recentInvoices': 'Recent invoices',
   'dashboard.viewAll': 'View all',
