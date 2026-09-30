@@ -153,16 +153,14 @@ export function FlattenReceiptHint() {
         <Animated.View
           style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }] }]}
         >
-          <View style={styles.mirrorVertical}>
+          <View style={styles.handLeftFlip}>
             <PinchHand />
           </View>
         </Animated.View>
         <Animated.View
           style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }] }]}
         >
-          <View style={styles.mirrorHorizontal}>
-            <PinchHand />
-          </View>
+          <PinchHand />
         </Animated.View>
       </Animated.View>
 
@@ -189,11 +187,11 @@ const styles = StyleSheet.create({
   handTurn: {
     transform: [{ rotate: '90deg' }],
   },
-  mirrorVertical: {
-    transform: [{ scaleY: -1 }],
-  },
-  mirrorHorizontal: {
-    transform: [{ scaleX: -1 }],
+  // Both axes, which is a half turn - but written as two flips because that is
+  // how the pair is reasoned about: each hand mirrored so its fingers point at
+  // the receipt rather than away from it.
+  handLeftFlip: {
+    transform: [{ scaleX: -1 }, { scaleY: -1 }],
   },
   hand: {
     position: 'absolute',
