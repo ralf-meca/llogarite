@@ -404,6 +404,12 @@ export const en = {
   'review.itemCount': '{count} items',
   'drawer.review': 'Confirm invoices',
 
+  'update.available': 'A new version of the app is available.',
+  'update.action': 'Update',
+  'update.downloading': 'Downloading the update…',
+  'update.readyToInstall': 'Update downloaded.',
+  'update.restart': 'Restart',
+
   'categories.ushqime': 'Food & Drinks',
   'categories.higjene': 'Hygiene & Cosmetics',
   'categories.shtepi': 'Home & Cleaning',

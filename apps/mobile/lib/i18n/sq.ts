@@ -407,6 +407,12 @@ export const sq: Record<keyof typeof en, string> = {
   'review.itemCount': '{count} artikuj',
   'drawer.review': 'Vërteto faturat',
 
+  'update.available': 'Ka një version të ri të aplikacionit.',
+  'update.action': 'Përditëso',
+  'update.downloading': 'Po shkarkohet përditësimi…',
+  'update.readyToInstall': 'Përditësimi u shkarkua.',
+  'update.restart': 'Rinis',
+
   'categories.ushqime': 'Ushqime & Pije',
   'categories.higjene': 'Higjenë & Kozmetikë',
   'categories.shtepi': 'Shtëpi & Pastrim',
