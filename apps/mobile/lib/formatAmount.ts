@@ -16,6 +16,13 @@ export function needsCents(values: number[]): boolean {
   return values.some((value) => Number.isFinite(value) && Math.round(value * 100) % 100 !== 0);
 }
 
+// Cents only when there are any: 1'595 rather than 1'595,00, while 187,50 keeps
+// its 50. Per number, unlike needsCents, which answers for a whole table at
+// once so its rows line up - a lone figure has no rows to line up with.
+export function formatAmountLoose(value: number): string {
+  return formatAmount(value, needsCents([value]));
+}
+
 export function formatAmountInput(raw: string): string {
   const isNegative = raw.trim().startsWith('-');
   const cleaned = raw.replace(/[^0-9,]/g, '');

@@ -4,7 +4,7 @@ import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react
 import { fetchBudget } from '../lib/budgetApi';
 import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from '../lib/categories';
 import { currentMonthCategoryTotals, dominantCategory } from '../lib/categorySpending';
-import { formatAmount } from '../lib/formatAmount';
+import { formatAmountLoose } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
   averageMonthlyThisYear,
@@ -99,11 +99,11 @@ export function DashboardScreen({
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <Pressable onPress={onSelectBudget}>
         <View style={styles.spendCard}>
-          <Text style={styles.spendAmount}>{formatAmount(monthSpent)}</Text>
+          <Text style={styles.spendAmount}>{formatAmountLoose(monthSpent)}</Text>
           <Text style={styles.spendMeta}>
             {hasBudget
               ? t('dashboard.budgetMeta', {
-                  target: formatAmount(budgetTarget as number),
+                  target: formatAmountLoose(budgetTarget as number),
                   percent: Math.round(budgetRatio * 100),
                   days: daysLeft,
                 })
@@ -120,13 +120,13 @@ export function DashboardScreen({
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1}>
-            {hasBudget ? formatAmount(remaining) : '—'}
+            {hasBudget ? formatAmountLoose(remaining) : '—'}
           </Text>
           <Text style={styles.statLabel}>{t('dashboard.remaining')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: '#F093FB' }]} numberOfLines={1}>
-            {hasBudget ? formatAmount(remaining / daysLeft) : '—'}
+            {hasBudget ? formatAmountLoose(remaining / daysLeft) : '—'}
           </Text>
           <Text style={styles.statLabel}>{t('dashboard.perDay')}</Text>
         </View>
@@ -163,7 +163,7 @@ export function DashboardScreen({
                         {label}
                       </Text>
                       <Text style={styles.categoryPercent}>{Math.round(share * 100)}%</Text>
-                      <Text style={styles.categoryAmount}>{formatAmount(entry.total)}</Text>
+                      <Text style={styles.categoryAmount}>{formatAmountLoose(entry.total)}</Text>
                     </View>
                     <View style={styles.categoryTrack}>
                       <View
@@ -216,7 +216,7 @@ export function DashboardScreen({
                         {shortDate(invoice.data.dateTimeCreated)} · {t(categoryLabelKey(category))}
                       </Text>
                     </View>
-                    <Text style={styles.invoiceAmount}>{formatAmount(invoice.data.totalPrice)}</Text>
+                    <Text style={styles.invoiceAmount}>{formatAmountLoose(invoice.data.totalPrice)}</Text>
                   </Pressable>
                 );
               })}
@@ -231,7 +231,7 @@ export function DashboardScreen({
             <View style={styles.trendRow}>
               <View style={styles.trendCell}>
                 <Text style={[styles.trendValue, { color: colors.primary }]} numberOfLines={1}>
-                  {formatAmount(averageMonthlyThisYear(invoices))}
+                  {formatAmountLoose(averageMonthlyThisYear(invoices))}
                 </Text>
                 <Text style={styles.trendLabel}>{t('dashboard.yearlyAverage')}</Text>
               </View>
