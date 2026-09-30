@@ -1,4 +1,4 @@
-import { BriefcaseIcon, CaretDownIcon, CheckIcon } from 'phosphor-react-native';
+import { FolderIcon, CaretDownIcon, CheckIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
@@ -20,7 +20,7 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-        <BriefcaseIcon size={14} color="#374151" />
+        <FolderIcon size={14} color="#374151" />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
         </Text>

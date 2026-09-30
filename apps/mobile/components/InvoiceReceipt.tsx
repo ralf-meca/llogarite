@@ -1,4 +1,4 @@
-import { BriefcaseIcon, CheckCircleIcon, CircleIcon } from 'phosphor-react-native';
+import { FolderIcon, CheckCircleIcon, CircleIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
@@ -71,7 +71,7 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
 
       {project && (
         <View style={styles.metaRow}>
-          <BriefcaseIcon size={14} color="#6b7280" />
+          <FolderIcon size={14} color="#6b7280" />
           <Text style={styles.metaText}>{project.name}</Text>
         </View>
       )}
