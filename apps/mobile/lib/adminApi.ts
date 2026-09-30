@@ -11,6 +11,10 @@ export type InvoiceLegitimacy = (typeof INVOICE_LEGITIMACIES)[number];
 export type ReviewInvoice = {
   id: string;
   legitimacy: InvoiceLegitimacy;
+  // True only from a real government API verification. Those skip the queue
+  // entirely - there is nothing a person can add to a receipt the state has
+  // already confirmed - so they appear under accepted without being touched.
+  verified: boolean;
   createdAt: string;
   data: InvoiceVerificationResult;
   ownerEmail: string;

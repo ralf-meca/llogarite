@@ -1,4 +1,6 @@
 import {
+    type FindOptionsWhere,
+    Not,
     Column,
     CreateDateColumn,
     Entity,
@@ -12,6 +14,23 @@ import { User } from '../users/user.entity';
 
 export const INVOICE_LEGITIMACIES = ['pending', 'accepted', 'denied'] as const;
 export type InvoiceLegitimacy = (typeof INVOICE_LEGITIMACIES)[number];
+
+// Shown to other people when a reviewer vouched for it, or when the tax
+// authority's own API already did - there is nothing a person can add to a
+// receipt the state has confirmed. An explicit denial still overrides both,
+// so a technically valid invoice can still be pulled.
+//
+// An array is OR in TypeORM. Exported as a function because these objects get
+// mutated by the query builder if they are shared.
+export function trustedInvoiceWhere(): FindOptionsWhere<Invoice>[] {
+    return [{ legitimacy: 'accepted' }, { verified: true, legitimacy: Not('denied' as InvoiceLegitimacy) }];
+}
+
+// What still needs a human: unverified and undecided. A verified invoice never
+// enters the queue, because accepting it would be rubber-stamping.
+export function awaitingReviewWhere(): FindOptionsWhere<Invoice> {
+    return { legitimacy: 'pending', verified: false };
+}
 
 @Entity()
 @Unique(['userId', 'iic'])

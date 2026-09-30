@@ -15,6 +15,7 @@ import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { InvoiceReceipt } from './InvoiceReceipt';
 import { ToastHost } from './ToastHost';
+import { VerifiedBadge } from './VerifiedBadge';
 
 // Pending first, and selected by default: the reason to open this screen is the
 // queue. The other two are where you go to look something up or undo yourself.
@@ -139,9 +140,13 @@ export function InvoiceReviewScreen() {
             <Pressable key={invoice.id} onPress={() => setOpenInvoice(invoice)}>
               <GlassView style={styles.row}>
                 <View style={styles.rowText}>
-                  <Text style={styles.rowSeller} numberOfLines={1}>
-                    {invoice.data.seller.name.trim() || t('review.noSeller')}
-                  </Text>
+                  <View style={styles.rowSellerLine}>
+                    <Text style={styles.rowSeller} numberOfLines={1}>
+                      {invoice.data.seller.name.trim() || t('review.noSeller')}
+                    </Text>
+                    {/* Explains a row sitting in accepted that nobody accepted. */}
+                    {invoice.verified && <VerifiedBadge size={14} />}
+                  </View>
                   <Text style={styles.rowMeta} numberOfLines={1}>
                     {invoice.ownerName ?? invoice.ownerEmail}
                   </Text>
@@ -264,7 +269,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  rowSellerLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   rowSeller: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     color: colors.textDark,

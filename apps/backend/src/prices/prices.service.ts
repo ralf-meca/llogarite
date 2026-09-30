@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Invoice } from '../invoices/invoice.entity';
+import { Invoice, trustedInvoiceWhere } from '../invoices/invoice.entity';
 
 type PricedItem = {
     name: string;
@@ -29,13 +29,13 @@ export class PricesService {
         private readonly invoicesRepository: Repository<Invoice>,
     ) {}
 
-    // Everyone's accepted invoices, and only the four things a price comparison
-    // needs: when, where, what, how much. No user id, no email, no name, no
-    // project, no buddy splits. Shoppers get to see what things cost and where,
-    // never who bought them.
+    // Everyone's trustworthy invoices, and only the four things a price
+    // comparison needs: when, where, what, how much. No user id, no email, no
+    // name, no project, no buddy splits. Shoppers get to see what things cost
+    // and where, never who bought them.
     async findAcceptedForPrices(): Promise<PricedInvoice[]> {
         const invoices = await this.invoicesRepository.find({
-            where: { legitimacy: 'accepted' },
+            where: trustedInvoiceWhere(),
             order: { createdAt: 'DESC' },
         });
 
