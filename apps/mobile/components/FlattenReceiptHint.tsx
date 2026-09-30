@@ -13,7 +13,9 @@ import { colors } from '../lib/theme';
 // morphed: a path cannot be animated on the native driver, and opacity can, so
 // this costs nothing while the camera is working.
 const PRESS_MS = 520;
-const HOLD_MS = 620;
+const HOLD_MS = 700;
+const FADE_MS = 220;
+const RESTART_MS = 320;
 const HAND_TRAVEL = 9;
 
 const PAPER_W = 46;
@@ -42,7 +44,11 @@ function QrMarks() {
 export function FlattenReceiptHint() {
   const { t } = useTranslation();
   const press = useRef(new Animated.Value(0)).current;
+  const fade = useRef(new Animated.Value(1)).current;
 
+  // Only ever crumpled to flat. Running the press backwards to loop would show
+  // a flat receipt crumpling, which is the opposite of the instruction, so the
+  // reset happens while the picture is faded out.
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -53,18 +59,15 @@ export function FlattenReceiptHint() {
           useNativeDriver: true,
         }),
         Animated.delay(HOLD_MS),
-        Animated.timing(press, {
-          toValue: 0,
-          duration: PRESS_MS,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.delay(HOLD_MS),
+        Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
+        Animated.timing(press, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.timing(fade, { toValue: 1, duration: FADE_MS, useNativeDriver: true }),
+        Animated.delay(RESTART_MS),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [press]);
+  }, [press, fade]);
 
   const leftHand = press.interpolate({ inputRange: [0, 1], outputRange: [-HAND_TRAVEL, 0] });
   const rightHand = press.interpolate({ inputRange: [0, 1], outputRange: [HAND_TRAVEL, 0] });
@@ -76,7 +79,7 @@ export function FlattenReceiptHint() {
 
   return (
     <View pointerEvents="none" style={styles.container}>
-      <View style={styles.stage}>
+      <Animated.View style={[styles.stage, { opacity: fade }]}>
         <Animated.View style={{ transform: [{ translateX: leftHand }] }}>
           <HandPalmIcon size={26} weight="fill" color={colors.white} />
         </Animated.View>
@@ -106,7 +109,7 @@ export function FlattenReceiptHint() {
         <Animated.View style={{ transform: [{ translateX: rightHand }, { scaleX: -1 }] }}>
           <HandPalmIcon size={26} weight="fill" color={colors.white} />
         </Animated.View>
-      </View>
+      </Animated.View>
 
       <Text style={styles.caption}>{t('qrScanner.flattenHint')}</Text>
     </View>
