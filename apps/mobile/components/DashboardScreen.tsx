@@ -111,7 +111,13 @@ export function DashboardScreen({
               ? t('dashboard.budgetMeta', {
                   target: formatAmountLoose(budgetTarget as number),
                   percent: Math.round(budgetRatio * 100),
-                  days: daysLeft,
+                  // The last day is worth naming: "1 day left" is both wrong
+                  // in Albanian, which wants the singular, and less useful
+                  // than saying which day it is.
+                  days:
+                    daysLeft === 1
+                      ? t('dashboard.lastDayOfMonth')
+                      : t('dashboard.daysLeft', { days: daysLeft }),
                 })
               : t('dashboard.spentNoBudget')}
           </Text>
