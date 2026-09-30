@@ -22,8 +22,11 @@ const PAPER_H = 58;
 // The hand keeps its own 325x239 box so its proportions are not re-guessed;
 // these are the on-screen size at that ratio. Wider than this and the fingers
 // cover the code they are meant to be presenting.
-const HAND_W = 48;
-const HAND_H = 35;
+// Upright, so the pinch meets the receipt's edge rather than lying across it.
+// These are the box the artwork is drawn into before that quarter turn, which
+// is why they look transposed.
+const HAND_W = 35;
+const HAND_H = 48;
 // The hands overlap the paper's edges rather than sitting beside it, so they
 // read as holding it rather than gesturing at it.
 const HAND_OVERLAP = 12;
@@ -43,17 +46,22 @@ const PINCH_HAND = 'M316.0,60.0 L314.0,53.0 L306.0,44.0 L299.0,41.0 L288.0,39.0 
 // sits over a white receipt, where white on white would be nothing at all.
 const HAND_OUTLINE = 'rgba(0,0,0,0.45)';
 
-function PinchHand() {
+// Mirrored inside the drawing rather than on the container: the container also
+// carries the quarter turn, and a mirror and a rotation compose differently
+// depending which goes first.
+function PinchHand({ flip = false }: { flip?: boolean }) {
   return (
     <Svg width={HAND_W} height={HAND_H} viewBox={PINCH_HAND_VIEWBOX}>
-      <Path
-        d={PINCH_HAND}
-        fill={colors.white}
-        fillRule="evenodd"
-        stroke={HAND_OUTLINE}
-        strokeWidth={9}
-        strokeLinejoin="round"
-      />
+      <G transform={flip ? 'translate(325, 0) scale(-1, 1)' : undefined}>
+        <Path
+          d={PINCH_HAND}
+          fill={colors.white}
+          fillRule="evenodd"
+          stroke={HAND_OUTLINE}
+          strokeWidth={9}
+          strokeLinejoin="round"
+        />
+      </G>
     </Svg>
   );
 }
@@ -137,13 +145,15 @@ export function FlattenReceiptHint() {
         {/* Drawn after the paper so the grip sits over its edges, and pulling
             outward from there is what takes the creases out. Mirrored rather
             than a second icon, so both hands are the same shape. */}
-        <Animated.View style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }] }]}>
+        <Animated.View
+          style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }, { rotate: '90deg' }] }]}
+        >
           <PinchHand />
         </Animated.View>
         <Animated.View
-          style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { scaleX: -1 }] }]}
+          style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { rotate: '90deg' }] }]}
         >
-          <PinchHand />
+          <PinchHand flip />
         </Animated.View>
       </Animated.View>
 
