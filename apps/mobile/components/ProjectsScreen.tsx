@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { CalendarIcon, PlusIcon, TrashIcon, XCircleIcon } from 'phosphor-react-native';
+import { CalendarIcon, PencilSimpleIcon, PlusIcon, TrashIcon, XCircleIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -18,6 +18,8 @@ import { ToastHost } from './ToastHost';
 
 type ProjectsScreenProps = {
   invoices: SavedInvoice[];
+  currentUserId: string;
+  onSelectProject: (project: Project) => void;
 };
 
 type FormState = {
@@ -41,7 +43,7 @@ function isCompleted(project: Project): boolean {
   return new Date(project.endDate) < startOfToday;
 }
 
-export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
+export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: ProjectsScreenProps) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,16 +160,26 @@ export function ProjectsScreen({ invoices }: ProjectsScreenProps) {
 
         {projects.map((project) => {
           const completed = isCompleted(project);
+          // A project you were added to is someone else's to change: tapping it
+          // opens what it holds, and the pencil and bin are not yours.
+          const isOwner = project.userId === currentUserId;
           return (
-            <Pressable key={project.id} onPress={() => openEdit(project)}>
+            <Pressable key={project.id} onPress={() => onSelectProject(project)}>
               <GlassView style={styles.card}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.projectName} numberOfLines={1}>
                     {project.name}
                   </Text>
-                  <Pressable style={styles.deleteButton} onPress={() => handleDelete(project.id)}>
-                    <TrashIcon size={18} color="#dc2626" />
-                  </Pressable>
+                  {isOwner && (
+                    <>
+                      <Pressable style={styles.editButton} onPress={() => openEdit(project)} hitSlop={6}>
+                        <PencilSimpleIcon size={17} color={colors.primary} />
+                      </Pressable>
+                      <Pressable style={styles.deleteButton} onPress={() => handleDelete(project.id)}>
+                        <TrashIcon size={18} color="#dc2626" />
+                      </Pressable>
+                    </>
+                  )}
                 </View>
 
                 <View style={[styles.statusBadge, completed ? styles.statusBadgeDone : styles.statusBadgeOngoing]}>
@@ -328,6 +340,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1f2937',
+  },
+  editButton: {
+    padding: 4,
   },
   deleteButton: {
     padding: 4,

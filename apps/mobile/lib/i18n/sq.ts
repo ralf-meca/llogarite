@@ -333,6 +333,16 @@ export const sq: Record<keyof typeof en, string> = {
   'monthFilter.november': 'Nëntor',
   'monthFilter.december': 'Dhjetor',
 
+  'projectDetail.expenses': 'Shpenzimet',
+  'projectDetail.noExpenses': 'Ende asnjë shpenzim këtu.',
+  'projectDetail.noSeller': 'Pa shitës',
+  'projectDetail.whoOwes': 'Kush detyrohet',
+  'projectDetail.allPaid': 'E shlyer',
+  'projectDetail.markAllPaid': 'Shëno të gjitha si të paguara',
+  'projectDetail.settled': 'U shënuan si të paguara.',
+  'projectDetail.paidByYou': 'Paguar nga ti',
+  'projectDetail.someone': 'Shok',
+  'projectDetail.sharedWithYou': 'Ndarë me ty. Vetëm krijuesi mund ta ndryshojë.',
   'projectPicker.none': 'Pa projekt',
   'projectPicker.empty': 'Ende asnjë i krijuar.',
 

@@ -33,6 +33,7 @@ import { OnboardingGuide, type OnboardingStep } from "./components/OnboardingGui
 import { PlansScreen } from "./components/PlansScreen";
 import { ProductDetailScreen } from "./components/ProductDetailScreen";
 import { ProductsScreen } from "./components/ProductsScreen";
+import { ProjectDetailScreen } from "./components/ProjectDetailScreen";
 import { ProjectsScreen } from "./components/ProjectsScreen";
 import { QrScannerModal } from "./components/QrScannerModal";
 import { ReceiptScannerModal } from "./components/ReceiptScannerModal";
@@ -57,6 +58,7 @@ import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerific
 import { toLocalIsoString } from "./lib/date";
 import { currentMonthKey, monthKeyOf } from "./lib/monthlySpending";
 import { fetchSharedPrices } from "./lib/pricesApi";
+import type { Project } from "./lib/projectsApi";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import {
@@ -94,7 +96,8 @@ type Screen =
     | "manual"
     | "productDetail"
     | "buddyDetail"
-    | "plans";
+    | "plans"
+    | "projectDetail";
 
 const MAIN_SCREENS = new Set<Screen>([
     "dashboard",
@@ -155,6 +158,7 @@ function AppContent() {
     // Everyone's accepted invoices, not the signed-in user's own: the price
     // screens compare across people now, which is the point of reviewing them.
     const [sharedPrices, setSharedPrices] = useState<PricedInvoice[]>([]);
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -171,7 +175,9 @@ function AppContent() {
     const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
     const [productDetailReturnScreen, setProductDetailReturnScreen] = useState<"products" | "detail">("products");
     const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
-    const [detailReturnScreen, setDetailReturnScreen] = useState<"list" | "buddyDetail" | "buddies">("list");
+    const [detailReturnScreen, setDetailReturnScreen] = useState<
+        "list" | "buddyDetail" | "buddies" | "projectDetail"
+    >("list");
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const [buddiesInitialTab, setBuddiesInitialTab] = useState<"owedByMe" | "owedToMe">("owedToMe");
@@ -504,7 +510,10 @@ function AppContent() {
         }
     };
 
-    const handleSelectInvoice = (invoice: SavedInvoice, returnTo: "list" | "buddyDetail" | "buddies" = "list") => {
+    const handleSelectInvoice = (
+        invoice: SavedInvoice,
+        returnTo: "list" | "buddyDetail" | "buddies" | "projectDetail" = "list",
+    ) => {
         setSelectedInvoice(invoice);
         setDetailReturnScreen(returnTo);
         setScreen("detail");
@@ -641,6 +650,9 @@ function AppContent() {
                 return true;
             case "buddyDetail":
                 setScreen("buddies");
+                return true;
+            case "projectDetail":
+                setScreen("projects");
                 return true;
             case "plans":
                 setScreen("dashboard");
@@ -892,7 +904,14 @@ function AppContent() {
                         ) : screen === "monthlyPayments" ? (
                             <MonthlyPaymentsScreen />
                         ) : screen === "projects" ? (
-                            <ProjectsScreen invoices={savedInvoices} />
+                            <ProjectsScreen
+                                invoices={savedInvoices}
+                                currentUserId={user?.id ?? ""}
+                                onSelectProject={(project) => {
+                                    setSelectedProject(project);
+                                    setScreen("projectDetail");
+                                }}
+                            />
                         ) : screen === "review" ? (
                             <InvoiceReviewScreen />
                         ) : screen === "products" ? (
@@ -972,6 +991,23 @@ function AppContent() {
                         productName={selectedProduct.name}
                         invoices={sharedPrices}
                         onBack={() => setScreen(productDetailReturnScreen)}
+                    />
+                )
+            ) : screen === "projectDetail" ? (
+                selectedProject && (
+                    <ProjectDetailScreen
+                        project={selectedProject}
+                        currentUserId={user?.id ?? ""}
+                        onBack={() => setScreen("projects")}
+                        onSelectExpense={(expenseId) => {
+                            // Only opens your own: the saved list is the only
+                            // place the app holds a full invoice, and someone
+                            // else's belongs to them.
+                            const invoice = savedInvoices.find((candidate) => candidate.id === expenseId);
+                            if (invoice) {
+                                handleSelectInvoice(invoice, "projectDetail");
+                            }
+                        }}
                     />
                 )
             ) : screen === "buddyDetail" ? (

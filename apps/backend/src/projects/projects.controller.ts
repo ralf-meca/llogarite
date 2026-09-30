@@ -1,8 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    Patch,
+    Post,
+    UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Project } from './project.entity';
-import { ProjectPatch, ProjectsService } from './projects.service';
+import { ProjectExpense, ProjectPatch, ProjectsService } from './projects.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -17,6 +28,17 @@ export class ProjectsController {
     @Get()
     findAll(@CurrentUser() userId: string): Promise<Project[]> {
         return this.projectsService.findAll(userId);
+    }
+
+    @Get(':id/expenses')
+    findExpenses(@CurrentUser() userId: string, @Param('id') id: string): Promise<ProjectExpense[]> {
+        return this.projectsService.findExpenses(userId, id);
+    }
+
+    @Post(':id/mark-paid')
+    @HttpCode(HttpStatus.OK)
+    markPaid(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
+        return this.projectsService.markOwnExpensesPaid(userId, id);
     }
 
     @Patch(':id')

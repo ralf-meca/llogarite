@@ -330,6 +330,16 @@ export const en = {
   'monthFilter.november': 'November',
   'monthFilter.december': 'December',
 
+  'projectDetail.expenses': 'Expenses',
+  'projectDetail.noExpenses': 'No expenses here yet.',
+  'projectDetail.noSeller': 'No seller',
+  'projectDetail.whoOwes': 'Who owes',
+  'projectDetail.allPaid': 'Settled',
+  'projectDetail.markAllPaid': 'Mark all as paid',
+  'projectDetail.settled': 'Marked as paid.',
+  'projectDetail.paidByYou': 'Paid by you',
+  'projectDetail.someone': 'Buddy',
+  'projectDetail.sharedWithYou': 'Shared with you. Only its creator can change it.',
   'projectPicker.none': 'No project',
   'projectPicker.empty': 'None created yet.',
 
