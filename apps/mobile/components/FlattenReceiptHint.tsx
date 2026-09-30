@@ -1,7 +1,6 @@
-import { HandGrabbingIcon } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import Svg, { G, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { useTranslation } from '../lib/i18n';
 import { colors } from '../lib/theme';
 
@@ -31,6 +30,29 @@ const STAGE_W = PAPER_W + 2 * (HAND_SIZE - HAND_OVERLAP);
 const CRUMPLED =
   'M8 2 C12 8 3 13 8 19 C13 25 4 30 9 36 C14 42 5 47 9 56 L38 56 C34 48 43 43 38 37 C33 31 42 26 37 20 C32 14 41 9 38 2 Z';
 const CREASES = 'M11 14 L35 18 M10 30 L36 27 M12 44 L34 47';
+
+// Phosphor has no pinch in this version - fist and grabbing were the nearest,
+// and neither is the gesture - so the hand is drawn here: a palm with two
+// fingers closing to a point, which is where the paper's edge sits.
+const INDEX_FINGER = 'M10 10.5 Q17 8.5 21 12.8';
+const THUMB = 'M10 19.5 Q17 21 21 15.8';
+// Everything is drawn twice, dark and fatter underneath. The hands overlap a
+// white receipt, and a white hand on white paper is nothing at all.
+const HAND_OUTLINE = 'rgba(0,0,0,0.45)';
+
+function PinchHand() {
+  return (
+    <Svg width={HAND_SIZE} height={HAND_SIZE} viewBox="0 0 28 28">
+      <Circle cx={9.5} cy={15} r={7.4} fill={HAND_OUTLINE} />
+      <Path d={INDEX_FINGER} stroke={HAND_OUTLINE} strokeWidth={5.4} strokeLinecap="round" fill="none" />
+      <Path d={THUMB} stroke={HAND_OUTLINE} strokeWidth={5.4} strokeLinecap="round" fill="none" />
+
+      <Circle cx={9.5} cy={15} r={6.3} fill={colors.white} />
+      <Path d={INDEX_FINGER} stroke={colors.white} strokeWidth={3.4} strokeLinecap="round" fill="none" />
+      <Path d={THUMB} stroke={colors.white} strokeWidth={3.4} strokeLinecap="round" fill="none" />
+    </Svg>
+  );
+}
 
 // Enough of a QR to be recognised as one at this size: three finder squares and
 // a couple of marks. Drawing the real thing would just be noise.
@@ -112,12 +134,12 @@ export function FlattenReceiptHint() {
             outward from there is what takes the creases out. Mirrored rather
             than a second icon, so both hands are the same shape. */}
         <Animated.View style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }] }]}>
-          <HandGrabbingIcon size={HAND_SIZE} weight="fill" color={colors.white} />
+          <PinchHand />
         </Animated.View>
         <Animated.View
           style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { scaleX: -1 }] }]}
         >
-          <HandGrabbingIcon size={HAND_SIZE} weight="fill" color={colors.white} />
+          <PinchHand />
         </Animated.View>
       </Animated.View>
 
