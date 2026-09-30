@@ -52,22 +52,21 @@ const HAND_FILL = '#d9dde0';
 const HAND_OUTLINE = 'rgba(0,0,0,0.45)';
 const HAND_OUTLINE_WIDTH = 4;
 
-// Mirrored inside the drawing rather than on the container: the container also
-// carries the quarter turn, and a mirror and a rotation compose differently
-// depending which goes first.
-function PinchHand({ flip = false }: { flip?: boolean }) {
+// The quarter turn lives here and the mirrors live on the wrapper outside, so
+// each hand is turned first and then flipped in the axis you actually see on
+// screen. Doing both in one transform list makes the order matter, and the
+// answer stops being obvious.
+function PinchHand() {
   return (
-    <Svg width={HAND_W} height={HAND_H} viewBox={PINCH_HAND_VIEWBOX}>
-      <G transform={flip ? 'translate(441, 0) scale(-1, 1)' : undefined}>
-        <Path
-          d={PINCH_HAND}
-          fill={HAND_FILL}
-          fillRule="evenodd"
-          stroke={HAND_OUTLINE}
-          strokeWidth={HAND_OUTLINE_WIDTH}
-          strokeLinejoin="round"
-        />
-      </G>
+    <Svg width={HAND_W} height={HAND_H} viewBox={PINCH_HAND_VIEWBOX} style={styles.handTurn}>
+      <Path
+        d={PINCH_HAND}
+        fill={HAND_FILL}
+        fillRule="evenodd"
+        stroke={HAND_OUTLINE}
+        strokeWidth={HAND_OUTLINE_WIDTH}
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -152,14 +151,18 @@ export function FlattenReceiptHint() {
             outward from there is what takes the creases out. Mirrored rather
             than a second icon, so both hands are the same shape. */}
         <Animated.View
-          style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }, { rotate: '90deg' }] }]}
+          style={[styles.hand, styles.handLeft, { transform: [{ translateX: leftHand }] }]}
         >
-          <PinchHand flip />
+          <View style={styles.mirrorVertical}>
+            <PinchHand />
+          </View>
         </Animated.View>
         <Animated.View
-          style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }, { rotate: '90deg' }] }]}
+          style={[styles.hand, styles.handRight, { transform: [{ translateX: rightHand }] }]}
         >
-          <PinchHand />
+          <View style={styles.mirrorHorizontal}>
+            <PinchHand />
+          </View>
         </Animated.View>
       </Animated.View>
 
@@ -182,6 +185,15 @@ const styles = StyleSheet.create({
   paper: {
     width: PAPER_W,
     height: PAPER_H,
+  },
+  handTurn: {
+    transform: [{ rotate: '90deg' }],
+  },
+  mirrorVertical: {
+    transform: [{ scaleY: -1 }],
+  },
+  mirrorHorizontal: {
+    transform: [{ scaleX: -1 }],
   },
   hand: {
     position: 'absolute',
