@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { useTranslation } from '../lib/i18n';
+import { FlattenReceiptHint } from './FlattenReceiptHint';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 
@@ -66,6 +67,11 @@ export function QrScannerModal({ visible, onClose, onScanned }: QrScannerModalPr
               pointerEvents="none"
               style={[styles.frame, { left: frameLeft, top: frameTop }]}
             />
+            {/* Under the frame rather than inside it: the cut-out is where the
+                camera has to see, and covering it would defeat the hint. */}
+            <View style={[styles.hint, { top: frameTop + FRAME_SIZE + 28 }]} pointerEvents="none">
+              <FlattenReceiptHint />
+            </View>
           </>
         ) : (
           <View style={styles.permissionContainer}>
@@ -95,6 +101,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+  },
+  hint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   frame: {
     position: 'absolute',

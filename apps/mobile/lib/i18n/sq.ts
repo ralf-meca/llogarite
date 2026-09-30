@@ -305,6 +305,7 @@ export const sq: Record<keyof typeof en, string> = {
   'invoiceReceipt.total': 'Totali',
   'invoiceReceipt.buddiesTitle': 'Ndaj me shokë',
 
+  'qrScanner.flattenHint': 'Mbaje faturën të sheshtë',
   'qrScanner.cameraPermission': 'Nevojitet qasje në kamerë për të skanuar kodet QR.',
 
   'receiptScanner.instruction': 'Fotografo faturën e plotë, qartë dhe pa hije.',

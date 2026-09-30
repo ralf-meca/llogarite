@@ -302,6 +302,7 @@ export const en = {
   'invoiceReceipt.total': 'Total',
   'invoiceReceipt.buddiesTitle': 'Split with buddies',
 
+  'qrScanner.flattenHint': 'Hold the receipt flat',
   'qrScanner.cameraPermission': 'Camera access is needed to scan QR codes.',
 
   'receiptScanner.instruction': 'Photograph the whole receipt, clearly and without shadows.',
