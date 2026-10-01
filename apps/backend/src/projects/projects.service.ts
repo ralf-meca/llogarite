@@ -90,9 +90,10 @@ export class ProjectsService {
     // when someone is named, everyone's otherwise. Only their own invoices: the
     // owner keeps the record of what was repaid on a receipt they entered.
     //
-    // When a buddy paid the bill (data.paidBy), that buddy owes nothing and the
-    // owner owes them instead; naming the caller settles that share
-    // (data.ownerPaid).
+    // When buddies paid some or all of the bill (data.payments, or data.paidBy
+    // on older invoices), the owner may owe them instead; naming the caller
+    // settles that (data.ownerPaid). Whether anything was actually owed is the
+    // client's sum to do - a flag on someone with no debt changes nothing.
     async markOwnExpensesPaid(userId: string, id: string, buddyId?: string): Promise<void> {
         await this.findViewable(id, userId);
 
@@ -106,8 +107,13 @@ export class ProjectsService {
                 buddy.paid !== true &&
                 buddy.userId !== payerId &&
                 (buddyId === undefined || buddy.userId === buddyId);
+            const payments =
+                invoice.data.payments && typeof invoice.data.payments === 'object'
+                    ? Object.values(invoice.data.payments as Record<string, unknown>)
+                    : [];
+            const othersPaid = payerId !== null || payments.some((amount) => typeof amount === 'number' && amount > 0);
             const settlesOwner =
-                payerId !== null &&
+                othersPaid &&
                 invoice.data.ownerPaid !== true &&
                 (buddyId === undefined || buddyId === userId);
             if (!settlesOwner && !buddies.some(settles)) {
