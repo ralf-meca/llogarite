@@ -2,15 +2,34 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice } from '../invoices/invoice.entity';
-import { Project } from './project.entity';
+import { PROJECT_KINDS, Project, type ProjectKind } from './project.entity';
 
 export type ProjectPatch = Partial<{
     name: string;
     details: string | null;
     budget: number;
+    kind: ProjectKind;
+    startDate: string | null;
     endDate: string | null;
     buddyIds: string[];
 }>;
+
+// The fields a client may set. Anything else in the body is dropped, so a
+// patch cannot reach columns like the owner.
+const PATCHABLE_FIELDS = ['name', 'details', 'budget', 'kind', 'startDate', 'endDate', 'buddyIds'] as const;
+
+// Dates travel as YYYY-MM-DD, which compare correctly as plain strings.
+function assertValidSpan(kind: ProjectKind, startDate: string | null, endDate: string | null): void {
+    if (!PROJECT_KINDS.includes(kind)) {
+        throw new BadRequestException('kind must be project or trip');
+    }
+    if (kind === 'trip' && (!startDate || !endDate)) {
+        throw new BadRequestException('a trip needs a start date and an end date');
+    }
+    if (startDate && endDate && endDate < startDate) {
+        throw new BadRequestException('endDate cannot be before startDate');
+    }
+}
 
 // One expense on a shared project, carrying who paid for it. A trip is only
 // readable if you can see whose receipt each line was.
@@ -93,13 +112,20 @@ export class ProjectsService {
         if (typeof data.budget !== 'number' || !Number.isFinite(data.budget) || data.budget < 0) {
             throw new BadRequestException('budget must be a non-negative number');
         }
+        const kind = data.kind ?? 'project';
+        // A plain project has no start, whatever the client sent along.
+        const startDate = kind === 'trip' ? (data.startDate ?? null) : null;
+        const endDate = data.endDate ?? null;
+        assertValidSpan(kind, startDate, endDate);
 
         const project = this.projectsRepository.create({
             userId,
             name: data.name,
             details: data.details ?? null,
             budget: data.budget,
-            endDate: data.endDate ?? null,
+            kind,
+            startDate,
+            endDate,
             buddyIds: data.buddyIds ?? [],
         });
         return this.projectsRepository.save(project);
@@ -125,8 +151,24 @@ export class ProjectsService {
         if (!project || project.userId !== userId) {
             throw new NotFoundException();
         }
-        await this.projectsRepository.update(id, patch);
-        return { ...project, ...patch };
+        const changes: ProjectPatch = {};
+        for (const field of PATCHABLE_FIELDS) {
+            if (patch[field] !== undefined) {
+                Object.assign(changes, { [field]: patch[field] });
+            }
+        }
+        const kind = changes.kind ?? project.kind;
+        if (kind !== 'trip') {
+            changes.startDate = null;
+        }
+        const startDate = changes.startDate !== undefined ? changes.startDate : project.startDate;
+        const endDate = changes.endDate !== undefined ? changes.endDate : project.endDate;
+        assertValidSpan(kind, startDate, endDate);
+
+        if (Object.keys(changes).length > 0) {
+            await this.projectsRepository.update(id, changes);
+        }
+        return { ...project, ...changes };
     }
 
     async remove(userId: string, id: string): Promise<void> {

@@ -8,6 +8,9 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 
+export const PROJECT_KINDS = ['project', 'trip'] as const;
+export type ProjectKind = (typeof PROJECT_KINDS)[number];
+
 @Entity()
 export class Project {
     @PrimaryGeneratedColumn('uuid')
@@ -28,6 +31,14 @@ export class Project {
 
     @Column({ type: 'double precision' })
     budget: number;
+
+    // A trip is a project with a fixed span: it always has both dates, where
+    // a plain project has no start and may never end.
+    @Column({ type: 'varchar', default: 'project' })
+    kind: ProjectKind;
+
+    @Column({ type: 'varchar', nullable: true })
+    startDate: string | null;
 
     @Column({ type: 'varchar', nullable: true })
     endDate: string | null;
