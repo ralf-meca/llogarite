@@ -116,7 +116,21 @@ export function ProjectDetailScreen({
   }, [load]);
 
   const spent = expenses.reduce((sum, expense) => sum + (expense.data.totalPrice ?? 0), 0);
-  const people = totalsByPerson(expenses, currentUserId);
+  const debtors = totalsByPerson(expenses, currentUserId);
+  // The project's owner heads the list whenever it is shared, owing or not, so
+  // their standing is as visible as everyone else's.
+  const isShared = project.buddyIds.length > 0 || debtors.length > 0;
+  const people = isShared
+    ? [
+        debtors.find((person) => person.userId === project.userId) ?? {
+          userId: project.userId,
+          owed: 0,
+          settled: 0,
+          settleable: 0,
+        },
+        ...debtors.filter((person) => person.userId !== project.userId),
+      ]
+    : [];
 
   const nameFor = (userId: string) => {
     if (userId === currentUserId) {

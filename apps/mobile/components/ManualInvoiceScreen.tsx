@@ -19,7 +19,7 @@ import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { categoryIcon, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
-import { formatAmount, formatAmountInput, needsCents, parseAmountInput } from '../lib/formatAmount';
+import { formatAmount, formatAmountInput, formatAmountLoose, needsCents, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
 import { AMOUNT_EPSILON, buddyTillPayments } from '../lib/invoicePayments';
@@ -273,6 +273,14 @@ export function ManualInvoiceScreen({
     return debt > AMOUNT_EPSILON ? debt : 0;
   };
   const ownerDebt = debtOf(groupShare, OWNER_KEY);
+  // One answer for the whole split card, so its amounts line up: cents on all
+  // of them as soon as any one has some, and on none while they are all whole.
+  const splitShowCents = needsCents([
+    groupShare,
+    ownerDebt,
+    buddiesTotal,
+    ...allBuddyIds.flatMap((id) => [getBuddyShare(id), debtOf(getBuddyShare(id), id)]),
+  ]);
 
   const payerName = (key: string) => {
     if (key === OWNER_KEY) {
@@ -298,13 +306,20 @@ export function ManualInvoiceScreen({
     // The whole bill to begin with; once someone has paid part of it, what
     // is still uncovered.
     const suggested = effectiveSplit ? (effectiveSplit[key] ?? Math.max(0, total - paidByOthers)) : total;
-    setPayerEditor({ key, amount: formatAmount(suggested), isInvalid: false });
+    setPayerEditor({ key, amount: formatAmountLoose(suggested), isInvalid: false });
   };
 
   // One tap makes that person the only payer, two open the amount popup. The
   // single tap waits out the double-tap window so the first half of a double
   // tap does not wipe the amounts already entered.
+  //
+  // Once the bill is split there is no single payer to switch to, so one tap
+  // goes straight to that person's amount.
   const handlePayerPress = (key: string) => {
+    if (effectiveSplit) {
+      openPayerAmount(key);
+      return;
+    }
     const now = Date.now();
     if (payerTapTimer.current) {
       clearTimeout(payerTapTimer.current);
@@ -691,7 +706,7 @@ export function ManualInvoiceScreen({
                   <Text style={styles.buddyName} numberOfLines={1}>
                     {t('manualInvoice.you')}
                   </Text>
-                  <Text style={styles.buddyShareAmount}>{formatAmount(ownerDebt > 0 ? ownerDebt : groupShare)}</Text>
+                  <Text style={styles.buddyShareAmount}>{formatAmount(ownerDebt > 0 ? ownerDebt : groupShare, splitShowCents)}</Text>
                   {ownerDebt === 0 ? (
                     <Text style={[styles.buddyPaidText, styles.buddyPayerText]}>{t('manualInvoice.payer')}</Text>
                   ) : (
@@ -730,7 +745,7 @@ export function ManualInvoiceScreen({
                     <Text style={styles.buddyName} numberOfLines={1}>
                       {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                     </Text>
-                    <Text style={styles.buddyShareAmount}>{formatAmount(buddyDebt > 0 ? buddyDebt : buddyShare)}</Text>
+                    <Text style={styles.buddyShareAmount}>{formatAmount(buddyDebt > 0 ? buddyDebt : buddyShare, splitShowCents)}</Text>
                     {isPayer ? (
                       <Text style={[styles.buddyPaidText, styles.buddyPayerText]}>{t('manualInvoice.payer')}</Text>
                     ) : (
@@ -753,11 +768,11 @@ export function ManualInvoiceScreen({
               <View style={styles.buddiesSummary}>
                 <View style={styles.buddiesSummaryRow}>
                   <Text style={styles.buddiesSummaryLabel}>{t('manualInvoice.buddiesTotal')}</Text>
-                  <Text style={styles.buddiesSummaryValue}>{formatAmount(buddiesTotal)}</Text>
+                  <Text style={styles.buddiesSummaryValue}>{formatAmount(buddiesTotal, splitShowCents)}</Text>
                 </View>
                 <View style={styles.buddiesSummaryRow}>
                   <Text style={styles.buddiesSummaryLabel}>{t('manualInvoice.groupShare')}</Text>
-                  <Text style={styles.buddiesSummaryValue}>{formatAmount(groupShare)}</Text>
+                  <Text style={styles.buddiesSummaryValue}>{formatAmount(groupShare, splitShowCents)}</Text>
                 </View>
               </View>
             )}
@@ -868,6 +883,9 @@ export function ManualInvoiceScreen({
                       0,
                     )
                   : 0;
+                const remaining = Math.max(0, total - paidByOthers);
+                // The three figures sit in a column, so they keep or drop cents together.
+                const popupShowCents = needsCents([total, paidByOthers, remaining]);
                 return (
                   <>
                     <Text style={styles.payerTitle}>
@@ -890,19 +908,19 @@ export function ManualInvoiceScreen({
                     )}
                     <View style={styles.payerInfoRow}>
                       <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountTotal')}</Text>
-                      <Text style={styles.payerInfoValue}>{formatAmount(total)}</Text>
+                      <Text style={styles.payerInfoValue}>{formatAmount(total, popupShowCents)}</Text>
                     </View>
                     {/* Once someone else has paid part of it, what is left to cover. */}
                     {paidByOthers > AMOUNT_EPSILON && (
                       <>
                         <View style={styles.payerInfoRow}>
                           <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountOthers')}</Text>
-                          <Text style={styles.payerInfoValue}>{formatAmount(paidByOthers)}</Text>
+                          <Text style={styles.payerInfoValue}>{formatAmount(paidByOthers, popupShowCents)}</Text>
                         </View>
                         <View style={styles.payerInfoRow}>
                           <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountRemaining')}</Text>
                           <Text style={[styles.payerInfoValue, styles.payerRemainingValue]}>
-                            {formatAmount(Math.max(0, total - paidByOthers))}
+                            {formatAmount(remaining, popupShowCents)}
                           </Text>
                         </View>
                       </>
