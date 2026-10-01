@@ -107,11 +107,15 @@ export class ProjectsService {
 
     // Projects you created, plus the ones you have been attached to - a buddy
     // on a trip needs to see it to file expenses against it.
+    //
+    // The buddy check takes its own parameter, cast to text: `userId` is a
+    // uuid column and `buddyIds` a text array, and one shared parameter cannot
+    // be both - Postgres rejects it with "operator does not exist: uuid = text".
     findAll(userId: string): Promise<Project[]> {
         return this.projectsRepository
             .createQueryBuilder('project')
             .where('project.userId = :userId', { userId })
-            .orWhere(':userId = ANY(project.buddyIds)', { userId })
+            .orWhere('CAST(:buddyId AS text) = ANY(project.buddyIds)', { buddyId: userId })
             .orderBy('project.createdAt', 'DESC')
             .getMany();
     }
