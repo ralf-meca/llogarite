@@ -86,10 +86,13 @@ export class ProjectsService {
         }));
     }
 
-    // Settles shares on the caller's own invoices in this project - one buddy's
-    // when a buddy is named, everyone's otherwise. Only their own invoices:
-    // marking a share paid is the payer saying they were paid, and nobody else
-    // is in a position to say it for them.
+    // Settles shares on the caller's own invoices in this project - one person's
+    // when someone is named, everyone's otherwise. Only their own invoices: the
+    // owner keeps the record of what was repaid on a receipt they entered.
+    //
+    // When a buddy paid the bill (data.paidBy), that buddy owes nothing and the
+    // owner owes them instead; naming the caller settles that share
+    // (data.ownerPaid).
     async markOwnExpensesPaid(userId: string, id: string, buddyId?: string): Promise<void> {
         await this.findViewable(id, userId);
 
@@ -98,14 +101,22 @@ export class ProjectsService {
             const buddies = Array.isArray(invoice.data.buddies)
                 ? (invoice.data.buddies as Array<Record<string, unknown>>)
                 : [];
+            const payerId = typeof invoice.data.paidBy === 'string' && invoice.data.paidBy ? invoice.data.paidBy : null;
             const settles = (buddy: Record<string, unknown>) =>
-                buddy.paid !== true && (buddyId === undefined || buddy.userId === buddyId);
-            if (!buddies.some(settles)) {
+                buddy.paid !== true &&
+                buddy.userId !== payerId &&
+                (buddyId === undefined || buddy.userId === buddyId);
+            const settlesOwner =
+                payerId !== null &&
+                invoice.data.ownerPaid !== true &&
+                (buddyId === undefined || buddyId === userId);
+            if (!settlesOwner && !buddies.some(settles)) {
                 continue;
             }
             const data = {
                 ...invoice.data,
                 buddies: buddies.map((buddy) => (settles(buddy) ? { ...buddy, paid: true } : buddy)),
+                ...(settlesOwner ? { ownerPaid: true } : {}),
             };
             await this.invoicesRepository.update(invoice.id, { data });
         }
