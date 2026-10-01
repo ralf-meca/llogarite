@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './apiConfig';
+import type { Currency } from './currency';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { InvoiceVerificationResult } from './invoiceApi';
@@ -16,6 +17,9 @@ export type Project = {
   // A trip always has both dates; a plain project has no start and may have
   // no end either.
   kind: ProjectKind;
+  // What the budget is counted in and what the project's own screens show.
+  // A new invoice filed against the project starts out in it too.
+  currency: Currency;
   startDate: string | null;
   endDate: string | null;
   buddyIds: string[];
@@ -44,6 +48,7 @@ export type ProjectInput = {
   details: string | null;
   budget: number;
   kind: ProjectKind;
+  currency: Currency;
   startDate: string | null;
   endDate: string | null;
   buddyIds: string[];

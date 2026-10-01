@@ -33,6 +33,7 @@ import { PlansScreen } from "./components/PlansScreen";
 import { ProductDetailScreen } from "./components/ProductDetailScreen";
 import { ProductsScreen } from "./components/ProductsScreen";
 import { ProjectDetailScreen } from "./components/ProjectDetailScreen";
+import { ProjectFormScreen } from "./components/ProjectFormScreen";
 import { ProjectsScreen } from "./components/ProjectsScreen";
 import { QrScannerModal } from "./components/QrScannerModal";
 import { ReceiptScannerModal } from "./components/ReceiptScannerModal";
@@ -96,7 +97,8 @@ type Screen =
     | "productDetail"
     | "buddyDetail"
     | "plans"
-    | "projectDetail";
+    | "projectDetail"
+    | "projectForm";
 
 const MAIN_SCREENS = new Set<Screen>([
     "dashboard",
@@ -158,6 +160,10 @@ function AppContent() {
     // screens compare across people now, which is the point of reviewing them.
     const [sharedPrices, setSharedPrices] = useState<PricedInvoice[]>([]);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    // The project open in the form screen; null there means a new one.
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
+    // Where the form screen was opened from, and so where leaving it leads.
+    const [projectFormReturn, setProjectFormReturn] = useState<"projects" | "projectDetail">("projects");
     // The trip under way today, looked up when the app opens. New invoices are
     // filed against it by default.
     const [activeTrip, setActiveTrip] = useState<Project | null>(null);
@@ -694,6 +700,9 @@ function AppContent() {
             case "projectDetail":
                 setScreen("projects");
                 return true;
+            case "projectForm":
+                setScreen(projectFormReturn);
+                return true;
             case "plans":
                 setScreen("dashboard");
                 return true;
@@ -954,6 +963,16 @@ function AppContent() {
                                     setSelectedProject(project);
                                     setScreen("projectDetail");
                                 }}
+                                onAddProject={() => {
+                                    setEditingProject(null);
+                                    setProjectFormReturn("projects");
+                                    setScreen("projectForm");
+                                }}
+                                onEditProject={(project) => {
+                                    setEditingProject(project);
+                                    setProjectFormReturn("projects");
+                                    setScreen("projectForm");
+                                }}
                             />
                         ) : screen === "review" ? (
                             <InvoiceReviewScreen />
@@ -1015,6 +1034,7 @@ function AppContent() {
                     isSaving={isSaving}
                     isPremium={Boolean(user?.isPremium)}
                     activeTrip={activeTrip}
+                    lockCurrency={Boolean(scannedVerifiedData)}
                     currentUser={user}
                     onClose={handleManualClose}
                     onBack={handleCloseDetail}
@@ -1038,19 +1058,44 @@ function AppContent() {
                         onBack={() => setScreen(productDetailReturnScreen)}
                     />
                 )
+            ) : screen === "projectForm" ? (
+                <ProjectFormScreen
+                    project={editingProject}
+                    onClose={() => setScreen(projectFormReturn)}
+                    onDone={(saved) => {
+                        // A trip may have been added, moved or removed, which
+                        // changes what new invoices default to.
+                        loadActiveTrip();
+                        // Back to the project it was opened from, as it now
+                        // stands - or to the list, when it no longer exists.
+                        if (saved && projectFormReturn === "projectDetail") {
+                            setSelectedProject(saved);
+                            setScreen("projectDetail");
+                        } else {
+                            setScreen("projects");
+                        }
+                    }}
+                />
             ) : screen === "projectDetail" ? (
                 selectedProject && (
                     <ProjectDetailScreen
                         project={selectedProject}
                         currentUserId={user?.id ?? ""}
                         currentUser={user}
+                        onInvoicesChanged={loadSavedInvoices}
                         onBack={() => setScreen("projects")}
+                        onEdit={() => {
+                            setEditingProject(selectedProject);
+                            setProjectFormReturn("projectDetail");
+                            setScreen("projectForm");
+                        }}
                         onSelectExpense={(expense) => {
-                            // Your own opens as it does from the saved list. The
-                            // expense itself stands in when that list has not
-                            // caught up yet, or when it is a buddy's - theirs
-                            // opens read-only, since it belongs to them.
-                            const invoice = savedInvoices.find((candidate) => candidate.id === expense.id) ?? {
+                            // Opened from the expense the project just fetched, not
+                            // from the saved list: that copy is only as fresh as
+                            // its last load, and showed a share as unpaid right
+                            // after it was settled here. A buddy's opens read-only,
+                            // since it belongs to them.
+                            const invoice = {
                                 id: expense.id,
                                 iic: expense.data.iic,
                                 data: expense.data,

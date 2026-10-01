@@ -1,8 +1,9 @@
-import { FolderIcon, CheckCircleIcon, CircleIcon, HandCoinsIcon } from 'phosphor-react-native';
+import { AirplaneTiltIcon, FolderIcon, CheckCircleIcon, CircleIcon, HandCoinsIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { categoryPlaceKey } from '../lib/categories';
+import { CURRENCY_SYMBOL, formatMoney, formatRate, invoiceCurrency, invoiceRate } from '../lib/currency';
 import { dominantCategoryOfItems } from '../lib/categorySpending';
 import { toDateLabel } from '../lib/date';
 import { formatAmount, needsCents } from '../lib/formatAmount';
@@ -44,6 +45,7 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
   }, [result.projectId, result.buddies]);
 
   const project = result.projectId ? (projects.find((candidate) => candidate.id === result.projectId) ?? null) : null;
+  const ProjectIcon = project?.kind === 'trip' ? AirplaneTiltIcon : FolderIcon;
 
   const invoiceBuddies = result.buddies ?? [];
   // Who paid what at the till, and what that leaves each person owing.
@@ -59,9 +61,17 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
       .filter((buddy) => debts.buddies[buddy.userId].paidAtTill > AMOUNT_EPSILON)
       .map((buddy) => ({ name: buddyName(buddy.userId), amount: debts.buddies[buddy.userId].paidAtTill })),
   ];
+  // The receipt reads in the currency it was written in. Stored amounts are in
+  // lek, so each one goes back through the invoice's own rate.
+  const currency = invoiceCurrency(result);
+  const rate = invoiceRate(result);
+  const asWritten = (amountInLek: number) => amountInLek / rate;
   const showCents = needsCents([
-    result.totalPrice,
-    ...result.items.flatMap((item) => [item.unitPriceAfterVat, item.unitPriceAfterVat * item.quantity]),
+    asWritten(result.totalPrice),
+    ...result.items.flatMap((item) => [
+      asWritten(item.unitPriceAfterVat),
+      asWritten(item.unitPriceAfterVat * item.quantity),
+    ]),
   ]);
   const hasPerRowSplit =
     invoiceBuddies.length > 0 &&
@@ -82,7 +92,8 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
 
       {project && (
         <View style={styles.metaRow}>
-          <FolderIcon size={14} color="#6b7280" />
+          {/* The same mark the project wears on its own card. */}
+          <ProjectIcon size={14} color="#6b7280" />
           <Text style={styles.metaText}>{project.name}</Text>
         </View>
       )}
@@ -96,7 +107,7 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
               name:
                 payers.length === 1
                   ? payers[0].name
-                  : payers.map((payer) => `${payer.name} ${formatAmount(payer.amount)}`).join(', '),
+                  : payers.map((payer) => `${payer.name} ${formatMoney(asWritten(payer.amount), currency)}`).join(', '),
             })}
           </Text>
         </View>
@@ -124,7 +135,7 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
                 {ownerName}
               </Text>
               <Text style={styles.buddyShare}>
-                {formatAmount(debts.owner.debt > 0 ? debts.owner.debt : debts.owner.share)}
+                {formatMoney(asWritten(debts.owner.debt > 0 ? debts.owner.debt : debts.owner.share), currency, true)}
               </Text>
               {debts.owner.debt === 0 ? (
                 <HandCoinsIcon size={16} color={colors.primary} />
@@ -148,7 +159,7 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
                 <Text style={styles.buddyName} numberOfLines={1}>
                   {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                 </Text>
-                <Text style={styles.buddyShare}>{formatAmount(share)}</Text>
+                <Text style={styles.buddyShare}>{formatMoney(asWritten(share), currency, true)}</Text>
                 {coveredAtTill ? (
                   <HandCoinsIcon size={16} color={colors.primary} />
                 ) : buddy.paid ? (
@@ -184,10 +195,10 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
             <Text style={[styles.cell, styles.nameColumn]}>{item.name}</Text>
             <Text style={[styles.cell, styles.qtyColumn]}>{item.quantity}</Text>
             <Text style={[styles.cell, styles.priceColumn]}>
-              {formatAmount(item.unitPriceAfterVat, showCents)}
+              {formatAmount(asWritten(item.unitPriceAfterVat), showCents)}
             </Text>
             <Text style={[styles.cell, styles.priceColumn]}>
-              {formatAmount(item.unitPriceAfterVat * item.quantity, showCents)}
+              {formatAmount(asWritten(item.unitPriceAfterVat * item.quantity), showCents)}
             </Text>
             {hasPerRowSplit && (
               <View style={styles.splitColumn}>
@@ -200,8 +211,19 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
 
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>{t('invoiceReceipt.total')}</Text>
-        <Text style={styles.totalValue}>{formatAmount(result.totalPrice, showCents)}</Text>
+        <Text style={styles.totalValue}>{formatMoney(asWritten(result.totalPrice), currency, showCents)}</Text>
       </View>
+      {/* What it came to in lek, which is what every total elsewhere counts. */}
+      {currency !== 'ALL' && (
+        <View style={styles.convertedRow}>
+          <Text style={styles.convertedText}>
+            {t('invoiceReceipt.rate', { symbol: CURRENCY_SYMBOL[currency], rate: formatRate(rate) })}
+          </Text>
+          <Text style={styles.convertedText}>
+            = {formatAmount(result.totalPrice, needsCents([result.totalPrice]))} {CURRENCY_SYMBOL.ALL}
+          </Text>
+        </View>
+      )}
     </GlassView>
   );
 }
@@ -327,5 +349,14 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  convertedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  convertedText: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });

@@ -11,13 +11,23 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { categoryIcon, suggestCategory } from '../lib/categories';
+import {
+  CURRENCIES,
+  CURRENCY_SYMBOL,
+  formatMoney,
+  formatRate,
+  invoiceCurrency,
+  invoiceRate,
+  type Currency,
+} from '../lib/currency';
+import { fetchEurRates } from '../lib/exchangeRatesApi';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, formatAmountLoose, needsCents, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
@@ -43,6 +53,9 @@ type ManualInvoiceScreenProps = {
   // The trip under way today, if any. A new invoice starts out filed against
   // it, with its buddies; an invoice being edited keeps what it already has.
   activeTrip?: Project | null;
+  // Set for an invoice read from a fiscal QR code: those are issued in lek, so
+  // the currency is not offered and a project's currency does not apply.
+  lockCurrency?: boolean;
   // The signed-in user, for their own circle in the "paid by" row.
   currentUser?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   onClose: () => void;
@@ -59,23 +72,32 @@ const DOUBLE_TAP_MS = 300;
 
 // How the bill was paid when the form opens. Usually one person paid all of
 // it; `split` is set only when the till took money from more than one.
-function initialPayers(data: InvoiceVerificationResult | undefined): {
+//
+// Stored amounts are in lek; `rate` brings them back to the currency the form
+// is being filled in.
+function initialPayers(
+  data: InvoiceVerificationResult | undefined,
+  rate: number,
+): {
   sole: string;
   split: Record<string, number> | null;
 } {
   if (!data) {
     return { sole: OWNER_KEY, split: null };
   }
-  const payments = buddyTillPayments(data);
+  const payments = Object.fromEntries(
+    Object.entries(buddyTillPayments(data)).map(([buddyId, amount]) => [buddyId, amount / rate]),
+  );
   const payers = Object.entries(payments);
   if (payers.length === 0) {
     return { sole: OWNER_KEY, split: null };
   }
   const paidByBuddies = payers.reduce((sum, [, amount]) => sum + amount, 0);
-  if (payers.length === 1 && paidByBuddies >= data.totalPrice - AMOUNT_EPSILON) {
+  const totalPrice = data.totalPrice / rate;
+  if (payers.length === 1 && paidByBuddies >= totalPrice - AMOUNT_EPSILON) {
     return { sole: payers[0][0], split: null };
   }
-  const ownerPart = data.totalPrice - paidByBuddies;
+  const ownerPart = totalPrice - paidByBuddies;
   return {
     sole: OWNER_KEY,
     split: ownerPart > AMOUNT_EPSILON ? { ...payments, [OWNER_KEY]: ownerPart } : payments,
@@ -93,11 +115,12 @@ type ItemDraft = ItemEditorValue & {
 // Which row the item screen is open on, or that it is about to add one.
 type EditorTarget = { mode: 'new' } | { mode: 'edit'; index: number };
 
-function toItemDrafts(items: InvoiceItem[]): ItemDraft[] {
+// Prices are stored in lek; `rate` turns them back into what was typed.
+function toItemDrafts(items: InvoiceItem[], rate: number): ItemDraft[] {
   return items.map((item) => ({
     name: item.name,
     quantity: String(item.quantity),
-    unitPrice: formatAmount(item.unitPriceAfterVat),
+    unitPrice: formatAmount(item.unitPriceAfterVat / rate),
     category: item.category ?? suggestCategory(item.name),
     categoryTouched: Boolean(item.category),
     buddyQuantities: item.buddyQuantities ?? {},
@@ -152,6 +175,7 @@ export function ManualInvoiceScreen({
   isSaving,
   isPremium,
   activeTrip,
+  lockCurrency,
   currentUser,
   onClose,
   onBack,
@@ -164,8 +188,11 @@ export function ManualInvoiceScreen({
   const [dateLabel, setDateLabel] = useState(
     initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
   );
+  // Lek per unit of the currency the invoice was saved in; the stored amounts
+  // are divided by it on the way into the form. A prefilled scan is in lek.
+  const loadRate = isEditing && initialData ? invoiceRate(initialData) : 1;
   const [items, setItems] = useState<ItemDraft[]>(
-    initialData && initialData.items.length > 0 ? toItemDrafts(initialData.items) : [],
+    initialData && initialData.items.length > 0 ? toItemDrafts(initialData.items, loadRate) : [],
   );
   // An invoice that opens with no items has nothing to look at yet, so it goes
   // straight to the item screen. Only on mount: emptying the table by removing
@@ -174,6 +201,27 @@ export function ManualInvoiceScreen({
     initialData && initialData.items.length > 0 ? null : { mode: 'new' },
   );
   const defaultTrip = isEditing ? null : (activeTrip ?? null);
+  // A verified invoice came from a fiscal QR code, whenever it is opened.
+  const isCurrencyLocked = Boolean(lockCurrency) || initialData?.verified === true;
+  // The form is filled in the invoice's own currency throughout - prices,
+  // shares, who paid what - and turned into lek only on the way out. An
+  // invoice being edited keeps its currency; a new one takes the trip's.
+  const [currency, setCurrency] = useState<Currency>(() =>
+    isEditing && initialData
+      ? invoiceCurrency(initialData)
+      : isCurrencyLocked
+        ? 'ALL'
+        : (defaultTrip?.currency ?? 'ALL'),
+  );
+  // Lek per unit, as typed. A saved invoice keeps the rate it was converted
+  // at; otherwise the day's rate is fetched until the user types their own.
+  const [rateInput, setRateInput] = useState(() =>
+    isEditing && initialData && invoiceCurrency(initialData) !== 'ALL' ? formatRate(invoiceRate(initialData)) : '',
+  );
+  const [isRateTouched, setIsRateTouched] = useState(
+    () => Boolean(isEditing && initialData) && invoiceCurrency(initialData as InvoiceVerificationResult) !== 'ALL',
+  );
+  const [rateStatus, setRateStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? defaultTrip?.id ?? null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(
@@ -184,9 +232,9 @@ export function ManualInvoiceScreen({
   // Who paid at the till. One person covering the whole bill is `solePayer`,
   // which follows the total as items change; `splitPayments` takes over with
   // fixed amounts once the bill was paid by more than one person.
-  const [solePayer, setSolePayer] = useState<string>(() => initialPayers(initialData).sole);
+  const [solePayer, setSolePayer] = useState<string>(() => initialPayers(initialData, loadRate).sole);
   const [splitPayments, setSplitPayments] = useState<Record<string, number> | null>(
-    () => initialPayers(initialData).split,
+    () => initialPayers(initialData, loadRate).split,
   );
   // The amount popup, opened by double-tapping a person.
   const [payerEditor, setPayerEditor] = useState<{ key: string; amount: string; isInvalid: boolean } | null>(null);
@@ -220,6 +268,40 @@ export function ManualInvoiceScreen({
       .then(setBuddies)
       .catch(() => setBuddies([]));
   }, []);
+
+  // The rate follows the invoice's date - the day's rate for a receipt
+  // entered a week late is the one from a week ago - until it is typed over.
+  const rateDate = parseDateLabel(dateLabel);
+  const rateDay = rateDate ? toLocalIsoString(rateDate).slice(0, 10) : null;
+  useEffect(() => {
+    if (currency === 'ALL' || isRateTouched || !rateDay) {
+      return;
+    }
+    let isCurrent = true;
+    setRateStatus('loading');
+    fetchEurRates([rateDay])
+      .then((rates) => {
+        if (!isCurrent) {
+          return;
+        }
+        const fetched = rates[rateDay];
+        setRateStatus(fetched ? 'idle' : 'failed');
+        if (fetched) {
+          setRateInput(formatRate(fetched));
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setRateStatus('failed');
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [currency, isRateTouched, rateDay]);
+
+  const parsedRate = parseAmountInput(rateInput);
+  const rate = currency === 'ALL' ? 1 : Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : null;
 
   const total = items.reduce((sum, item) => {
     const price = parseAmountInput(item.unitPrice);
@@ -437,9 +519,26 @@ export function ManualInvoiceScreen({
     setSelectedBuddies((current) => current.map((buddy) => (buddy.userId === buddyId ? { ...buddy, paid } : buddy)));
   };
 
+  const changeCurrency = (next: Currency) => {
+    if (next === currency) {
+      return;
+    }
+    // The figures stay as typed and are read in the new currency: 25 becomes
+    // 25 euros, not 25 lek converted. The rate starts over from the day's.
+    setCurrency(next);
+    setRateInput('');
+    setIsRateTouched(false);
+    setRateStatus('idle');
+  };
+
   const handleProjectChange = (newProjectId: string | null) => {
     setProjectId(newProjectId);
     const project = projects.find((candidate) => candidate.id === newProjectId);
+    // The project's currency is where a new invoice starts. One already saved
+    // was written in what it was written in, whichever project it moves to.
+    if (project && !isEditing && !isCurrencyLocked) {
+      changeCurrency(project.currency ?? 'ALL');
+    }
     if (!project || project.buddyIds.length === 0) {
       return;
     }
@@ -505,6 +604,12 @@ export function ManualInvoiceScreen({
       return;
     }
 
+    if (rate === null) {
+      showError(t('manualInvoice.rateRequired'));
+      return;
+    }
+
+    // Typed in the invoice's currency, stored in lek.
     const parsedItems: InvoiceItem[] = [];
     for (const item of items) {
       const quantity = Number(item.quantity);
@@ -516,8 +621,8 @@ export function ManualInvoiceScreen({
       parsedItems.push({
         name: item.name.trim(),
         quantity,
-        unitPriceBeforeVat: unitPrice,
-        unitPriceAfterVat: unitPrice,
+        unitPriceBeforeVat: unitPrice * rate,
+        unitPriceAfterVat: unitPrice * rate,
         category: item.category,
         buddyQuantities: item.buddyQuantities,
       });
@@ -528,7 +633,7 @@ export function ManualInvoiceScreen({
       if (Math.abs(uncovered) > AMOUNT_EPSILON) {
         showError(
           t(uncovered > 0 ? 'manualInvoice.paymentsShort' : 'manualInvoice.paymentsOver', {
-            amount: formatAmount(Math.abs(uncovered)),
+            amount: formatMoney(Math.abs(uncovered), currency),
           }),
         );
         return;
@@ -543,7 +648,11 @@ export function ManualInvoiceScreen({
       items: parsedItems,
       projectId,
       buddies: selectedBuddies,
-      payments: othersPaid ? buddyPayments : null,
+      currency: currency === 'ALL' ? null : currency,
+      exchangeRate: currency === 'ALL' ? null : rate,
+      payments: othersPaid
+        ? Object.fromEntries(Object.entries(buddyPayments).map(([buddyId, amount]) => [buddyId, amount * rate]))
+        : null,
       paidBy: null,
       ownerPaid: othersPaid && ownerPaid,
     });
@@ -850,9 +959,66 @@ export function ManualInvoiceScreen({
 
           {items.length > 0 && <Text style={styles.tapToEdit}>{t('manualInvoice.tapToEdit')}</Text>}
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t('manualInvoice.total')}</Text>
-            <Text style={styles.totalValue}>{formatAmount(total, showCents)}</Text>
+          <View style={styles.totalBox}>
+            <View style={styles.totalRow}>
+              <View style={styles.totalLead}>
+                <Text style={styles.totalLabel}>{t('manualInvoice.total')}</Text>
+                {!isCurrencyLocked && (
+                  <View style={styles.currencySwitch}>
+                    {CURRENCIES.map((option) => {
+                      const isSelected = currency === option;
+                      return (
+                        <Pressable
+                          key={option}
+                          style={[styles.currencyOption, isSelected && styles.currencyOptionSelected]}
+                          onPress={() => changeCurrency(option)}
+                          hitSlop={4}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                        >
+                          <Text style={[styles.currencyText, isSelected && styles.currencyTextSelected]}>
+                            {CURRENCY_SYMBOL[option]}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+              <Text style={styles.totalValue}>{formatMoney(total, currency, showCents)}</Text>
+            </View>
+            {/* What it comes to in lek, and the rate that says so - the day's
+                unless typed over. */}
+            {currency !== 'ALL' && (
+              <View style={styles.totalConversionRow}>
+                <View style={styles.rateEditor}>
+                  <Text style={styles.rateText}>
+                    {t('manualInvoice.rateLabel', { symbol: CURRENCY_SYMBOL[currency] })}
+                  </Text>
+                  <TextInput
+                    style={styles.rateInput}
+                    value={rateInput}
+                    onChangeText={(value) => {
+                      setIsRateTouched(true);
+                      setRateStatus('idle');
+                      setRateInput(formatAmountInput(value));
+                    }}
+                    keyboardType="numeric"
+                    selectTextOnFocus
+                    placeholder="0"
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                  />
+                  <Text style={styles.rateText}>{CURRENCY_SYMBOL.ALL}</Text>
+                </View>
+                <Text style={styles.totalConverted} numberOfLines={1}>
+                  {rate !== null
+                    ? `= ${formatAmount(total * rate, needsCents([total * rate]))} ${CURRENCY_SYMBOL.ALL}`
+                    : rateStatus === 'loading'
+                      ? t('manualInvoice.rateLoading')
+                      : t('manualInvoice.rateUnavailable')}
+                </Text>
+              </View>
+            )}
           </View>
         </GlassView>
       </KeyboardAwareScrollView>
@@ -1371,15 +1537,84 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  totalBox: {
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: colors.primary,
+    gap: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  totalLead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  currencySwitch: {
+    flexDirection: 'row',
+    padding: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  currencyOption: {
+    minWidth: 30,
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+  },
+  currencyOptionSelected: {
+    backgroundColor: colors.white,
+  },
+  currencyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  currencyTextSelected: {
+    color: colors.primary,
+  },
+  totalConversionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.25)',
+  },
+  rateEditor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.white,
+    opacity: 0.85,
+  },
+  rateInput: {
+    minWidth: 58,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: colors.white,
+  },
+  totalConverted: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.white,
   },
   totalLabel: {
     fontSize: 10,

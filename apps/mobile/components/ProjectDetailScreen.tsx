@@ -1,10 +1,13 @@
-import { ArrowLeftIcon, CheckCircleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CheckCircleIcon, PencilSimpleIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
+import { CURRENCY_SYMBOL, datesNeedingRates, formatMoney, moneyConverter, type RateBook } from '../lib/currency';
+import { fetchEurRates } from '../lib/exchangeRatesApi';
 import { toDateLabel } from '../lib/date';
 import { formatAmountLoose } from '../lib/formatAmount';
+import type { InvoiceVerificationResult } from '../lib/invoiceApi';
 import { useTranslation } from '../lib/i18n';
 import { AMOUNT_EPSILON, invoiceDebts } from '../lib/invoicePayments';
 import {
@@ -24,6 +27,11 @@ type ProjectDetailScreenProps = {
   // The signed-in user, for their own row when they owe a buddy who paid.
   currentUser?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   onBack: () => void;
+  // Called after shares are settled here, which changes invoices the rest of
+  // the app holds its own copies of.
+  onInvoicesChanged?: () => void;
+  // Opens the project's form. Only offered to its owner.
+  onEdit?: () => void;
   onSelectExpense?: (expense: ProjectExpense) => void;
 };
 
@@ -39,7 +47,14 @@ type PersonTotal = {
 // What each person still owes across the whole project, and what they have
 // already covered. Computed from the same row-level split the invoice detail
 // uses, so a trip's totals and a single receipt's never disagree.
-function totalsByPerson(expenses: ProjectExpense[], viewerId: string): PersonTotal[] {
+//
+// Debts are worked out in lek, as stored, and `convert` brings each one into
+// the currency the project is shown in before they are added up.
+function totalsByPerson(
+  expenses: ProjectExpense[],
+  viewerId: string,
+  convert: (amountInLek: number, invoice: InvoiceVerificationResult) => number,
+): PersonTotal[] {
   const byPerson = new Map<string, PersonTotal>();
 
   for (const expense of expenses) {
@@ -66,11 +81,11 @@ function totalsByPerson(expenses: ProjectExpense[], viewerId: string): PersonTot
     for (const buddy of buddies) {
       const debt = debts.buddies[buddy.userId].debt;
       if (debt > 0) {
-        add(buddy.userId, debt, buddy.paid);
+        add(buddy.userId, convert(debt, expense.data), buddy.paid);
       }
     }
     if (debts.owner.debt > 0) {
-      add(expense.ownerId, debts.owner.debt, expense.data.ownerPaid === true);
+      add(expense.ownerId, convert(debts.owner.debt, expense.data), expense.data.ownerPaid === true);
     }
   }
 
@@ -82,11 +97,16 @@ export function ProjectDetailScreen({
   currentUserId,
   currentUser,
   onBack,
+  onInvoicesChanged,
+  onEdit,
   onSelectExpense,
 }: ProjectDetailScreenProps) {
   const { t } = useTranslation();
   const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
+  // Lek per euro for the days of expenses written in lek, when the project
+  // itself is counted in euros.
+  const [rates, setRates] = useState<RateBook>({});
   const [isLoading, setIsLoading] = useState(true);
   // The buddy whose shares are being settled right now, if any.
   const [settlingId, setSettlingId] = useState<string | null>(null);
@@ -97,7 +117,13 @@ export function ProjectDetailScreen({
   const load = useCallback(() => {
     setIsLoading(true);
     fetchProjectExpenses(project.id)
-      .then((result) => {
+      .then(async (result) => {
+        // Fetched before anything is shown, so the list does not appear in lek
+        // and then change under the reader. A failure only costs precision:
+        // the converter falls back on the rates it does have.
+        const wanted = project.currency === 'EUR' ? datesNeedingRates(result.map((expense) => expense.data)) : [];
+        const fetched = wanted.length > 0 ? await fetchEurRates(wanted).catch(() => ({})) : {};
+        setRates(fetched);
         setExpenses(result);
         setIsLoading(false);
       })
@@ -106,7 +132,7 @@ export function ProjectDetailScreen({
         setIsLoading(false);
         showError(error.message);
       });
-  }, [project.id, showError]);
+  }, [project.id, project.currency, showError]);
 
   useEffect(() => {
     load();
@@ -115,8 +141,21 @@ export function ProjectDetailScreen({
       .catch(() => setBuddies([]));
   }, [load]);
 
-  const spent = expenses.reduce((sum, expense) => sum + (expense.data.totalPrice ?? 0), 0);
-  const debtors = totalsByPerson(expenses, currentUserId);
+  // Everything on this screen is shown in the project's currency.
+  const projectCurrency = project.currency ?? 'ALL';
+  const money = moneyConverter(
+    projectCurrency,
+    expenses.map((expense) => expense.data),
+    rates,
+  );
+  // Marked ALL when a euro project had no rate to convert with, so a
+  // lek figure is never mistaken for euros.
+  const formatProjectMoney = (amount: number) =>
+    money.currency === 'ALL' && projectCurrency !== 'ALL'
+      ? `${formatAmountLoose(amount)} ${CURRENCY_SYMBOL.ALL}`
+      : formatMoney(amount, money.currency);
+  const spent = expenses.reduce((sum, expense) => sum + money.convert(expense.data.totalPrice ?? 0, expense.data), 0);
+  const debtors = totalsByPerson(expenses, currentUserId, money.convert);
   // The project's owner heads the list whenever it is shared, owing or not, so
   // their standing is as visible as everyone else's.
   const isShared = project.buddyIds.length > 0 || debtors.length > 0;
@@ -167,10 +206,10 @@ export function ProjectDetailScreen({
     Alert.alert(
       t('projectDetail.confirmMarkPaidTitle'),
       person.userId === currentUserId
-        ? t('projectDetail.confirmMarkPaidSelf', { amount: formatAmountLoose(person.settleable) })
+        ? t('projectDetail.confirmMarkPaidSelf', { amount: formatProjectMoney(person.settleable) })
         : t('projectDetail.confirmMarkPaidMessage', {
             name: nameFor(person.userId),
-            amount: formatAmountLoose(person.settleable),
+            amount: formatProjectMoney(person.settleable),
           }),
       [
         { text: t('common.cancel'), style: 'cancel' },
@@ -183,6 +222,7 @@ export function ProjectDetailScreen({
                 setSettlingId(null);
                 showSuccess(t('projectDetail.settled'));
                 load();
+                onInvoicesChanged?.();
               })
               .catch((error: Error) => {
                 setSettlingId(null);
@@ -203,6 +243,11 @@ export function ProjectDetailScreen({
         <Text style={styles.title} numberOfLines={1}>
           {project.name}
         </Text>
+        {isOwner && onEdit && (
+          <Pressable style={styles.backButton} onPress={onEdit} hitSlop={12}>
+            <PencilSimpleIcon size={20} color={colors.primary} />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -211,11 +256,11 @@ export function ProjectDetailScreen({
 
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{t('projects.budget')}</Text>
-            <Text style={styles.metaValue}>{formatAmountLoose(project.budget)}</Text>
+            <Text style={styles.metaValue}>{formatMoney(project.budget, projectCurrency)}</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{t('projects.expenses')}</Text>
-            <Text style={styles.metaValue}>{formatAmountLoose(spent)}</Text>
+            <Text style={styles.metaValue}>{formatProjectMoney(spent)}</Text>
           </View>
           {project.kind === 'trip' && project.startDate && project.endDate ? (
             <View style={styles.metaRow}>
@@ -243,8 +288,8 @@ export function ProjectDetailScreen({
                   {nameFor(person.userId)}
                 </Text>
                 {person.owed > 0 ? (
-                  <>
-                    <Text style={styles.personOwed}>{formatAmountLoose(person.owed)}</Text>
+                  <View style={styles.personOwedColumn}>
+                    <Text style={styles.personOwed}>{formatProjectMoney(person.owed)}</Text>
                     {/* Only shares on your own expenses are yours to settle. */}
                     {isOwner && person.settleable > 0 && (
                       <Pressable
@@ -258,7 +303,7 @@ export function ProjectDetailScreen({
                         </Text>
                       </Pressable>
                     )}
-                  </>
+                  </View>
                 ) : (
                   <View style={styles.personSettled}>
                     <CheckCircleIcon size={16} weight="fill" color="#059669" />
@@ -294,7 +339,9 @@ export function ProjectDetailScreen({
                     {payerLabel(expense)}
                   </Text>
                 </View>
-                <Text style={styles.expenseAmount}>{formatAmountLoose(expense.data.totalPrice)}</Text>
+                <Text style={styles.expenseAmount}>
+                  {formatProjectMoney(money.convert(expense.data.totalPrice, expense.data))}
+                </Text>
               </Pressable>
             ))
           )}
@@ -383,6 +430,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textDark,
+  },
+  // The amount, with the button that settles it underneath.
+  personOwedColumn: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
   personOwed: {
     fontSize: 14,

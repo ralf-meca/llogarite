@@ -1,3 +1,4 @@
+import type { Currency } from './currency';
 import { apiFetch, describeHttpError } from './http';
 
 const VERIFY_INVOICE_URL = 'https://efiskalizimi-app.tatime.gov.al/invoice-check/api/verifyInvoice';
@@ -63,6 +64,11 @@ export type InvoiceVerificationResult = {
   items: InvoiceItem[];
   projectId?: string | null;
   verified?: boolean;
+  // The currency the receipt was written in, and how many lek one unit of it
+  // was worth. Every amount on the invoice is stored in lek regardless; these
+  // two are what turn it back into the figures on the receipt. Unset is lek.
+  currency?: Currency | null;
+  exchangeRate?: number | null;
   buddies?: InvoiceBuddy[];
   // What each buddy paid at the till, by user id. The owner's part is whatever
   // is left of the total, so with nothing here the owner paid it all. Anyone

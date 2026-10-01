@@ -1,32 +1,15 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import {
-  AirplaneTiltIcon,
-  CalendarIcon,
-  FolderIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  XCircleIcon,
-} from 'phosphor-react-native';
+import { AirplaneTiltIcon, FolderIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
-import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
-import { toDateLabel, toLocalIsoString } from '../lib/date';
-import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { CURRENCY_SYMBOL, datesNeedingRates, formatMoney, moneyConverter, type RateBook } from '../lib/currency';
+import { fetchEurRates } from '../lib/exchangeRatesApi';
+import { toDateLabel } from '../lib/date';
+import { formatAmount } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import {
-  createProject,
-  deleteProject,
-  fetchProjects,
-  updateProject,
-  type Project,
-  type ProjectKind,
-} from '../lib/projectsApi';
+import { fetchProjects, type Project } from '../lib/projectsApi';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
-import { BuddyPicker } from './BuddyPicker';
-import { GlassButton } from './GlassButton';
-import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 
@@ -34,31 +17,10 @@ type ProjectsScreenProps = {
   invoices: SavedInvoice[];
   currentUserId: string;
   onSelectProject: (project: Project) => void;
+  // Adding and changing happen on a screen of their own.
+  onAddProject: () => void;
+  onEditProject: (project: Project) => void;
 };
-
-type FormState = {
-  name: string;
-  details: string;
-  budget: string;
-  kind: ProjectKind;
-  startDate: Date | null;
-  endDate: Date | null;
-  buddyIds: string[];
-};
-
-function emptyForm(): FormState {
-  return { name: '', details: '', budget: '', kind: 'project', startDate: null, endDate: null, buddyIds: [] };
-}
-
-const KINDS: { key: ProjectKind; labelKey: 'projects.kindProject' | 'projects.kindTrip' }[] = [
-  { key: 'project', labelKey: 'projects.kindProject' },
-  { key: 'trip', labelKey: 'projects.kindTrip' },
-];
-
-// Dates are stored as YYYY-MM-DD, which also compare correctly as strings.
-function toDateOnly(date: Date): string {
-  return toLocalIsoString(date).slice(0, 10);
-}
 
 function isCompleted(project: Project): boolean {
   if (!project.endDate) {
@@ -69,18 +31,16 @@ function isCompleted(project: Project): boolean {
   return new Date(project.endDate) < startOfToday;
 }
 
-export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: ProjectsScreenProps) {
+export function ProjectsScreen({
+  invoices,
+  currentUserId,
+  onSelectProject,
+  onAddProject,
+  onEditProject,
+}: ProjectsScreenProps) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm());
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  // Which of the two dates the picker is open for, if any.
-  const [datePickerField, setDatePickerField] = useState<'startDate' | 'endDate' | null>(null);
-  const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
 
   const load = () => {
@@ -97,116 +57,35 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
 
   useEffect(load, []);
 
+  // Lek per euro for the days of lek invoices sitting on euro projects - the
+  // only ones that need a rate from outside to be shown in the project's
+  // currency. Missing rates are lived with: the card falls back to lek.
+  const [rates, setRates] = useState<RateBook>({});
+  const ratesWanted = datesNeedingRates(
+    invoices
+      .filter((invoice) => projects.some((project) => project.id === invoice.data.projectId && project.currency === 'EUR'))
+      .map((invoice) => invoice.data),
+  )
+    .sort()
+    .join(',');
   useEffect(() => {
-    fetchBuddies()
-      .then(setBuddies)
-      .catch(() => setBuddies([]));
-  }, []);
-
-  const toggleBuddy = (buddyId: string) => {
-    setForm((current) => ({
-      ...current,
-      buddyIds: current.buddyIds.includes(buddyId)
-        ? current.buddyIds.filter((id) => id !== buddyId)
-        : [...current.buddyIds, buddyId],
-    }));
-  };
-
-  const totalExpenses = (projectId: string): number =>
-    invoices.reduce((sum, invoice) => (invoice.data.projectId === projectId ? sum + invoice.data.totalPrice : sum), 0);
-
-  const openAdd = () => {
-    setEditingId(null);
-    setForm(emptyForm());
-    setIsModalVisible(true);
-  };
-
-  const openEdit = (project: Project) => {
-    setEditingId(project.id);
-    setForm({
-      name: project.name,
-      details: project.details ?? '',
-      budget: formatAmount(project.budget),
-      kind: project.kind === 'trip' ? 'trip' : 'project',
-      startDate: project.startDate ? new Date(project.startDate) : null,
-      endDate: project.endDate ? new Date(project.endDate) : null,
-      buddyIds: project.buddyIds,
-    });
-    setIsModalVisible(true);
-  };
-
-  const handleSubmit = () => {
-    const budget = parseAmountInput(form.budget);
-    if (!form.name.trim()) {
-      showError(t('projects.nameRequired'));
+    if (!ratesWanted) {
       return;
     }
-    if (!Number.isFinite(budget) || budget < 0) {
-      showError(t('projects.invalidBudget'));
-      return;
-    }
-    const isTrip = form.kind === 'trip';
-    const startDate = isTrip && form.startDate ? toDateOnly(form.startDate) : null;
-    const endDate = form.endDate ? toDateOnly(form.endDate) : null;
-    if (isTrip && (!startDate || !endDate)) {
-      showError(t('projects.tripDatesRequired'));
-      return;
-    }
-    if (startDate && endDate && endDate < startDate) {
-      showError(t('projects.endBeforeStart'));
-      return;
-    }
+    fetchEurRates(ratesWanted.split(','))
+      .then(setRates)
+      .catch(() => undefined);
+  }, [ratesWanted]);
 
-    setIsSaving(true);
-    const payload = {
-      name: form.name.trim(),
-      details: form.details.trim() || null,
-      budget,
-      kind: form.kind,
-      startDate,
-      endDate,
-      buddyIds: form.buddyIds,
-    };
-    const request = editingId ? updateProject(editingId, payload) : createProject(payload);
-    request
-      .then(() => {
-        setIsSaving(false);
-        setIsModalVisible(false);
-        load();
-      })
-      .catch((error: Error) => {
-        setIsSaving(false);
-        showError(error.message);
-      });
-  };
-
-  // Lives in the edit form, behind a confirmation: a bin on the card sat one
-  // stray tap away from losing a project, with nothing asking first.
-  const handleDelete = () => {
-    if (!editingId) {
-      return;
-    }
-    const id = editingId;
-    Alert.alert(t('projects.deleteTitle', { name: form.name.trim() }), t('projects.deleteMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: () => {
-          setIsDeleting(true);
-          deleteProject(id)
-            .then(() => {
-              setIsDeleting(false);
-              setIsModalVisible(false);
-              load();
-            })
-            .catch((error: Error) => {
-              setIsDeleting(false);
-              showError(error.message);
-            });
-        },
-      },
-    ]);
+  // What has been spent on a project, in the project's currency where the
+  // rates allow it. Marked ALL when a euro project had to fall back.
+  const expensesLabel = (project: Project): string => {
+    const own = invoices.filter((invoice) => invoice.data.projectId === project.id).map((invoice) => invoice.data);
+    const money = moneyConverter(project.currency ?? 'ALL', own, rates);
+    const spent = own.reduce((sum, data) => sum + money.convert(data.totalPrice, data), 0);
+    return money.currency === 'ALL' && project.currency === 'EUR'
+      ? `${formatAmount(spent)} ${CURRENCY_SYMBOL.ALL}`
+      : formatMoney(spent, money.currency, true);
   };
 
   return (
@@ -214,7 +93,7 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>{t('projects.title')}</Text>
-          <Pressable style={styles.addButton} onPress={openAdd}>
+          <Pressable style={styles.addButton} onPress={onAddProject}>
             <PlusIcon size={22} weight="bold" color={colors.primary} />
           </Pressable>
         </View>
@@ -234,12 +113,12 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
             <Pressable key={project.id} onPress={() => onSelectProject(project)}>
               <GlassView style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <KindIcon size={18} color={colors.primary} />
-                  <Text style={styles.projectName} numberOfLines={1}>
+                  <KindIcon size={18} color={colors.primary} style={styles.kindIcon} />
+                  <Text style={styles.projectName}>
                     {project.name}
                   </Text>
                   {isOwner && (
-                    <Pressable style={styles.editButton} onPress={() => openEdit(project)} hitSlop={6}>
+                    <Pressable style={styles.editButton} onPress={() => onEditProject(project)} hitSlop={6}>
                       <PencilSimpleIcon size={17} color={colors.primary} />
                     </Pressable>
                   )}
@@ -255,11 +134,11 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
 
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>{t('projects.budget')}</Text>
-                  <Text style={styles.metaValue}>{formatAmount(project.budget)}</Text>
+                  <Text style={styles.metaValue}>{formatMoney(project.budget, project.currency ?? 'ALL', true)}</Text>
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>{t('projects.expenses')}</Text>
-                  <Text style={styles.metaValue}>{formatAmount(totalExpenses(project.id))}</Text>
+                  <Text style={styles.metaValue}>{expensesLabel(project)}</Text>
                 </View>
                 {isTrip && project.startDate && project.endDate ? (
                   <View style={styles.metaRow}>
@@ -281,123 +160,6 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
           );
         })}
       </ScrollView>
-
-      <Modal visible={isModalVisible} transparent animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setIsModalVisible(false)}>
-          <Pressable style={styles.formCard} onPress={(event) => event.stopPropagation()}>
-            <ScrollView>
-              <Text style={styles.formTitle}>{editingId ? t('projects.editProject') : t('projects.addProject')}</Text>
-              <View style={styles.kindSwitch}>
-                {KINDS.map((kind) => {
-                  const isSelected = form.kind === kind.key;
-                  return (
-                    <Pressable
-                      key={kind.key}
-                      style={[styles.kindOption, isSelected && styles.kindOptionSelected]}
-                      onPress={() => setForm((current) => ({ ...current, kind: kind.key }))}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isSelected }}
-                    >
-                      <Text style={[styles.kindText, isSelected && styles.kindTextSelected]}>{t(kind.labelKey)}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <GlassTextInput
-                style={styles.input}
-                placeholder={t('projects.namePlaceholder')}
-                value={form.name}
-                onChangeText={(value) => setForm((current) => ({ ...current, name: value }))}
-              />
-              <GlassTextInput
-                style={[styles.input, styles.detailsInput]}
-                placeholder={t('projects.detailsPlaceholder')}
-                multiline
-                value={form.details}
-                onChangeText={(value) => setForm((current) => ({ ...current, details: value }))}
-              />
-              <GlassTextInput
-                style={styles.input}
-                placeholder={t('projects.budgetPlaceholder')}
-                keyboardType="numeric"
-                value={form.budget}
-                onChangeText={(value) => setForm((current) => ({ ...current, budget: formatAmountInput(value) }))}
-              />
-              {/* A trip has both dates and needs both; a project only an optional end. */}
-              {form.kind === 'trip' && (
-                <Pressable
-                  style={[styles.input, styles.dateTrigger]}
-                  onPress={() => setDatePickerField('startDate')}
-                >
-                  <CalendarIcon size={16} color="#6b7280" />
-                  <Text style={form.startDate ? styles.dateText : styles.datePlaceholder}>
-                    {form.startDate ? toDateLabel(form.startDate) : t('projects.startDatePlaceholder')}
-                  </Text>
-                </Pressable>
-              )}
-              <View style={styles.endDateRow}>
-                <Pressable
-                  style={[styles.input, styles.endDateInput, styles.dateTrigger]}
-                  onPress={() => setDatePickerField('endDate')}
-                >
-                  <CalendarIcon size={16} color="#6b7280" />
-                  <Text style={form.endDate ? styles.dateText : styles.datePlaceholder}>
-                    {form.endDate
-                      ? toDateLabel(form.endDate)
-                      : t(form.kind === 'trip' ? 'projects.tripEndDatePlaceholder' : 'projects.endDatePlaceholder')}
-                  </Text>
-                </Pressable>
-                {form.endDate && form.kind !== 'trip' && (
-                  <Pressable
-                    style={styles.clearDateButton}
-                    onPress={() => setForm((current) => ({ ...current, endDate: null }))}
-                  >
-                    <XCircleIcon size={20} weight="fill" color="#9ca3af" />
-                  </Pressable>
-                )}
-              </View>
-              {datePickerField && (
-                <DateTimePicker
-                  value={form[datePickerField] ?? form.startDate ?? new Date()}
-                  minimumDate={
-                    datePickerField === 'endDate' && form.kind === 'trip' ? (form.startDate ?? undefined) : undefined
-                  }
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    const field = datePickerField;
-                    setDatePickerField(null);
-                    if (event.type === 'set' && selectedDate) {
-                      setForm((current) => ({ ...current, [field]: selectedDate }));
-                    }
-                  }}
-                />
-              )}
-              <View style={styles.buddyRow}>
-                <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
-              </View>
-              <GlassButton
-                label={isSaving ? t('common.saving') : t('common.save')}
-                variant="accent"
-                onPress={handleSubmit}
-                disabled={isSaving || isDeleting}
-              />
-              {editingId && (
-                <GlassButton
-                  label={isDeleting ? t('common.deleting') : t('common.delete')}
-                  variant="danger"
-                  style={styles.deleteButton}
-                  onPress={handleDelete}
-                  disabled={isSaving || isDeleting}
-                />
-              )}
-              <Pressable onPress={() => setIsModalVisible(false)}>
-                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-              </Pressable>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </View>
@@ -445,11 +207,16 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
   },
+  // Top-aligned, so a name long enough to wrap runs onto a second line under
+  // itself while the icon and the pencil stay level with the first.
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  kindIcon: {
+    marginTop: 2,
   },
   projectName: {
     flex: 1,
@@ -459,9 +226,6 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: 4,
-  },
-  deleteButton: {
-    marginTop: 12,
   },
   statusBadge: {
     alignSelf: 'flex-start',
@@ -504,98 +268,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1f2937',
-  },
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  formCard: {
-    width: '85%',
-    maxHeight: '80%',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    boxShadow: '0px 6px 16px rgba(0,0,0,0.2)',
-  },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#1f2937',
-  },
-  kindSwitch: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    padding: 3,
-    borderRadius: 14,
-    backgroundColor: colors.neutral,
-  },
-  kindOption: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 9,
-    borderRadius: 11,
-  },
-  kindOptionSelected: {
-    backgroundColor: colors.white,
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.12)',
-  },
-  kindText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  kindTextSelected: {
-    color: colors.primary,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  detailsInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  endDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  endDateInput: {
-    flex: 1,
-    marginBottom: 12,
-  },
-  dateTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#1f2937',
-  },
-  datePlaceholder: {
-    fontSize: 16,
-    color: 'rgba(31,41,55,0.45)',
-  },
-  clearDateButton: {
-    marginBottom: 12,
-    padding: 4,
-  },
-  buddyRow: {
-    marginBottom: 16,
-  },
-  cancelText: {
-    textAlign: 'center',
-    color: '#6b7280',
-    marginTop: 12,
   },
 });
