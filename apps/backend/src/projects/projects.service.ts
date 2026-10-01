@@ -86,10 +86,11 @@ export class ProjectsService {
         }));
     }
 
-    // Settles every share on the caller's own invoices in this project. Only
-    // their own: marking an invoice paid is the payer saying they were paid,
-    // and nobody else is in a position to say it for them.
-    async markOwnExpensesPaid(userId: string, id: string): Promise<void> {
+    // Settles shares on the caller's own invoices in this project - one buddy's
+    // when a buddy is named, everyone's otherwise. Only their own invoices:
+    // marking a share paid is the payer saying they were paid, and nobody else
+    // is in a position to say it for them.
+    async markOwnExpensesPaid(userId: string, id: string, buddyId?: string): Promise<void> {
         await this.findViewable(id, userId);
 
         const invoices = await this.invoicesRepository.find({ where: { projectId: id, userId } });
@@ -97,10 +98,15 @@ export class ProjectsService {
             const buddies = Array.isArray(invoice.data.buddies)
                 ? (invoice.data.buddies as Array<Record<string, unknown>>)
                 : [];
-            if (buddies.length === 0) {
+            const settles = (buddy: Record<string, unknown>) =>
+                buddy.paid !== true && (buddyId === undefined || buddy.userId === buddyId);
+            if (!buddies.some(settles)) {
                 continue;
             }
-            const data = { ...invoice.data, buddies: buddies.map((buddy) => ({ ...buddy, paid: true })) };
+            const data = {
+                ...invoice.data,
+                buddies: buddies.map((buddy) => (settles(buddy) ? { ...buddy, paid: true } : buddy)),
+            };
             await this.invoicesRepository.update(invoice.id, { data });
         }
     }

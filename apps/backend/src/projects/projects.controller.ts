@@ -37,8 +37,14 @@ export class ProjectsController {
 
     @Post(':id/mark-paid')
     @HttpCode(HttpStatus.OK)
-    markPaid(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
-        return this.projectsService.markOwnExpensesPaid(userId, id);
+    markPaid(
+        @CurrentUser() userId: string,
+        @Param('id') id: string,
+        @Body() body?: { buddyId?: unknown },
+    ): Promise<void> {
+        // No buddy named settles everyone, which is what older app versions send.
+        const buddyId = typeof body?.buddyId === 'string' && body.buddyId ? body.buddyId : undefined;
+        return this.projectsService.markOwnExpensesPaid(userId, id, buddyId);
     }
 
     @Patch(':id')
