@@ -39,7 +39,14 @@ export class PricesService {
             order: { createdAt: 'DESC' },
         });
 
-        return invoices.map((invoice) => {
+        // What something cost abroad says nothing about what it costs here, so
+        // an invoice written in another currency stays out of the comparison.
+        const domestic = invoices.filter((invoice) => {
+            const currency = (invoice.data as Record<string, unknown>)?.currency;
+            return currency === undefined || currency === null || currency === 'ALL';
+        });
+
+        return domestic.map((invoice) => {
             const data = invoice.data as Record<string, any>;
             const items: PricedItem[] = Array.isArray(data?.items)
                 ? data.items.map((item: Record<string, any>) => ({

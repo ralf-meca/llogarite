@@ -2,13 +2,20 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice } from '../invoices/invoice.entity';
-import { PROJECT_KINDS, Project, type ProjectKind } from './project.entity';
+import {
+    PROJECT_CURRENCIES,
+    PROJECT_KINDS,
+    Project,
+    type ProjectCurrency,
+    type ProjectKind,
+} from './project.entity';
 
 export type ProjectPatch = Partial<{
     name: string;
     details: string | null;
     budget: number;
     kind: ProjectKind;
+    currency: ProjectCurrency;
     startDate: string | null;
     endDate: string | null;
     buddyIds: string[];
@@ -16,7 +23,22 @@ export type ProjectPatch = Partial<{
 
 // The fields a client may set. Anything else in the body is dropped, so a
 // patch cannot reach columns like the owner.
-const PATCHABLE_FIELDS = ['name', 'details', 'budget', 'kind', 'startDate', 'endDate', 'buddyIds'] as const;
+const PATCHABLE_FIELDS = [
+    'name',
+    'details',
+    'budget',
+    'kind',
+    'currency',
+    'startDate',
+    'endDate',
+    'buddyIds',
+] as const;
+
+function assertValidCurrency(currency: ProjectCurrency): void {
+    if (!PROJECT_CURRENCIES.includes(currency)) {
+        throw new BadRequestException('currency must be ALL or EUR');
+    }
+}
 
 // Dates travel as YYYY-MM-DD, which compare correctly as plain strings.
 function assertValidSpan(kind: ProjectKind, startDate: string | null, endDate: string | null): void {
@@ -140,6 +162,8 @@ export class ProjectsService {
         const startDate = kind === 'trip' ? (data.startDate ?? null) : null;
         const endDate = data.endDate ?? null;
         assertValidSpan(kind, startDate, endDate);
+        const currency = data.currency ?? 'ALL';
+        assertValidCurrency(currency);
 
         const project = this.projectsRepository.create({
             userId,
@@ -147,6 +171,7 @@ export class ProjectsService {
             details: data.details ?? null,
             budget: data.budget,
             kind,
+            currency,
             startDate,
             endDate,
             buddyIds: data.buddyIds ?? [],
@@ -187,6 +212,9 @@ export class ProjectsService {
         const startDate = changes.startDate !== undefined ? changes.startDate : project.startDate;
         const endDate = changes.endDate !== undefined ? changes.endDate : project.endDate;
         assertValidSpan(kind, startDate, endDate);
+        if (changes.currency !== undefined) {
+            assertValidCurrency(changes.currency);
+        }
 
         if (Object.keys(changes).length > 0) {
             await this.projectsRepository.update(id, changes);
