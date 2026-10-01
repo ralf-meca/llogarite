@@ -137,3 +137,7 @@ Console and (b) EAS's own remote counter (check the highest `Version code` from 
 `eas build:list`), so the two paths never collide once you switch back to `eas build`. For a
 local build, set `expo.android.versionCode` explicitly in `app.json` before running
 `expo prebuild`.
+
+**Bump the version name with it.** Every upload build also gets a new `expo.version` in
+`app.json` (e.g. `1.1.0` → `1.1.1`), not just a new versionCode — the name is what users see
+under sign-out in the profile popup and in Play, so two uploads must never share one.
