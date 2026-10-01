@@ -1,9 +1,12 @@
 import { ArrowClockwiseIcon, XIcon } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+// The IAU* names are the only ones the package exports at runtime. Its type
+// declarations also offer AndroidInstallStatus and AndroidUpdateType, which
+// typecheck and then come out undefined - tapping the banner crashed on that.
 import SpInAppUpdates, {
-  AndroidInstallStatus,
-  AndroidUpdateType,
+  IAUInstallStatus,
+  IAUUpdateKind,
   type StatusUpdateEvent,
 } from 'sp-react-native-in-app-updates';
 import { useTranslation } from '../lib/i18n';
@@ -38,9 +41,9 @@ export function UpdateBanner() {
       if (!isMounted) {
         return;
       }
-      if (status.status === AndroidInstallStatus.DOWNLOADED) {
+      if (status.status === IAUInstallStatus.DOWNLOADED) {
         setState('downloaded');
-      } else if (status.status === AndroidInstallStatus.DOWNLOADING) {
+      } else if (status.status === IAUInstallStatus.DOWNLOADING) {
         setState('downloading');
       }
     };
@@ -71,14 +74,20 @@ export function UpdateBanner() {
   const isDownloaded = state === 'downloaded';
   const isDownloading = state === 'downloading';
 
+  // An offer to update must never be what takes the app down, so anything the
+  // update flow throws just puts the banner away.
   const handlePress = () => {
-    if (isDownloaded) {
-      updatesRef.current?.installUpdate();
-      return;
+    try {
+      if (isDownloaded) {
+        updatesRef.current?.installUpdate();
+        return;
+      }
+      updatesRef.current
+        ?.startUpdate({ updateType: IAUUpdateKind.FLEXIBLE })
+        .catch(() => setState('hidden'));
+    } catch {
+      setState('hidden');
     }
-    updatesRef.current
-      ?.startUpdate({ updateType: AndroidUpdateType.FLEXIBLE })
-      .catch(() => setState('hidden'));
   };
 
   return (
