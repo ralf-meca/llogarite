@@ -21,7 +21,6 @@ import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
 import { CategoryFilter } from "./components/CategoryFilter";
 import { DashboardScreen } from "./components/DashboardScreen";
-import { GlassView } from "./components/GlassView";
 import { InvoiceReviewScreen } from "./components/InvoiceReviewScreen";
 import { InvoiceScreen } from "./components/InvoiceScreen";
 import { LoginScreen } from "./components/LoginScreen";
@@ -46,7 +45,7 @@ import { VerifiedBadge } from "./components/VerifiedBadge";
 import { useToasts } from "./hooks/useToasts";
 import type { AuthResponse, AuthUser } from "./lib/authApi";
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from "./lib/authStorage";
-import { categoryIcon, categoryPlaceKey } from "./lib/categories";
+import { categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from "./lib/categories";
 import { dominantCategory, hasCategory } from "./lib/categorySpending";
 import { formatAmount } from "./lib/formatAmount";
 import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
@@ -58,7 +57,7 @@ import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerific
 import { toLocalIsoString } from "./lib/date";
 import { currentMonthKey, monthKeyOf } from "./lib/monthlySpending";
 import { fetchSharedPrices } from "./lib/pricesApi";
-import type { Project } from "./lib/projectsApi";
+import { fetchProjects, findActiveTrip, type Project } from "./lib/projectsApi";
 import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import {
@@ -159,6 +158,9 @@ function AppContent() {
     // screens compare across people now, which is the point of reviewing them.
     const [sharedPrices, setSharedPrices] = useState<PricedInvoice[]>([]);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    // The trip under way today, looked up when the app opens. New invoices are
+    // filed against it by default.
+    const [activeTrip, setActiveTrip] = useState<Project | null>(null);
     const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
     const [screen, setScreen] = useState<Screen>("loading");
     const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
@@ -178,6 +180,16 @@ function AppContent() {
     const [detailReturnScreen, setDetailReturnScreen] = useState<
         "list" | "buddyDetail" | "buddies" | "projectDetail"
     >("list");
+    // Set when the open invoice is someone else's expense on a shared project:
+    // it can be read, but editing and deleting stay with whoever entered it.
+    const [isDetailReadOnly, setIsDetailReadOnly] = useState(false);
+    // Who entered the open invoice, when it is not the signed-in user.
+    const [detailOwner, setDetailOwner] = useState<{
+        id: string;
+        name: string | null;
+        email: string;
+        avatarUrl: string | null;
+    } | null>(null);
     const [pendingBuddyRequests, setPendingBuddyRequests] = useState(0);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const [buddiesInitialTab, setBuddiesInitialTab] = useState<"owedByMe" | "owedToMe">("owedToMe");
@@ -197,6 +209,25 @@ function AppContent() {
                 showError(error.message);
             });
     }, [showError]);
+
+    // Quiet on failure: this only pre-fills a field, so a missed lookup costs a
+    // tap rather than an error worth interrupting for.
+    const loadActiveTrip = useCallback(() => {
+        fetchProjects()
+            .then((projects) => setActiveTrip(findActiveTrip(projects, toLocalIsoString(new Date()).slice(0, 10))))
+            .catch(() => setActiveTrip(null));
+    }, []);
+
+    // Projects are a premium feature, so a free account has no trip to default to.
+    const userId = user?.id;
+    const isPremiumUser = Boolean(user?.isPremium);
+    useEffect(() => {
+        if (userId && isPremiumUser) {
+            loadActiveTrip();
+        } else {
+            setActiveTrip(null);
+        }
+    }, [userId, isPremiumUser, loadActiveTrip]);
 
     const startOnboardingIfNeeded = useCallback(() => {
         hasCompletedOnboarding().then((completed) => {
@@ -371,6 +402,11 @@ function AppContent() {
     const handleNavigate = (target: NavScreen) => {
         setSelectedInvoice(null);
         setManualPrefill(null);
+        // Leaving the projects screen is the one moment a trip may have been
+        // added, moved or removed, so the lookup is repeated then.
+        if (screen === "projects" && target !== "projects" && user?.isPremium) {
+            loadActiveTrip();
+        }
         if (PREMIUM_SCREENS.has(target) && !user?.isPremium) {
             setScreen("plans");
             return;
@@ -513,8 +549,12 @@ function AppContent() {
     const handleSelectInvoice = (
         invoice: SavedInvoice,
         returnTo: "list" | "buddyDetail" | "buddies" | "projectDetail" = "list",
+        readOnly = false,
+        owner: { id: string; name: string | null; email: string; avatarUrl: string | null } | null = null,
     ) => {
         setSelectedInvoice(invoice);
+        setIsDetailReadOnly(readOnly);
+        setDetailOwner(owner);
         setDetailReturnScreen(returnTo);
         setScreen("detail");
     };
@@ -848,47 +888,50 @@ function AppContent() {
                                         />
                                     </View>
                                 }
-                                renderItem={({ item }) => (
-                                    <Pressable onPress={() => handleSelectInvoice(item)}>
-                                        <GlassView style={styles.savedRow}>
-                                            <View style={styles.savedRowLeft}>
-                                                <View style={styles.savedRowIcon}>
-                                                    {(() => {
-                                                        const DominantIcon = categoryIcon(
-                                                            selectedCategory ?? dominantCategory(item),
-                                                        );
-                                                        return <DominantIcon size={18} color={colors.primary} />;
-                                                    })()}
-                                                </View>
-                                                <View style={styles.savedRowTextGroup}>
-                                                    <View style={styles.savedSellerRow}>
-                                                        {/* Manual invoices often have no seller, which left the
-                                                            row's only identifying line blank. Falls back to the
-                                                            kind of place the invoice reads like, from the category
-                                                            its spending mostly sits in. dominantCategory, not the
-                                                            active filter the icon uses - otherwise every row would
-                                                            say the same word while a filter is on. */}
-                                                        <Text
-                                                            style={[
-                                                                styles.savedSeller,
-                                                                !item.data.seller.name.trim() && styles.savedSellerFallback,
-                                                            ]}
-                                                            numberOfLines={1}
-                                                        >
-                                                            {item.data.seller.name.trim() ||
-                                                                t(categoryPlaceKey(dominantCategory(item)))}
-                                                        </Text>
-                                                        {item.data.verified && <VerifiedBadge size={15} />}
-                                                    </View>
-                                                    <Text style={styles.savedDate}>
-                                                        {new Date(item.data.dateTimeCreated).toLocaleDateString()}
+                                renderItem={({ item }) => {
+                                    // The row wears the active filter's category when there is
+                                    // one, the invoice's own otherwise - same as the home page rows.
+                                    const rowCategory = selectedCategory ?? dominantCategory(item);
+                                    const RowIcon = categoryIcon(rowCategory);
+                                    return (
+                                        <Pressable style={styles.savedRow} onPress={() => handleSelectInvoice(item)}>
+                                            <View
+                                                style={[
+                                                    styles.savedRowIcon,
+                                                    { backgroundColor: categoryColor(rowCategory) },
+                                                ]}
+                                            >
+                                                <RowIcon size={20} color={colors.white} weight="fill" />
+                                            </View>
+                                            <View style={styles.savedRowTextGroup}>
+                                                <View style={styles.savedSellerRow}>
+                                                    {/* Manual invoices often have no seller, which left the
+                                                        row's only identifying line blank. Falls back to the
+                                                        kind of place the invoice reads like, from the category
+                                                        its spending mostly sits in. dominantCategory, not the
+                                                        active filter the icon uses - otherwise every row would
+                                                        say the same word while a filter is on. */}
+                                                    <Text
+                                                        style={[
+                                                            styles.savedSeller,
+                                                            !item.data.seller.name.trim() && styles.savedSellerFallback,
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {item.data.seller.name.trim() ||
+                                                            t(categoryPlaceKey(dominantCategory(item)))}
                                                     </Text>
+                                                    {item.data.verified && <VerifiedBadge size={15} />}
                                                 </View>
+                                                <Text style={styles.savedDate} numberOfLines={1}>
+                                                    {new Date(item.data.dateTimeCreated).toLocaleDateString()} ·{" "}
+                                                    {t(categoryLabelKey(rowCategory))}
+                                                </Text>
                                             </View>
                                             <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
-                                        </GlassView>
-                                    </Pressable>
-                                )}
+                                        </Pressable>
+                                    );
+                                }}
                                 ListEmptyComponent={
                                     <Text style={styles.emptyText}>
                                         {savedInvoices.length === 0
@@ -971,6 +1014,8 @@ function AppContent() {
                     isEditing={Boolean(selectedInvoice)}
                     isSaving={isSaving}
                     isPremium={Boolean(user?.isPremium)}
+                    activeTrip={activeTrip}
+                    currentUser={user}
                     onClose={handleManualClose}
                     onBack={handleCloseDetail}
                     onRequirePremium={() => setIsPlansOverlayOpen(true)}
@@ -998,15 +1043,33 @@ function AppContent() {
                     <ProjectDetailScreen
                         project={selectedProject}
                         currentUserId={user?.id ?? ""}
+                        currentUser={user}
                         onBack={() => setScreen("projects")}
-                        onSelectExpense={(expenseId) => {
-                            // Only opens your own: the saved list is the only
-                            // place the app holds a full invoice, and someone
-                            // else's belongs to them.
-                            const invoice = savedInvoices.find((candidate) => candidate.id === expenseId);
-                            if (invoice) {
-                                handleSelectInvoice(invoice, "projectDetail");
-                            }
+                        onSelectExpense={(expense) => {
+                            // Your own opens as it does from the saved list. The
+                            // expense itself stands in when that list has not
+                            // caught up yet, or when it is a buddy's - theirs
+                            // opens read-only, since it belongs to them.
+                            const invoice = savedInvoices.find((candidate) => candidate.id === expense.id) ?? {
+                                id: expense.id,
+                                iic: expense.data.iic,
+                                data: expense.data,
+                                createdAt: expense.createdAt,
+                            };
+                            const isSomeoneElses = expense.ownerId !== user?.id;
+                            handleSelectInvoice(
+                                invoice,
+                                "projectDetail",
+                                isSomeoneElses,
+                                isSomeoneElses
+                                    ? {
+                                          id: expense.ownerId,
+                                          name: expense.ownerName,
+                                          email: expense.ownerEmail,
+                                          avatarUrl: null,
+                                      }
+                                    : null,
+                            );
                         }}
                     />
                 )
@@ -1032,8 +1095,10 @@ function AppContent() {
                         verification={{ status: "success", data: selectedInvoice.data }}
                         onClose={handleCloseDetail}
                         isDeleting={isDeleting}
-                        onDelete={handleDelete}
-                        onEdit={() => setScreen("manual")}
+                        owner={isDetailReadOnly ? detailOwner : user}
+                        ownerIsViewer={!isDetailReadOnly}
+                        onDelete={isDetailReadOnly ? undefined : handleDelete}
+                        onEdit={isDetailReadOnly ? undefined : () => setScreen("manual")}
                         onSelectItem={(item) => {
                             setSelectedProduct({ key: normalizeKey(item.name), name: item.name });
                             setProductDetailReturnScreen("detail");
@@ -1220,7 +1285,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingTop: 16,
         paddingBottom: 120,
-        gap: 12,
+        gap: 14,
     },
     listFilters: {
         flexDirection: "row",
@@ -1236,29 +1301,22 @@ const styles = StyleSheet.create({
     categoryFilterSlot: {
         flexShrink: 1,
     },
+    // Flat rows, like the recent invoices on the home page: no card and no
+    // outline, just the category tile, two lines of text and the amount.
     savedRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-    },
-    savedRowLeft: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        flexShrink: 1,
     },
     savedRowIcon: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
+        width: 40,
+        height: 40,
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: colors.primaryTint,
     },
     savedRowTextGroup: {
-        flexShrink: 1,
+        flex: 1,
     },
     savedSellerRow: {
         flexDirection: "row",
@@ -1267,7 +1325,7 @@ const styles = StyleSheet.create({
     },
     savedSeller: {
         flexShrink: 1,
-        fontSize: 15,
+        fontSize: 13,
         fontWeight: "600",
         color: colors.textDark,
     },
@@ -1276,14 +1334,14 @@ const styles = StyleSheet.create({
         color: colors.textMuted,
     },
     savedDate: {
-        fontSize: 12,
+        fontSize: 9,
         color: colors.textMuted,
-        marginTop: 2,
+        marginTop: 1,
     },
     savedTotal: {
         fontSize: 15,
-        fontWeight: "600",
-        color: colors.primary,
+        fontWeight: "700",
+        color: colors.textDark,
     },
     emptyText: {
         textAlign: "center",

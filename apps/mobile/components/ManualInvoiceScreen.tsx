@@ -10,8 +10,8 @@ import {
   XCircleIcon,
   XIcon,
 } from 'phosphor-react-native';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
@@ -19,9 +19,10 @@ import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { categoryIcon, suggestCategory } from '../lib/categories';
 import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
-import { formatAmount, needsCents, parseAmountInput } from '../lib/formatAmount';
+import { formatAmount, formatAmountInput, needsCents, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
+import { AMOUNT_EPSILON, buddyTillPayments } from '../lib/invoicePayments';
 import { fetchProjects, type Project } from '../lib/projectsApi';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
@@ -39,11 +40,47 @@ type ManualInvoiceScreenProps = {
   isEditing?: boolean;
   isSaving?: boolean;
   isPremium: boolean;
+  // The trip under way today, if any. A new invoice starts out filed against
+  // it, with its buddies; an invoice being edited keeps what it already has.
+  activeTrip?: Project | null;
+  // The signed-in user, for their own circle in the "paid by" row.
+  currentUser?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   onClose: () => void;
   onBack?: () => void;
   onRequirePremium: () => void;
   onSubmit: (result: InvoiceVerificationResult) => void;
 };
+
+// The owner's key among the payers; every other payer goes by their user id.
+const OWNER_KEY = 'owner';
+
+// A second tap on the same person within this long is a double tap.
+const DOUBLE_TAP_MS = 300;
+
+// How the bill was paid when the form opens. Usually one person paid all of
+// it; `split` is set only when the till took money from more than one.
+function initialPayers(data: InvoiceVerificationResult | undefined): {
+  sole: string;
+  split: Record<string, number> | null;
+} {
+  if (!data) {
+    return { sole: OWNER_KEY, split: null };
+  }
+  const payments = buddyTillPayments(data);
+  const payers = Object.entries(payments);
+  if (payers.length === 0) {
+    return { sole: OWNER_KEY, split: null };
+  }
+  const paidByBuddies = payers.reduce((sum, [, amount]) => sum + amount, 0);
+  if (payers.length === 1 && paidByBuddies >= data.totalPrice - AMOUNT_EPSILON) {
+    return { sole: payers[0][0], split: null };
+  }
+  const ownerPart = data.totalPrice - paidByBuddies;
+  return {
+    sole: OWNER_KEY,
+    split: ownerPart > AMOUNT_EPSILON ? { ...payments, [OWNER_KEY]: ownerPart } : payments,
+  };
+}
 
 // The item screen owns the name/quantity/price/category half of a row. The
 // split across buddies is only reachable from the row itself, so it stays out
@@ -114,6 +151,8 @@ export function ManualInvoiceScreen({
   isEditing,
   isSaving,
   isPremium,
+  activeTrip,
+  currentUser,
   onClose,
   onBack,
   onRequirePremium,
@@ -134,10 +173,37 @@ export function ManualInvoiceScreen({
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(
     initialData && initialData.items.length > 0 ? null : { mode: 'new' },
   );
-  const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? null);
+  const defaultTrip = isEditing ? null : (activeTrip ?? null);
+  const [projectId, setProjectId] = useState<string | null>(initialData?.projectId ?? defaultTrip?.id ?? null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(initialData?.buddies ?? []);
+  const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(
+    initialData?.buddies ??
+      (initialData?.projectId ? [] : (defaultTrip?.buddyIds ?? []).map((userId) => ({ userId, paid: false }))),
+  );
   const [buddies, setBuddies] = useState<Buddy[]>([]);
+  // Who paid at the till. One person covering the whole bill is `solePayer`,
+  // which follows the total as items change; `splitPayments` takes over with
+  // fixed amounts once the bill was paid by more than one person.
+  const [solePayer, setSolePayer] = useState<string>(() => initialPayers(initialData).sole);
+  const [splitPayments, setSplitPayments] = useState<Record<string, number> | null>(
+    () => initialPayers(initialData).split,
+  );
+  // The amount popup, opened by double-tapping a person.
+  const [payerEditor, setPayerEditor] = useState<{ key: string; amount: string; isInvalid: boolean } | null>(null);
+  const lastPayerTap = useRef<{ key: string; at: number } | null>(null);
+  const payerTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Whether the owner has settled what they owe. Only shown, and only saved,
+  // while someone else paid part of the bill.
+  const [ownerPaid, setOwnerPaid] = useState(initialData?.ownerPaid === true);
+
+  useEffect(
+    () => () => {
+      if (payerTapTimer.current) {
+        clearTimeout(payerTapTimer.current);
+      }
+    },
+    [],
+  );
   const [isBuddyPickerOpen, setIsBuddyPickerOpen] = useState(false);
   const [isItemSplitEnabled, setIsItemSplitEnabled] = useState(() =>
     Boolean(
@@ -178,6 +244,111 @@ export function ManualInvoiceScreen({
   const getBuddyShare = (buddyId: string) => computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds);
   const buddiesTotal = allBuddyIds.reduce((sum, buddyId) => sum + getBuddyShare(buddyId), 0);
   const groupShare = total - buddiesTotal;
+
+  // "Paid by" belongs to trips, where the group takes turns paying. The trip
+  // under way stands in until the project list has loaded.
+  const selectedProject =
+    projects.find((project) => project.id === projectId) ?? (activeTrip?.id === projectId ? activeTrip : undefined);
+  const showPaidBy = selectedProject?.kind === 'trip' && selectedBuddies.length > 0;
+  // Dropped only when the invoice is known not to be on a trip, so an edit
+  // saved before the projects arrive cannot quietly lose who paid.
+  const isKnownNonTrip = projectId === null || (selectedProject !== undefined && selectedProject.kind !== 'trip');
+  const payerKeys = isKnownNonTrip ? [OWNER_KEY] : [OWNER_KEY, ...allBuddyIds];
+  // Amounts held by people no longer on the invoice are dropped rather than
+  // left to unbalance the sum.
+  const liveSplit = splitPayments
+    ? Object.fromEntries(
+        Object.entries(splitPayments).filter(([key, amount]) => payerKeys.includes(key) && amount > AMOUNT_EPSILON),
+      )
+    : null;
+  const effectiveSplit = liveSplit && Object.keys(liveSplit).length > 0 ? liveSplit : null;
+  const effectiveSole = effectiveSplit ? null : payerKeys.includes(solePayer) ? solePayer : OWNER_KEY;
+  const paidAtTill = (key: string) => (effectiveSplit ? (effectiveSplit[key] ?? 0) : key === effectiveSole ? total : 0);
+  const buddyPayments = Object.fromEntries(
+    allBuddyIds.map((id) => [id, paidAtTill(id)] as const).filter(([, amount]) => amount > AMOUNT_EPSILON),
+  );
+  const othersPaid = Object.keys(buddyPayments).length > 0;
+  const debtOf = (share: number, key: string) => {
+    const debt = share - paidAtTill(key);
+    return debt > AMOUNT_EPSILON ? debt : 0;
+  };
+  const ownerDebt = debtOf(groupShare, OWNER_KEY);
+
+  const payerName = (key: string) => {
+    if (key === OWNER_KEY) {
+      return t('manualInvoice.you');
+    }
+    const info = buddies.find((candidate) => candidate.id === key);
+    return info?.name ?? info?.email ?? t('manualInvoice.buddyFallback');
+  };
+
+  const selectSolePayer = (key: string) => {
+    // Having settled up under one arrangement says nothing about another.
+    if (effectiveSplit || key !== effectiveSole) {
+      setOwnerPaid(false);
+    }
+    setSolePayer(key);
+    setSplitPayments(null);
+  };
+
+  const openPayerAmount = (key: string) => {
+    const paidByOthers = effectiveSplit
+      ? Object.entries(effectiveSplit).reduce((sum, [other, amount]) => (other === key ? sum : sum + amount), 0)
+      : 0;
+    // The whole bill to begin with; once someone has paid part of it, what
+    // is still uncovered.
+    const suggested = effectiveSplit ? (effectiveSplit[key] ?? Math.max(0, total - paidByOthers)) : total;
+    setPayerEditor({ key, amount: formatAmount(suggested), isInvalid: false });
+  };
+
+  // One tap makes that person the only payer, two open the amount popup. The
+  // single tap waits out the double-tap window so the first half of a double
+  // tap does not wipe the amounts already entered.
+  const handlePayerPress = (key: string) => {
+    const now = Date.now();
+    if (payerTapTimer.current) {
+      clearTimeout(payerTapTimer.current);
+      payerTapTimer.current = null;
+    }
+    if (lastPayerTap.current && lastPayerTap.current.key === key && now - lastPayerTap.current.at < DOUBLE_TAP_MS) {
+      lastPayerTap.current = null;
+      openPayerAmount(key);
+      return;
+    }
+    lastPayerTap.current = { key, at: now };
+    payerTapTimer.current = setTimeout(() => selectSolePayer(key), DOUBLE_TAP_MS);
+  };
+
+  const confirmPayerAmount = () => {
+    if (!payerEditor) {
+      return;
+    }
+    const { key } = payerEditor;
+    const amount = parseAmountInput(payerEditor.amount);
+    if (!Number.isFinite(amount) || amount < 0 || amount > total + AMOUNT_EPSILON) {
+      setPayerEditor({ ...payerEditor, isInvalid: true });
+      return;
+    }
+    setPayerEditor(null);
+    if (amount >= total - AMOUNT_EPSILON) {
+      selectSolePayer(key);
+      return;
+    }
+    // Leaving "one person paid it all": whoever that was keeps the rest,
+    // unless it is their own amount being lowered, which leaves it open.
+    const next: Record<string, number> = effectiveSplit
+      ? { ...effectiveSplit }
+      : effectiveSole && effectiveSole !== key
+        ? { [effectiveSole]: total - amount }
+        : {};
+    if (amount > AMOUNT_EPSILON) {
+      next[key] = amount;
+    } else {
+      delete next[key];
+    }
+    setOwnerPaid(false);
+    setSplitPayments(next);
+  };
 
   const toggleBuddy = (buddyId: string) => {
     const isRemoving = selectedBuddies.some((buddy) => buddy.userId === buddyId);
@@ -337,6 +508,18 @@ export function ManualInvoiceScreen({
       });
     }
 
+    if (effectiveSplit) {
+      const uncovered = total - Object.values(effectiveSplit).reduce((sum, amount) => sum + amount, 0);
+      if (Math.abs(uncovered) > AMOUNT_EPSILON) {
+        showError(
+          t(uncovered > 0 ? 'manualInvoice.paymentsShort' : 'manualInvoice.paymentsOver', {
+            amount: formatAmount(Math.abs(uncovered)),
+          }),
+        );
+        return;
+      }
+    }
+
     onSubmit({
       iic: isEditing && initialData ? initialData.iic : `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       dateTimeCreated: toLocalIsoString(date),
@@ -345,6 +528,9 @@ export function ManualInvoiceScreen({
       items: parsedItems,
       projectId,
       buddies: selectedBuddies,
+      payments: othersPaid ? buddyPayments : null,
+      paidBy: null,
+      ownerPaid: othersPaid && ownerPaid,
     });
   };
 
@@ -420,6 +606,44 @@ export function ManualInvoiceScreen({
           hideTrigger
         />
 
+        {/* Its own card, above the split: who paid comes before how it is shared. */}
+        {showPaidBy && (
+          <GlassView style={[styles.card, styles.buddiesCard, styles.paidBySection]}>
+            <Text style={styles.paidByLabel}>{t('manualInvoice.paidBy')}</Text>
+            <View style={styles.paidByRow}>
+              {payerKeys.map((key) => {
+                const info = key === OWNER_KEY ? null : buddies.find((candidate) => candidate.id === key);
+                const paid = paidAtTill(key);
+                const isSelected = paid > AMOUNT_EPSILON;
+                return (
+                  <Pressable
+                    key={key}
+                    style={styles.paidByPerson}
+                    onPress={() => handlePayerPress(key)}
+                    onLongPress={() => openPayerAmount(key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <View style={[styles.paidByRing, isSelected && styles.paidByRingSelected]}>
+                      <UserAvatar user={key === OWNER_KEY ? (currentUser ?? null) : (info ?? null)} size={36} />
+                    </View>
+                    <Text style={[styles.paidByName, isSelected && styles.paidByNameSelected]} numberOfLines={1}>
+                      {payerName(key).split(/[\s@]/)[0]}
+                    </Text>
+                    {/* Amounts only once the bill is split - one payer paid all of it. */}
+                    {effectiveSplit && isSelected && (
+                      <Text style={styles.paidByAmount} numberOfLines={1}>
+                        {formatAmount(paid, showCents)}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.paidByHint}>{t('manualInvoice.paidByHint')}</Text>
+          </GlassView>
+        )}
+
         <GlassView
           style={[styles.card, styles.buddiesCard, selectedBuddies.length === 0 && styles.hiddenCard]}
         >
@@ -453,29 +677,74 @@ export function ManualInvoiceScreen({
                 </Text>
               </Pressable>
             </View>
+            {/* When buddies paid, the owner may owe too, so they get a row of their
+                own to tick off - without the cross, since they cannot be removed. */}
+            {othersPaid && (
+              <View style={styles.buddyRow}>
+                <View style={styles.ownerRowSpacer} />
+                <Pressable
+                  style={styles.buddyRowMain}
+                  onPress={() => setOwnerPaid((current) => !current)}
+                  disabled={ownerDebt === 0}
+                >
+                  <UserAvatar user={currentUser ?? null} size={28} />
+                  <Text style={styles.buddyName} numberOfLines={1}>
+                    {t('manualInvoice.you')}
+                  </Text>
+                  <Text style={styles.buddyShareAmount}>{formatAmount(ownerDebt > 0 ? ownerDebt : groupShare)}</Text>
+                  {ownerDebt === 0 ? (
+                    <Text style={[styles.buddyPaidText, styles.buddyPayerText]}>{t('manualInvoice.payer')}</Text>
+                  ) : (
+                    <View style={styles.buddyPaidToggle}>
+                      {ownerPaid ? (
+                        <CheckSquareIcon size={20} weight="fill" color="#10b981" />
+                      ) : (
+                        <SquareIcon size={20} color="#9ca3af" />
+                      )}
+                      <Text style={[styles.buddyPaidText, ownerPaid && styles.buddyPaidTextOn]}>
+                        {t('manualInvoice.paid')}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            )}
             {selectedBuddies.map((buddy) => {
               const info = buddies.find((candidate) => candidate.id === buddy.userId);
+              // Paying at the till counts against the share: someone who covered
+              // theirs has nothing to pay back, someone who covered part owes the rest.
+              const buddyShare = getBuddyShare(buddy.userId);
+              const buddyDebt = debtOf(buddyShare, buddy.userId);
+              const isPayer = paidAtTill(buddy.userId) > AMOUNT_EPSILON && buddyDebt === 0;
               return (
                 <View key={buddy.userId} style={styles.buddyRow}>
                   <Pressable onPress={() => toggleBuddy(buddy.userId)} hitSlop={8}>
                     <XIcon size={18} color="#9ca3af" />
                   </Pressable>
-                  <Pressable style={styles.buddyRowMain} onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}>
+                  <Pressable
+                    style={styles.buddyRowMain}
+                    onPress={() => setBuddyPaid(buddy.userId, !buddy.paid)}
+                    disabled={isPayer}
+                  >
                     <UserAvatar user={info ?? null} size={28} />
                     <Text style={styles.buddyName} numberOfLines={1}>
                       {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                     </Text>
-                    <Text style={styles.buddyShareAmount}>{formatAmount(getBuddyShare(buddy.userId))}</Text>
-                    <View style={styles.buddyPaidToggle}>
-                      {buddy.paid ? (
-                        <CheckSquareIcon size={20} weight="fill" color="#10b981" />
-                      ) : (
-                        <SquareIcon size={20} color="#9ca3af" />
-                      )}
-                      <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
-                        {t('manualInvoice.paid')}
-                      </Text>
-                    </View>
+                    <Text style={styles.buddyShareAmount}>{formatAmount(buddyDebt > 0 ? buddyDebt : buddyShare)}</Text>
+                    {isPayer ? (
+                      <Text style={[styles.buddyPaidText, styles.buddyPayerText]}>{t('manualInvoice.payer')}</Text>
+                    ) : (
+                      <View style={styles.buddyPaidToggle}>
+                        {buddy.paid ? (
+                          <CheckSquareIcon size={20} weight="fill" color="#10b981" />
+                        ) : (
+                          <SquareIcon size={20} color="#9ca3af" />
+                        )}
+                        <Text style={[styles.buddyPaidText, buddy.paid && styles.buddyPaidTextOn]}>
+                          {t('manualInvoice.paid')}
+                        </Text>
+                      </View>
+                    )}
                   </Pressable>
                 </View>
               );
@@ -582,6 +851,72 @@ export function ManualInvoiceScreen({
         />
       </View>
       </View>
+
+      <Modal
+        visible={payerEditor !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPayerEditor(null)}
+      >
+        <Pressable style={styles.payerBackdrop} onPress={() => setPayerEditor(null)}>
+          <Pressable style={styles.payerCard} onPress={(event) => event.stopPropagation()}>
+            {payerEditor &&
+              (() => {
+                const paidByOthers = effectiveSplit
+                  ? Object.entries(effectiveSplit).reduce(
+                      (sum, [other, amount]) => (other === payerEditor.key ? sum : sum + amount),
+                      0,
+                    )
+                  : 0;
+                return (
+                  <>
+                    <Text style={styles.payerTitle}>
+                      {payerEditor.key === OWNER_KEY
+                        ? t('manualInvoice.paidAmountTitleSelf')
+                        : t('manualInvoice.paidAmountTitle', { name: payerName(payerEditor.key) })}
+                    </Text>
+                    <GlassTextInput
+                      keyboardType="numeric"
+                      autoFocus
+                      selectTextOnFocus
+                      value={payerEditor.amount}
+                      onChangeText={(value) =>
+                        setPayerEditor({ ...payerEditor, amount: formatAmountInput(value), isInvalid: false })
+                      }
+                      onSubmitEditing={confirmPayerAmount}
+                    />
+                    {payerEditor.isInvalid && (
+                      <Text style={styles.payerError}>{t('manualInvoice.paidAmountInvalid')}</Text>
+                    )}
+                    <View style={styles.payerInfoRow}>
+                      <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountTotal')}</Text>
+                      <Text style={styles.payerInfoValue}>{formatAmount(total)}</Text>
+                    </View>
+                    {/* Once someone else has paid part of it, what is left to cover. */}
+                    {paidByOthers > AMOUNT_EPSILON && (
+                      <>
+                        <View style={styles.payerInfoRow}>
+                          <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountOthers')}</Text>
+                          <Text style={styles.payerInfoValue}>{formatAmount(paidByOthers)}</Text>
+                        </View>
+                        <View style={styles.payerInfoRow}>
+                          <Text style={styles.payerInfoLabel}>{t('manualInvoice.paidAmountRemaining')}</Text>
+                          <Text style={[styles.payerInfoValue, styles.payerRemainingValue]}>
+                            {formatAmount(Math.max(0, total - paidByOthers))}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                    <GlassButton label={t('common.save')} variant="accent" onPress={confirmPayerAmount} />
+                    <Pressable onPress={() => setPayerEditor(null)}>
+                      <Text style={styles.payerCancel}>{t('common.cancel')}</Text>
+                    </Pressable>
+                  </>
+                );
+              })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <ItemEditorModal
         visible={editorTarget !== null}
@@ -792,6 +1127,105 @@ const styles = StyleSheet.create({
   },
   buddyPaidTextOn: {
     color: '#059669',
+  },
+  buddyPayerText: {
+    color: colors.primary,
+  },
+  // Stands where a buddy row has its remove cross, so the columns line up.
+  ownerRowSpacer: {
+    width: 18,
+  },
+  paidBySection: {
+    gap: 12,
+  },
+  paidByLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  paidByRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  paidByPerson: {
+    width: 52,
+    alignItems: 'center',
+    gap: 4,
+  },
+  // The ring is always there so choosing someone does not shift the row; only
+  // its colour and the glow change.
+  paidByRing: {
+    padding: 2,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    opacity: 0.55,
+  },
+  paidByRingSelected: {
+    borderColor: colors.primary,
+    opacity: 1,
+    boxShadow: '0px 0px 10px rgba(89,128,166,0.65)',
+  },
+  paidByName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  paidByNameSelected: {
+    color: colors.primary,
+  },
+  paidByAmount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  paidByHint: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  payerBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.scrim,
+  },
+  payerCard: {
+    width: '82%',
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    gap: 12,
+  },
+  payerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: colors.textDark,
+  },
+  payerInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  payerInfoLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  payerInfoValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  payerRemainingValue: {
+    color: colors.primary,
+  },
+  payerError: {
+    fontSize: 12,
+    color: colors.danger,
+  },
+  payerCancel: {
+    textAlign: 'center',
+    color: colors.textMuted,
   },
   buddyShareAmount: {
     fontSize: 13,

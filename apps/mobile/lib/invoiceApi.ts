@@ -64,6 +64,15 @@ export type InvoiceVerificationResult = {
   projectId?: string | null;
   verified?: boolean;
   buddies?: InvoiceBuddy[];
+  // What each buddy paid at the till, by user id. The owner's part is whatever
+  // is left of the total, so with nothing here the owner paid it all. Anyone
+  // who paid less than their share - the owner included - owes the difference.
+  payments?: Record<string, number> | null;
+  // Older form of the above: one buddy who paid the whole bill. Still read,
+  // no longer written.
+  paidBy?: string | null;
+  // Whether the owner has settled what they owe. Only read when buddies paid.
+  ownerPaid?: boolean;
 };
 
 export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVerificationResult> {

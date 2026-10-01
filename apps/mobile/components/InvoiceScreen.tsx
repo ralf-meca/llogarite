@@ -16,6 +16,10 @@ type InvoiceScreenProps = {
   onDelete?: () => void;
   onEdit?: () => void;
   onSelectItem?: (item: InvoiceItem) => void;
+  // Passed through to the receipt: who entered the invoice, and whether that
+  // is the person looking at it.
+  owner?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
+  ownerIsViewer?: boolean;
 };
 
 export function InvoiceScreen({
@@ -27,6 +31,8 @@ export function InvoiceScreen({
   onDelete,
   onEdit,
   onSelectItem,
+  owner,
+  ownerIsViewer,
 }: InvoiceScreenProps) {
   const { t } = useTranslation();
   return (
@@ -61,7 +67,12 @@ export function InvoiceScreen({
           <Text style={styles.errorText}>{t('invoice.verificationFailed', { message: verification.message })}</Text>
         )}
         {verification.status === 'success' && (
-          <InvoiceReceipt result={verification.data} onSelectItem={onSelectItem} />
+          <InvoiceReceipt
+            result={verification.data}
+            owner={owner}
+            ownerIsViewer={ownerIsViewer}
+            onSelectItem={onSelectItem}
+          />
         )}
       </ScrollView>
 

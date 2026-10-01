@@ -56,10 +56,22 @@ export function computeShareForBuddy(invoice: SavedInvoice, buddyUserId: string)
   return computeBuddyShareFromRows(rows, buddyUserId, allBuddyIds);
 }
 
+// These lists are all "what a buddy owes the invoice's owner". An invoice a
+// buddy paid for turns that around - the debts run to that buddy - so it is
+// left out of them and settled from the trip it belongs to instead.
+function paidBySomeoneElse(invoice: {
+  data: { paidBy?: string | null; payments?: Record<string, number> | null };
+}): boolean {
+  return Boolean(invoice.data.paidBy) || Object.values(invoice.data.payments ?? {}).some((amount) => amount > 0);
+}
+
 export function buddyInvoiceShares(invoices: SavedInvoice[], buddyUserId: string): BuddyInvoiceShare[] {
   const shares: BuddyInvoiceShare[] = [];
 
   for (const invoice of invoices) {
+    if (paidBySomeoneElse(invoice)) {
+      continue;
+    }
     const buddyLink = invoice.data.buddies?.find((buddy) => buddy.userId === buddyUserId);
     if (!buddyLink) {
       continue;
@@ -92,6 +104,9 @@ export function allBuddyInvoiceShares(invoices: SavedInvoice[], buddies: Buddy[]
   const shares: BuddyInvoiceShareWithBuddy[] = [];
 
   for (const invoice of invoices) {
+    if (paidBySomeoneElse(invoice)) {
+      continue;
+    }
     for (const buddyLink of invoice.data.buddies ?? []) {
       const info = buddies.find((buddy) => buddy.id === buddyLink.userId);
       shares.push({
@@ -128,6 +143,9 @@ export function owedByMeShares(invoices: OwedInvoice[], myUserId: string): OwedS
   const shares: OwedShare[] = [];
 
   for (const invoice of invoices) {
+    if (paidBySomeoneElse(invoice)) {
+      continue;
+    }
     const myLink = invoice.data.buddies?.find((buddy) => buddy.userId === myUserId);
     if (!myLink) {
       continue;

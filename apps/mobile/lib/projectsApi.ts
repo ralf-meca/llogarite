@@ -3,6 +3,8 @@ import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { InvoiceVerificationResult } from './invoiceApi';
 
+export type ProjectKind = 'project' | 'trip';
+
 export type Project = {
   id: string;
   // Who created it. Buddies see the project too but cannot change it, so the
@@ -11,14 +13,38 @@ export type Project = {
   name: string;
   details: string | null;
   budget: number;
+  // A trip always has both dates; a plain project has no start and may have
+  // no end either.
+  kind: ProjectKind;
+  startDate: string | null;
   endDate: string | null;
   buddyIds: string[];
 };
+
+// The trip under way on the given day (YYYY-MM-DD), if there is one. Both ends
+// count as part of the trip. With overlapping trips the one that started last
+// wins, as the one most likely to be where the user is now.
+export function findActiveTrip(projects: Project[], today: string): Project | null {
+  const active = projects.filter(
+    (project) =>
+      project.kind === 'trip' &&
+      project.startDate !== null &&
+      project.endDate !== null &&
+      project.startDate <= today &&
+      today <= project.endDate,
+  );
+  if (active.length === 0) {
+    return null;
+  }
+  return active.reduce((latest, project) => ((project.startDate ?? '') > (latest.startDate ?? '') ? project : latest));
+}
 
 export type ProjectInput = {
   name: string;
   details: string | null;
   budget: number;
+  kind: ProjectKind;
+  startDate: string | null;
   endDate: string | null;
   buddyIds: string[];
 };
@@ -46,16 +72,17 @@ export async function fetchProjectExpenses(projectId: string): Promise<ProjectEx
   return response.json();
 }
 
-// Settles every share on the caller's own expenses in this project. The server
-// ignores anyone else's, since only the person who paid can say they were
-// repaid.
-export async function markProjectPaid(projectId: string): Promise<void> {
+// Settles one buddy's shares on the caller's own expenses in this project. The
+// server ignores anyone else's expenses, since only the person who paid can
+// say they were repaid.
+export async function markProjectPaid(projectId: string, buddyId: string): Promise<void> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');
   }
   const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/mark-paid`, {
     method: 'POST',
-    headers: await authHeaders(),
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ buddyId }),
   });
   if (!response.ok) {
     throw new Error(describeHttpError(response.status, {}, 'Ruajtja dështoi. Provo përsëri.'));

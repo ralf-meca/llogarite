@@ -1,4 +1,4 @@
-import { FolderIcon, CaretDownIcon, CheckIcon } from 'phosphor-react-native';
+import { AirplaneTiltIcon, FolderIcon, CaretDownIcon, CheckIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from '../lib/i18n';
@@ -15,12 +15,15 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const noneLabel = t('projectPicker.none');
-  const selectedLabel = value === null ? noneLabel : projects.find((project) => project.id === value)?.name ?? noneLabel;
+  const selected = value === null ? undefined : projects.find((project) => project.id === value);
+  const selectedLabel = selected?.name ?? noneLabel;
+  // A trip wears the airplane everywhere else it appears, so it does here too.
+  const SelectedIcon = selected?.kind === 'trip' ? AirplaneTiltIcon : FolderIcon;
 
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-        <FolderIcon size={14} color="#374151" />
+        <SelectedIcon size={14} color="#374151" />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
         </Text>
@@ -42,24 +45,28 @@ export function ProjectPicker({ projects, value, onChange }: ProjectPickerProps)
                   <Text style={[styles.menuItemText, value === null && styles.menuItemTextActive]}>{noneLabel}</Text>
                   {value === null && <CheckIcon size={16} weight="bold" color={colors.primary} />}
                 </Pressable>
-                {projects.map((project) => (
-                  <Pressable
-                    key={project.id}
-                    style={styles.menuItem}
-                    onPress={() => {
-                      onChange(project.id);
-                      setIsOpen(false);
-                    }}
-                  >
-                    <Text
-                      style={[styles.menuItemText, value === project.id && styles.menuItemTextActive]}
-                      numberOfLines={1}
+                {projects.map((project) => {
+                  const isSelected = value === project.id;
+                  const KindIcon = project.kind === 'trip' ? AirplaneTiltIcon : FolderIcon;
+                  return (
+                    <Pressable
+                      key={project.id}
+                      style={styles.menuItem}
+                      onPress={() => {
+                        onChange(project.id);
+                        setIsOpen(false);
+                      }}
                     >
-                      {project.name}
-                    </Text>
-                    {value === project.id && <CheckIcon size={16} weight="bold" color={colors.primary} />}
-                  </Pressable>
-                ))}
+                      <View style={styles.menuItemLabel}>
+                        <KindIcon size={16} color={isSelected ? colors.primary : '#6b7280'} />
+                        <Text style={[styles.menuItemText, isSelected && styles.menuItemTextActive]} numberOfLines={1}>
+                          {project.name}
+                        </Text>
+                      </View>
+                      {isSelected && <CheckIcon size={16} weight="bold" color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
                 {projects.length === 0 && <Text style={styles.emptyText}>{t('projectPicker.empty')}</Text>}
               </ScrollView>
             </View>
@@ -114,6 +121,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 20,
+  },
+  menuItemLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
   },
   menuItemText: {
     fontSize: 14,

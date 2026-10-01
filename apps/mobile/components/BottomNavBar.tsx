@@ -36,12 +36,13 @@ const LEFT_ITEMS: NavItem[] = [
   { key: 'list', icon: ReceiptIcon, labelKey: 'nav.list' },
 ];
 
-const RIGHT_ITEMS: NavItem[] = [{ key: 'budget', icon: WalletIcon, labelKey: 'drawer.budget' }];
+// The full name is too long for a fifth of the bar, so the tab uses a short one.
+const RIGHT_ITEMS: NavItem[] = [{ key: 'projects', icon: FolderIcon, labelKey: 'nav.projects', premium: true }];
 
 // Everything that doesn't fit the bar lives behind the "more" button.
 const MORE_ITEMS: NavItem[] = [
   { key: 'monthlyPayments', icon: CalendarIcon, labelKey: 'drawer.monthlyPayments' },
-  { key: 'projects', icon: FolderIcon, labelKey: 'drawer.projects', premium: true },
+  { key: 'budget', icon: WalletIcon, labelKey: 'drawer.budget' },
   { key: 'products', icon: TrendUpIcon, labelKey: 'drawer.products', premium: true },
   { key: 'buddies', icon: UsersIcon, labelKey: 'drawer.buddies', premium: true },
   { key: 'review', icon: SealCheckIcon, labelKey: 'drawer.review', admin: true },
@@ -89,6 +90,7 @@ export function BottomNavBar({
 
   const renderTab = (item: NavItem) => {
     const isActive = activeScreen === item.key;
+    const isLocked = Boolean(item.premium) && !isPremium;
     return (
       <Pressable
         key={item.key}
@@ -103,6 +105,11 @@ export function BottomNavBar({
         <Text style={[styles.tabLabel, !isActive && styles.inactive]} numberOfLines={1}>
           {t(item.labelKey)}
         </Text>
+        {isLocked && (
+          <View style={styles.tabCrown}>
+            <CrownIcon size={11} weight="fill" color={colors.textMuted} />
+          </View>
+        )}
       </Pressable>
     );
   };
@@ -212,6 +219,12 @@ const styles = StyleSheet.create({
   },
   inactive: {
     opacity: 0.5,
+  },
+  // Same corner the "more" badge uses, so a locked tab reads like a locked row.
+  tabCrown: {
+    position: 'absolute',
+    top: 8,
+    right: '28%',
   },
   badge: {
     position: 'absolute',

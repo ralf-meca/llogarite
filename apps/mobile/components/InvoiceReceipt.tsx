@@ -1,14 +1,14 @@
-import { FolderIcon, CheckCircleIcon, CircleIcon } from 'phosphor-react-native';
+import { FolderIcon, CheckCircleIcon, CircleIcon, HandCoinsIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
-import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { categoryPlaceKey } from '../lib/categories';
 import { dominantCategoryOfItems } from '../lib/categorySpending';
 import { toDateLabel } from '../lib/date';
 import { formatAmount, needsCents } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
+import { AMOUNT_EPSILON, invoiceDebts } from '../lib/invoicePayments';
 import { fetchProjects, type Project } from '../lib/projectsApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
@@ -18,10 +18,14 @@ import { VerifiedBadge } from './VerifiedBadge';
 
 type InvoiceReceiptProps = {
   result: InvoiceVerificationResult;
+  // Whoever entered the invoice, for their row when a buddy paid the bill.
+  owner?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
+  // True when the owner is the person looking at it, who is then called "you".
+  ownerIsViewer?: boolean;
   onSelectItem?: (item: InvoiceItem) => void;
 };
 
-export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
+export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: InvoiceReceiptProps) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
@@ -42,12 +46,19 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
   const project = result.projectId ? (projects.find((candidate) => candidate.id === result.projectId) ?? null) : null;
 
   const invoiceBuddies = result.buddies ?? [];
-  const allBuddyIds = invoiceBuddies.map((buddy) => buddy.userId);
-  const shareRows = result.items.map((item) => ({
-    quantity: item.quantity,
-    unitPrice: item.unitPriceAfterVat,
-    buddyQuantities: item.buddyQuantities ?? {},
-  }));
+  // Who paid what at the till, and what that leaves each person owing.
+  const debts = invoiceDebts(result);
+  const ownerName = ownerIsViewer ? t('manualInvoice.you') : (owner?.name ?? owner?.email ?? t('invoiceReceipt.owner'));
+  const buddyName = (userId: string) => {
+    const info = buddies.find((candidate) => candidate.id === userId);
+    return info?.name ?? info?.email ?? t('manualInvoice.buddyFallback');
+  };
+  const payers = [
+    ...(debts.owner.paidAtTill > AMOUNT_EPSILON ? [{ name: ownerName, amount: debts.owner.paidAtTill }] : []),
+    ...invoiceBuddies
+      .filter((buddy) => debts.buddies[buddy.userId].paidAtTill > AMOUNT_EPSILON)
+      .map((buddy) => ({ name: buddyName(buddy.userId), amount: debts.buddies[buddy.userId].paidAtTill })),
+  ];
   const showCents = needsCents([
     result.totalPrice,
     ...result.items.flatMap((item) => [item.unitPriceAfterVat, item.unitPriceAfterVat * item.quantity]),
@@ -76,12 +87,61 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
         </View>
       )}
 
+      {debts.hasOtherPayers && (
+        <View style={styles.metaRow}>
+          <HandCoinsIcon size={14} color="#6b7280" />
+          <Text style={styles.metaText}>
+            {/* One payer needs no figure; several each get theirs. */}
+            {t('invoiceReceipt.paidBy', {
+              name:
+                payers.length === 1
+                  ? payers[0].name
+                  : payers.map((payer) => `${payer.name} ${formatAmount(payer.amount)}`).join(', '),
+            })}
+          </Text>
+        </View>
+      )}
+
       {invoiceBuddies.length > 0 && (
         <View style={styles.buddiesSection}>
           <Text style={styles.buddiesTitle}>{t('invoiceReceipt.buddiesTitle')}</Text>
+          {/* When buddies paid, the owner may owe part of the bill too. */}
+          {debts.hasOtherPayers && (
+            <View style={styles.buddyRow}>
+              {/* Someone else's invoice arrives without their photo, but its owner
+                  is one of the viewer's buddies, whose list carries it. */}
+              <UserAvatar
+                user={
+                  owner
+                    ? owner.avatarUrl
+                      ? owner
+                      : (buddies.find((candidate) => candidate.id === owner.id) ?? owner)
+                    : null
+                }
+                size={26}
+              />
+              <Text style={styles.buddyName} numberOfLines={1}>
+                {ownerName}
+              </Text>
+              <Text style={styles.buddyShare}>
+                {formatAmount(debts.owner.debt > 0 ? debts.owner.debt : debts.owner.share)}
+              </Text>
+              {debts.owner.debt === 0 ? (
+                <HandCoinsIcon size={16} color={colors.primary} />
+              ) : result.ownerPaid ? (
+                <CheckCircleIcon size={16} weight="fill" color="#10b981" />
+              ) : (
+                <CircleIcon size={16} color="#9ca3af" />
+              )}
+            </View>
+          )}
           {invoiceBuddies.map((buddy) => {
             const info = buddies.find((candidate) => candidate.id === buddy.userId);
-            const share = computeBuddyShareFromRows(shareRows, buddy.userId, allBuddyIds);
+            // What is still owed once anything paid at the till is counted; the
+            // whole share when they covered it all themselves.
+            const position = debts.buddies[buddy.userId];
+            const share = position.debt > 0 ? position.debt : position.share;
+            const coveredAtTill = position.paidAtTill > AMOUNT_EPSILON && position.debt === 0;
             return (
               <View key={buddy.userId} style={styles.buddyRow}>
                 <UserAvatar user={info ?? null} size={26} />
@@ -89,7 +149,9 @@ export function InvoiceReceipt({ result, onSelectItem }: InvoiceReceiptProps) {
                   {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
                 </Text>
                 <Text style={styles.buddyShare}>{formatAmount(share)}</Text>
-                {buddy.paid ? (
+                {coveredAtTill ? (
+                  <HandCoinsIcon size={16} color={colors.primary} />
+                ) : buddy.paid ? (
                   <CheckCircleIcon size={16} weight="fill" color="#10b981" />
                 ) : (
                   <CircleIcon size={16} color="#9ca3af" />

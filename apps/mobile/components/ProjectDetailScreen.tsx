@@ -1,12 +1,12 @@
 import { ArrowLeftIcon, CheckCircleIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
-import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
 import { toDateLabel } from '../lib/date';
 import { formatAmountLoose } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
+import { AMOUNT_EPSILON, invoiceDebts } from '../lib/invoicePayments';
 import {
   fetchProjectExpenses,
   markProjectPaid,
@@ -14,7 +14,6 @@ import {
   type ProjectExpense,
 } from '../lib/projectsApi';
 import { colors } from '../lib/theme';
-import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
@@ -22,40 +21,56 @@ import { UserAvatar } from './UserAvatar';
 type ProjectDetailScreenProps = {
   project: Project;
   currentUserId: string;
+  // The signed-in user, for their own row when they owe a buddy who paid.
+  currentUser?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   onBack: () => void;
-  onSelectExpense?: (expenseId: string) => void;
+  onSelectExpense?: (expense: ProjectExpense) => void;
 };
 
 type PersonTotal = {
   userId: string;
   owed: number;
   settled: number;
+  // The part of `owed` that sits on the viewer's own expenses - the only part
+  // the viewer can mark as paid back, since they keep those receipts.
+  settleable: number;
 };
 
 // What each person still owes across the whole project, and what they have
 // already covered. Computed from the same row-level split the invoice detail
 // uses, so a trip's totals and a single receipt's never disagree.
-function totalsByPerson(expenses: ProjectExpense[]): PersonTotal[] {
+function totalsByPerson(expenses: ProjectExpense[], viewerId: string): PersonTotal[] {
   const byPerson = new Map<string, PersonTotal>();
 
   for (const expense of expenses) {
     const buddies = expense.data.buddies ?? [];
-    const buddyIds = buddies.map((buddy) => buddy.userId);
-    const rows = expense.data.items.map((item) => ({
-      quantity: item.quantity,
-      unitPrice: item.unitPriceAfterVat,
-      buddyQuantities: item.buddyQuantities ?? {},
-    }));
 
-    for (const buddy of buddies) {
-      const share = computeBuddyShareFromRows(rows, buddy.userId, buddyIds);
-      const entry = byPerson.get(buddy.userId) ?? { userId: buddy.userId, owed: 0, settled: 0 };
-      if (buddy.paid) {
+    // Normally the owner paid and each buddy owes them a share. Whatever a
+    // buddy paid at the till comes off their share, and the owner owes in turn
+    // once the others covered more than the owner's own part.
+    const isViewers = expense.ownerId === viewerId;
+    const add = (userId: string, share: number, paid: boolean) => {
+      const entry = byPerson.get(userId) ?? { userId, owed: 0, settled: 0, settleable: 0 };
+      if (paid) {
         entry.settled += share;
       } else {
         entry.owed += share;
+        if (isViewers) {
+          entry.settleable += share;
+        }
       }
-      byPerson.set(buddy.userId, entry);
+      byPerson.set(userId, entry);
+    };
+
+    const debts = invoiceDebts(expense.data);
+    for (const buddy of buddies) {
+      const debt = debts.buddies[buddy.userId].debt;
+      if (debt > 0) {
+        add(buddy.userId, debt, buddy.paid);
+      }
+    }
+    if (debts.owner.debt > 0) {
+      add(expense.ownerId, debts.owner.debt, expense.data.ownerPaid === true);
     }
   }
 
@@ -65,6 +80,7 @@ function totalsByPerson(expenses: ProjectExpense[]): PersonTotal[] {
 export function ProjectDetailScreen({
   project,
   currentUserId,
+  currentUser,
   onBack,
   onSelectExpense,
 }: ProjectDetailScreenProps) {
@@ -72,7 +88,8 @@ export function ProjectDetailScreen({
   const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSettling, setIsSettling] = useState(false);
+  // The buddy whose shares are being settled right now, if any.
+  const [settlingId, setSettlingId] = useState<string | null>(null);
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
   const isOwner = project.userId === currentUserId;
@@ -99,31 +116,68 @@ export function ProjectDetailScreen({
   }, [load]);
 
   const spent = expenses.reduce((sum, expense) => sum + (expense.data.totalPrice ?? 0), 0);
-  const people = totalsByPerson(expenses);
-  // Only the caller's own expenses can be settled here, so the button says
-  // nothing when there is nothing of theirs left owing.
-  const owedOnMyExpenses = expenses
-    .filter((expense) => expense.ownerId === currentUserId)
-    .flatMap((expense) => expense.data.buddies ?? [])
-    .some((buddy) => !buddy.paid);
+  const people = totalsByPerson(expenses, currentUserId);
 
   const nameFor = (userId: string) => {
+    if (userId === currentUserId) {
+      return t('projectDetail.you');
+    }
     const buddy = buddies.find((candidate) => candidate.id === userId);
     return buddy?.name ?? buddy?.email ?? t('projectDetail.someone');
   };
+  const avatarFor = (userId: string) =>
+    userId === currentUserId ? (currentUser ?? null) : (buddies.find((b) => b.id === userId) ?? null);
 
-  const handleSettle = () => {
-    setIsSettling(true);
-    markProjectPaid(project.id)
-      .then(() => {
-        setIsSettling(false);
-        showSuccess(t('projectDetail.settled'));
-        load();
-      })
-      .catch((error: Error) => {
-        setIsSettling(false);
-        showError(error.message);
-      });
+  // One buddy at a time: people pay back separately, so settling everyone in
+  // one tap marked debts paid that were not.
+  // Who paid at the till: the owner unless buddies put money in, and everyone
+  // who did when the bill was split.
+  const payerLabel = (expense: ProjectExpense) => {
+    const debts = invoiceDebts(expense.data);
+    const payerIds = [
+      ...(debts.owner.paidAtTill > AMOUNT_EPSILON ? [expense.ownerId] : []),
+      ...Object.keys(debts.buddies).filter((buddyId) => debts.buddies[buddyId].paidAtTill > AMOUNT_EPSILON),
+    ];
+    if (payerIds.length === 1 && payerIds[0] === currentUserId) {
+      return t('projectDetail.paidByYou');
+    }
+    const names = payerIds.map((payerId) =>
+      payerId === expense.ownerId && payerId !== currentUserId
+        ? (expense.ownerName ?? expense.ownerEmail)
+        : nameFor(payerId),
+    );
+    return t('projectDetail.paidBy', { name: names.join(', ') });
+  };
+
+  const handleSettle = (person: PersonTotal) => {
+    Alert.alert(
+      t('projectDetail.confirmMarkPaidTitle'),
+      person.userId === currentUserId
+        ? t('projectDetail.confirmMarkPaidSelf', { amount: formatAmountLoose(person.settleable) })
+        : t('projectDetail.confirmMarkPaidMessage', {
+            name: nameFor(person.userId),
+            amount: formatAmountLoose(person.settleable),
+          }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            setSettlingId(person.userId);
+            markProjectPaid(project.id, person.userId)
+              .then(() => {
+                setSettlingId(null);
+                showSuccess(t('projectDetail.settled'));
+                load();
+              })
+              .catch((error: Error) => {
+                setSettlingId(null);
+                showError(error.message);
+              });
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -149,7 +203,14 @@ export function ProjectDetailScreen({
             <Text style={styles.metaLabel}>{t('projects.expenses')}</Text>
             <Text style={styles.metaValue}>{formatAmountLoose(spent)}</Text>
           </View>
-          {project.endDate ? (
+          {project.kind === 'trip' && project.startDate && project.endDate ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>{t('projects.dates')}</Text>
+              <Text style={styles.metaValue}>
+                {toDateLabel(new Date(project.startDate))} – {toDateLabel(new Date(project.endDate))}
+              </Text>
+            </View>
+          ) : project.endDate ? (
             <View style={styles.metaRow}>
               <Text style={styles.metaLabel}>{t('projects.endDate')}</Text>
               <Text style={styles.metaValue}>{toDateLabel(new Date(project.endDate))}</Text>
@@ -163,12 +224,27 @@ export function ProjectDetailScreen({
             <Text style={styles.cardTitle}>{t('projectDetail.whoOwes')}</Text>
             {people.map((person) => (
               <View key={person.userId} style={styles.personRow}>
-                <UserAvatar user={buddies.find((b) => b.id === person.userId) ?? null} size={28} />
+                <UserAvatar user={avatarFor(person.userId)} size={28} />
                 <Text style={styles.personName} numberOfLines={1}>
                   {nameFor(person.userId)}
                 </Text>
                 {person.owed > 0 ? (
-                  <Text style={styles.personOwed}>{formatAmountLoose(person.owed)}</Text>
+                  <>
+                    <Text style={styles.personOwed}>{formatAmountLoose(person.owed)}</Text>
+                    {/* Only shares on your own expenses are yours to settle. */}
+                    {isOwner && person.settleable > 0 && (
+                      <Pressable
+                        style={[styles.markPaidButton, settlingId !== null && styles.markPaidButtonDisabled]}
+                        onPress={() => handleSettle(person)}
+                        disabled={settlingId !== null}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.markPaidText}>
+                          {settlingId === person.userId ? t('common.saving') : t('projectDetail.markPaid')}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </>
                 ) : (
                   <View style={styles.personSettled}>
                     <CheckCircleIcon size={16} weight="fill" color="#059669" />
@@ -178,15 +254,6 @@ export function ProjectDetailScreen({
               </View>
             ))}
 
-            {isOwner && owedOnMyExpenses && (
-              <GlassButton
-                label={isSettling ? t('common.saving') : t('projectDetail.markAllPaid')}
-                variant="accent"
-                style={styles.settleButton}
-                onPress={handleSettle}
-                disabled={isSettling}
-              />
-            )}
           </GlassView>
         )}
 
@@ -202,7 +269,7 @@ export function ProjectDetailScreen({
               <Pressable
                 key={expense.id}
                 style={styles.expenseRow}
-                onPress={() => onSelectExpense?.(expense.id)}
+                onPress={() => onSelectExpense?.(expense)}
               >
                 <View style={styles.expenseText}>
                   <Text style={styles.expenseSeller} numberOfLines={1}>
@@ -210,9 +277,7 @@ export function ProjectDetailScreen({
                   </Text>
                   <Text style={styles.expenseMeta} numberOfLines={1}>
                     {toDateLabel(new Date(expense.data.dateTimeCreated))} ·{' '}
-                    {expense.ownerId === currentUserId
-                      ? t('projectDetail.paidByYou')
-                      : expense.ownerName ?? expense.ownerEmail}
+                    {payerLabel(expense)}
                   </Text>
                 </View>
                 <Text style={styles.expenseAmount}>{formatAmountLoose(expense.data.totalPrice)}</Text>
@@ -320,8 +385,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#059669',
   },
-  settleButton: {
-    marginTop: 12,
+  markPaidButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primaryTint,
+  },
+  markPaidButtonDisabled: {
+    opacity: 0.5,
+  },
+  markPaidText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   loading: {
     marginVertical: 16,

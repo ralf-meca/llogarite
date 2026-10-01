@@ -1,13 +1,27 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { CalendarIcon, PencilSimpleIcon, PlusIcon, TrashIcon, XCircleIcon } from 'phosphor-react-native';
+import {
+  AirplaneTiltIcon,
+  CalendarIcon,
+  FolderIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  XCircleIcon,
+} from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
-import { createProject, deleteProject, fetchProjects, updateProject, type Project } from '../lib/projectsApi';
+import {
+  createProject,
+  deleteProject,
+  fetchProjects,
+  updateProject,
+  type Project,
+  type ProjectKind,
+} from '../lib/projectsApi';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { BuddyPicker } from './BuddyPicker';
@@ -26,12 +40,24 @@ type FormState = {
   name: string;
   details: string;
   budget: string;
+  kind: ProjectKind;
+  startDate: Date | null;
   endDate: Date | null;
   buddyIds: string[];
 };
 
 function emptyForm(): FormState {
-  return { name: '', details: '', budget: '', endDate: null, buddyIds: [] };
+  return { name: '', details: '', budget: '', kind: 'project', startDate: null, endDate: null, buddyIds: [] };
+}
+
+const KINDS: { key: ProjectKind; labelKey: 'projects.kindProject' | 'projects.kindTrip' }[] = [
+  { key: 'project', labelKey: 'projects.kindProject' },
+  { key: 'trip', labelKey: 'projects.kindTrip' },
+];
+
+// Dates are stored as YYYY-MM-DD, which also compare correctly as strings.
+function toDateOnly(date: Date): string {
+  return toLocalIsoString(date).slice(0, 10);
 }
 
 function isCompleted(project: Project): boolean {
@@ -51,7 +77,9 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Which of the two dates the picker is open for, if any.
+  const [datePickerField, setDatePickerField] = useState<'startDate' | 'endDate' | null>(null);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
 
@@ -99,6 +127,8 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
       name: project.name,
       details: project.details ?? '',
       budget: formatAmount(project.budget),
+      kind: project.kind === 'trip' ? 'trip' : 'project',
+      startDate: project.startDate ? new Date(project.startDate) : null,
       endDate: project.endDate ? new Date(project.endDate) : null,
       buddyIds: project.buddyIds,
     });
@@ -115,13 +145,25 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
       showError(t('projects.invalidBudget'));
       return;
     }
-    const endDate = form.endDate ? toLocalIsoString(form.endDate).slice(0, 10) : null;
+    const isTrip = form.kind === 'trip';
+    const startDate = isTrip && form.startDate ? toDateOnly(form.startDate) : null;
+    const endDate = form.endDate ? toDateOnly(form.endDate) : null;
+    if (isTrip && (!startDate || !endDate)) {
+      showError(t('projects.tripDatesRequired'));
+      return;
+    }
+    if (startDate && endDate && endDate < startDate) {
+      showError(t('projects.endBeforeStart'));
+      return;
+    }
 
     setIsSaving(true);
     const payload = {
       name: form.name.trim(),
       details: form.details.trim() || null,
       budget,
+      kind: form.kind,
+      startDate,
       endDate,
       buddyIds: form.buddyIds,
     };
@@ -138,10 +180,33 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
       });
   };
 
-  const handleDelete = (id: string) => {
-    deleteProject(id)
-      .then(load)
-      .catch((error: Error) => showError(error.message));
+  // Lives in the edit form, behind a confirmation: a bin on the card sat one
+  // stray tap away from losing a project, with nothing asking first.
+  const handleDelete = () => {
+    if (!editingId) {
+      return;
+    }
+    const id = editingId;
+    Alert.alert(t('projects.deleteTitle', { name: form.name.trim() }), t('projects.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          setIsDeleting(true);
+          deleteProject(id)
+            .then(() => {
+              setIsDeleting(false);
+              setIsModalVisible(false);
+              load();
+            })
+            .catch((error: Error) => {
+              setIsDeleting(false);
+              showError(error.message);
+            });
+        },
+      },
+    ]);
   };
 
   return (
@@ -161,24 +226,22 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
         {projects.map((project) => {
           const completed = isCompleted(project);
           // A project you were added to is someone else's to change: tapping it
-          // opens what it holds, and the pencil and bin are not yours.
+          // opens what it holds, and the pencil is not yours.
           const isOwner = project.userId === currentUserId;
+          const isTrip = project.kind === 'trip';
+          const KindIcon = isTrip ? AirplaneTiltIcon : FolderIcon;
           return (
             <Pressable key={project.id} onPress={() => onSelectProject(project)}>
               <GlassView style={styles.card}>
                 <View style={styles.cardHeader}>
+                  <KindIcon size={18} color={colors.primary} />
                   <Text style={styles.projectName} numberOfLines={1}>
                     {project.name}
                   </Text>
                   {isOwner && (
-                    <>
-                      <Pressable style={styles.editButton} onPress={() => openEdit(project)} hitSlop={6}>
-                        <PencilSimpleIcon size={17} color={colors.primary} />
-                      </Pressable>
-                      <Pressable style={styles.deleteButton} onPress={() => handleDelete(project.id)}>
-                        <TrashIcon size={18} color="#dc2626" />
-                      </Pressable>
-                    </>
+                    <Pressable style={styles.editButton} onPress={() => openEdit(project)} hitSlop={6}>
+                      <PencilSimpleIcon size={17} color={colors.primary} />
+                    </Pressable>
                   )}
                 </View>
 
@@ -198,11 +261,20 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
                   <Text style={styles.metaLabel}>{t('projects.expenses')}</Text>
                   <Text style={styles.metaValue}>{formatAmount(totalExpenses(project.id))}</Text>
                 </View>
-                {project.endDate && (
+                {isTrip && project.startDate && project.endDate ? (
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>{t('projects.endDate')}</Text>
-                    <Text style={styles.metaValue}>{toDateLabel(new Date(project.endDate))}</Text>
+                    <Text style={styles.metaLabel}>{t('projects.dates')}</Text>
+                    <Text style={styles.metaValue}>
+                      {toDateLabel(new Date(project.startDate))} – {toDateLabel(new Date(project.endDate))}
+                    </Text>
                   </View>
+                ) : (
+                  project.endDate && (
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaLabel}>{t('projects.endDate')}</Text>
+                      <Text style={styles.metaValue}>{toDateLabel(new Date(project.endDate))}</Text>
+                    </View>
+                  )
                 )}
               </GlassView>
             </Pressable>
@@ -215,6 +287,22 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
           <Pressable style={styles.formCard} onPress={(event) => event.stopPropagation()}>
             <ScrollView>
               <Text style={styles.formTitle}>{editingId ? t('projects.editProject') : t('projects.addProject')}</Text>
+              <View style={styles.kindSwitch}>
+                {KINDS.map((kind) => {
+                  const isSelected = form.kind === kind.key;
+                  return (
+                    <Pressable
+                      key={kind.key}
+                      style={[styles.kindOption, isSelected && styles.kindOptionSelected]}
+                      onPress={() => setForm((current) => ({ ...current, kind: kind.key }))}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <Text style={[styles.kindText, isSelected && styles.kindTextSelected]}>{t(kind.labelKey)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <GlassTextInput
                 style={styles.input}
                 placeholder={t('projects.namePlaceholder')}
@@ -235,17 +323,31 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
                 value={form.budget}
                 onChangeText={(value) => setForm((current) => ({ ...current, budget: formatAmountInput(value) }))}
               />
+              {/* A trip has both dates and needs both; a project only an optional end. */}
+              {form.kind === 'trip' && (
+                <Pressable
+                  style={[styles.input, styles.dateTrigger]}
+                  onPress={() => setDatePickerField('startDate')}
+                >
+                  <CalendarIcon size={16} color="#6b7280" />
+                  <Text style={form.startDate ? styles.dateText : styles.datePlaceholder}>
+                    {form.startDate ? toDateLabel(form.startDate) : t('projects.startDatePlaceholder')}
+                  </Text>
+                </Pressable>
+              )}
               <View style={styles.endDateRow}>
                 <Pressable
                   style={[styles.input, styles.endDateInput, styles.dateTrigger]}
-                  onPress={() => setIsDatePickerVisible(true)}
+                  onPress={() => setDatePickerField('endDate')}
                 >
                   <CalendarIcon size={16} color="#6b7280" />
                   <Text style={form.endDate ? styles.dateText : styles.datePlaceholder}>
-                    {form.endDate ? toDateLabel(form.endDate) : t('projects.endDatePlaceholder')}
+                    {form.endDate
+                      ? toDateLabel(form.endDate)
+                      : t(form.kind === 'trip' ? 'projects.tripEndDatePlaceholder' : 'projects.endDatePlaceholder')}
                   </Text>
                 </Pressable>
-                {form.endDate && (
+                {form.endDate && form.kind !== 'trip' && (
                   <Pressable
                     style={styles.clearDateButton}
                     onPress={() => setForm((current) => ({ ...current, endDate: null }))}
@@ -254,15 +356,19 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
                   </Pressable>
                 )}
               </View>
-              {isDatePickerVisible && (
+              {datePickerField && (
                 <DateTimePicker
-                  value={form.endDate ?? new Date()}
+                  value={form[datePickerField] ?? form.startDate ?? new Date()}
+                  minimumDate={
+                    datePickerField === 'endDate' && form.kind === 'trip' ? (form.startDate ?? undefined) : undefined
+                  }
                   mode="date"
                   display="default"
                   onChange={(event, selectedDate) => {
-                    setIsDatePickerVisible(false);
+                    const field = datePickerField;
+                    setDatePickerField(null);
                     if (event.type === 'set' && selectedDate) {
-                      setForm((current) => ({ ...current, endDate: selectedDate }));
+                      setForm((current) => ({ ...current, [field]: selectedDate }));
                     }
                   }}
                 />
@@ -274,8 +380,17 @@ export function ProjectsScreen({ invoices, currentUserId, onSelectProject }: Pro
                 label={isSaving ? t('common.saving') : t('common.save')}
                 variant="accent"
                 onPress={handleSubmit}
-                disabled={isSaving}
+                disabled={isSaving || isDeleting}
               />
+              {editingId && (
+                <GlassButton
+                  label={isDeleting ? t('common.deleting') : t('common.delete')}
+                  variant="danger"
+                  style={styles.deleteButton}
+                  onPress={handleDelete}
+                  disabled={isSaving || isDeleting}
+                />
+              )}
               <Pressable onPress={() => setIsModalVisible(false)}>
                 <Text style={styles.cancelText}>{t('common.cancel')}</Text>
               </Pressable>
@@ -334,6 +449,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   projectName: {
     flex: 1,
@@ -345,7 +461,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   deleteButton: {
-    padding: 4,
+    marginTop: 12,
   },
   statusBadge: {
     alignSelf: 'flex-start',
@@ -409,6 +525,31 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
     color: '#1f2937',
+  },
+  kindSwitch: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    padding: 3,
+    borderRadius: 14,
+    backgroundColor: colors.neutral,
+  },
+  kindOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  kindOptionSelected: {
+    backgroundColor: colors.white,
+    boxShadow: '0px 1px 3px rgba(0,0,0,0.12)',
+  },
+  kindText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  kindTextSelected: {
+    color: colors.primary,
   },
   input: {
     marginBottom: 12,
