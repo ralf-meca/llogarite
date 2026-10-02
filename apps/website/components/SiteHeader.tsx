@@ -134,7 +134,7 @@ export function SiteHeader() {
         <div className="nav-shell">
           <div className="nav-bar">
             <Link href="/" className="brand" aria-label="Llogarite home">
-              <img className="brand-logo" src="/favicon.png?v=4" alt="" />Llogarite<span className="brand-dot">.</span>
+              <img className="brand-logo" src="/favicon.png?v=5" alt="" />Llogarite<span className="brand-dot">.</span>
             </Link>
 
             <nav className="nav-links" ref={linksRef} aria-label="Primary" onMouseLeave={hideHighlight}>
