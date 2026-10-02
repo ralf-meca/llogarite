@@ -4,7 +4,9 @@
 // and whatever someone paid at the till comes off their share.
 
 type Item = { quantity: number; unitPrice: number; buddyQuantities: Record<string, number> };
-type BuddyLink = { userId: string; paid: boolean };
+// `settled` is what has already been taken off this buddy's share by balancing
+// it against what the owner owed them elsewhere - a share can be part settled.
+type BuddyLink = { userId: string; paid: boolean; settled: number };
 
 // Amounts closer than this are the same amount.
 const EPSILON = 0.005;
@@ -25,7 +27,11 @@ function readBuddies(data: Record<string, unknown>): BuddyLink[] {
     const buddies = Array.isArray(data.buddies) ? (data.buddies as Array<Record<string, unknown>>) : [];
     return buddies
         .filter((buddy) => typeof buddy?.userId === 'string')
-        .map((buddy) => ({ userId: buddy.userId as string, paid: buddy.paid === true }));
+        .map((buddy) => ({
+            userId: buddy.userId as string,
+            paid: buddy.paid === true,
+            settled: Math.max(0, Number(buddy.settled) || 0),
+        }));
 }
 
 function shareOf(items: Item[], buddyId: string, buddyIds: string[]): number {
@@ -79,7 +85,7 @@ export function hasUnsettledDebtWith(data: Record<string, unknown>, buddyId: str
 
     const share = shareOf(items, buddyId, buddyIds);
     const paidAtTill = payments[buddyId] ?? 0;
-    if (share - paidAtTill > EPSILON && !link.paid) {
+    if (share - paidAtTill - link.settled > EPSILON && !link.paid) {
         return true;
     }
 
@@ -89,4 +95,45 @@ export function hasUnsettledDebtWith(data: Record<string, unknown>, buddyId: str
     const buddiesPaid = Object.values(payments).reduce((sum, amount) => sum + amount, 0);
     const ownerDebt = total - buddiesShare - (total - buddiesPaid);
     return paidAtTill - share > EPSILON && ownerDebt > EPSILON && data.ownerPaid !== true;
+}
+
+// What one buddy still owes the owner on an invoice the owner paid for in
+// full: their share, less anything already balanced away. Nothing when they
+// are not on it, are marked paid, or when buddies paid at the till - those
+// debts do not run simply buddy-to-owner, so they are left out of balancing,
+// the same as they are left out of the "owed" lists in the app.
+export function remainingBuddyDebt(data: Record<string, unknown>, buddyId: string): number {
+    const buddies = readBuddies(data);
+    const link = buddies.find((buddy) => buddy.userId === buddyId);
+    if (!link || link.paid) {
+        return 0;
+    }
+    const buddyIds = buddies.map((buddy) => buddy.userId);
+    const total = Number(data.totalPrice ?? 0) || 0;
+    if (Object.keys(tillPayments(data, buddyIds, total)).length > 0) {
+        return 0;
+    }
+    const debt = shareOf(readItems(data), buddyId, buddyIds) - link.settled;
+    return debt > EPSILON ? debt : 0;
+}
+
+// Takes `amount` off a buddy's debt on an invoice, marking the share paid when
+// that clears it. Returns the invoice data to store.
+export function settleBuddyDebt(
+    data: Record<string, unknown>,
+    buddyId: string,
+    amount: number,
+): Record<string, unknown> {
+    const remaining = remainingBuddyDebt(data, buddyId);
+    const buddies = Array.isArray(data.buddies) ? (data.buddies as Array<Record<string, unknown>>) : [];
+    return {
+        ...data,
+        buddies: buddies.map((buddy) => {
+            if (buddy.userId !== buddyId) {
+                return buddy;
+            }
+            const settled = (Math.max(0, Number(buddy.settled) || 0)) + amount;
+            return remaining - amount <= EPSILON ? { ...buddy, settled, paid: true } : { ...buddy, settled };
+        }),
+    };
 }

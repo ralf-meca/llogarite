@@ -153,7 +153,7 @@ export class AuthService {
         await this.emailService.sendMailOrThrow(
             email,
             'Kodi yt i kyçjes - Llogarite',
-            loginCodeEmailHtml(code, LOGIN_CODE_TTL_MINUTES),
+            loginCodeEmailHtml(code, LOGIN_CODE_TTL_MINUTES, email),
         );
     }
 

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { BuddiesService, BuddySummary } from './buddies.service';
+import { BuddiesService, BuddySummary, SettleResult } from './buddies.service';
 
 @Controller('buddies')
 @UseGuards(JwtAuthGuard)
@@ -45,6 +45,12 @@ export class BuddiesController {
     @Get()
     listBuddies(@CurrentUser() userId: string): Promise<BuddySummary[]> {
         return this.buddiesService.listBuddies(userId);
+    }
+
+    @Post('settle/:buddyId')
+    @HttpCode(HttpStatus.OK)
+    settle(@CurrentUser() userId: string, @Param('buddyId') buddyId: string): Promise<SettleResult> {
+        return this.buddiesService.settle(userId, buddyId);
     }
 
     @Delete(':id')
