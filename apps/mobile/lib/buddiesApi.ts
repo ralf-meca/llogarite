@@ -55,6 +55,33 @@ export async function respondToBuddyRequest(connectionId: string, accept: boolea
   }
 }
 
+export type SettleResult = {
+  settled: number;
+  owedToMe: number;
+  owedByMe: number;
+};
+
+// Balances what the two owe each other: the smaller total comes off both
+// sides, leaving one person owing the difference. A refusal comes with its
+// reason, written to be shown as it is.
+export async function settleWithBuddy(buddyId: string): Promise<SettleResult> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/buddies/settle/${buddyId}`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    const body: { message?: unknown } | null = await response.json().catch(() => null);
+    if (response.status === 400 && typeof body?.message === 'string' && body.message) {
+      throw new Error(body.message);
+    }
+    throw new Error(describeHttpError(response.status, {}, 'Balancimi dështoi. Provo përsëri.'));
+  }
+  return response.json();
+}
+
 // Ends the connection for both sides. What was already split with them stays.
 export async function removeBuddy(connectionId: string): Promise<void> {
   if (!API_BASE_URL) {

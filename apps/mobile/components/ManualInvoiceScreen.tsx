@@ -838,7 +838,8 @@ export function ManualInvoiceScreen({
               // Paying at the till counts against the share: someone who covered
               // theirs has nothing to pay back, someone who covered part owes the rest.
               const buddyShare = getBuddyShare(buddy.userId);
-              const buddyDebt = debtOf(buddyShare, buddy.userId);
+              // Less anything already balanced away against the owner's own debts.
+              const buddyDebt = Math.max(0, debtOf(buddyShare, buddy.userId) - (buddy.settled ?? 0));
               const isPayer = paidAtTill(buddy.userId) > AMOUNT_EPSILON && buddyDebt === 0;
               return (
                 <View key={buddy.userId} style={styles.buddyRow}>

@@ -78,6 +78,7 @@ import {
     fetchSavedInvoices,
     saveInvoice,
     updateInvoice,
+    type OwedInvoice,
     type SavedInvoice,
 } from "./lib/savedInvoicesApi";
 
@@ -217,6 +218,8 @@ function AppContent() {
     // Held rather than acted on straight away: a link can arrive before the
     // session is restored, and the buddies screen is no use while logged out.
     const [pendingBuddyCode, setPendingBuddyCode] = useState<string | null>(null);
+    // A sign-in link opened from the code email: the address and code it carried.
+    const [pendingLogin, setPendingLogin] = useState<{ email: string; code: string } | null>(null);
     const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
@@ -392,9 +395,24 @@ function AppContent() {
         });
     }, []);
 
-    // llogarite://shoku?code=123456, sent by the invite page on the site.
+    // llogarite://shoku?code=123456, sent by the invite page on the site, and
+    // llogarite://hyr?kodi=123456&email=..., sent by the button in the sign-in
+    // email. The sign-in code goes by `kodi` so that it is never mistaken for a
+    // buddy code, here or by app versions that only know the first kind.
     useEffect(() => {
         const readCode = (url: string | null) => {
+            const login = url?.match(/[?&]kodi=(\d{6})(?:\D|$)/);
+            if (login) {
+                const address = url?.match(/[?&]email=([^&#]+)/);
+                let email = "";
+                try {
+                    email = address ? decodeURIComponent(address[1]) : "";
+                } catch {
+                    email = "";
+                }
+                setPendingLogin({ email, code: login[1] });
+                return;
+            }
             const match = url?.match(/[?&]code=(\d{6})(?:\D|$)/);
             if (match) {
                 setPendingBuddyCode(match[1]);
@@ -404,6 +422,15 @@ function AppContent() {
         const subscription = Linking.addEventListener("url", (event) => readCode(event.url));
         return () => subscription.remove();
     }, []);
+
+    // A sign-in link is only for someone signed out. Opened while signed in it
+    // is dropped, so it cannot sit waiting and sign someone in after a later
+    // sign-out.
+    useEffect(() => {
+        if (pendingLogin && user) {
+            setPendingLogin(null);
+        }
+    }, [pendingLogin, user]);
 
     useEffect(() => {
         if (!pendingBuddyCode || !user) {
@@ -578,6 +605,22 @@ function AppContent() {
         setDetailOwner(owner);
         setDetailReturnScreen(returnTo);
         setScreen("detail");
+    };
+
+    // Someone else's invoice that the user owes a share on: shown read-only, as
+    // the buddy's, since only its owner can change it.
+    const openOwedInvoice = (invoice: OwedInvoice, returnTo: "buddies" | "buddyDetail") => {
+        handleSelectInvoice(
+            { id: invoice.id, iic: invoice.iic, data: invoice.data, createdAt: invoice.createdAt },
+            returnTo,
+            true,
+            {
+                id: invoice.user.id,
+                name: invoice.user.name,
+                email: invoice.user.email,
+                avatarUrl: invoice.user.avatarUrl,
+            },
+        );
     };
 
     const handleCloseDetail = () => {
@@ -852,7 +895,11 @@ function AppContent() {
             {screen === "loading" ? (
                 <Text style={styles.statusText}>{t("common.loading")}</Text>
             ) : screen === "auth" ? (
-                <LoginScreen onAuthenticated={handleAuthenticated} />
+                <LoginScreen
+                    onAuthenticated={handleAuthenticated}
+                    loginLink={pendingLogin}
+                    onLoginLinkHandled={() => setPendingLogin(null)}
+                />
             ) : MAIN_SCREENS.has(screen) ? (
                 <View style={styles.mainWrapper}>
                     <View style={styles.headerRow}>
@@ -1021,6 +1068,7 @@ function AppContent() {
                                         handleSelectInvoice(invoice, "buddies");
                                     }
                                 }}
+                                onSelectOwedInvoice={(invoice) => openOwedInvoice(invoice, "buddies")}
                             />
                         )}
                     </View>
@@ -1140,7 +1188,9 @@ function AppContent() {
                     <BuddyDetailScreen
                         buddyId={selectedBuddy.id}
                         buddyName={selectedBuddy.name ?? selectedBuddy.email}
+                        userId={user?.id ?? ""}
                         invoices={savedInvoices}
+                        onSelectOwedInvoice={(invoice) => openOwedInvoice(invoice, "buddyDetail")}
                         onBack={() => setScreen("buddies")}
                         onSelectInvoice={(invoiceId) => {
                             const invoice = savedInvoices.find((candidate) => candidate.id === invoiceId);

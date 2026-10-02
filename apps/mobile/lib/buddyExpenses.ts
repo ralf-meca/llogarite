@@ -65,6 +65,13 @@ function paidBySomeoneElse(invoice: {
   return Boolean(invoice.data.paidBy) || Object.values(invoice.data.payments ?? {}).some((amount) => amount > 0);
 }
 
+// What a buddy still owes on an invoice: their share, less whatever has
+// already been balanced away against the owner's debts to them.
+function remainingShare(invoice: SavedInvoice, buddyUserId: string): number {
+  const settled = invoice.data.buddies?.find((buddy) => buddy.userId === buddyUserId)?.settled ?? 0;
+  return Math.max(0, computeShareForBuddy(invoice, buddyUserId) - settled);
+}
+
 export function buddyInvoiceShares(invoices: SavedInvoice[], buddyUserId: string): BuddyInvoiceShare[] {
   const shares: BuddyInvoiceShare[] = [];
 
@@ -81,7 +88,7 @@ export function buddyInvoiceShares(invoices: SavedInvoice[], buddyUserId: string
       sellerName: invoice.data.seller.name,
       dateTimeCreated: invoice.data.dateTimeCreated,
       totalPrice: invoice.data.totalPrice,
-      share: computeShareForBuddy(invoice, buddyUserId),
+      share: remainingShare(invoice, buddyUserId),
       paid: buddyLink.paid,
     });
   }
@@ -114,7 +121,7 @@ export function allBuddyInvoiceShares(invoices: SavedInvoice[], buddies: Buddy[]
         sellerName: invoice.data.seller.name,
         dateTimeCreated: invoice.data.dateTimeCreated,
         totalPrice: invoice.data.totalPrice,
-        share: computeShareForBuddy(invoice, buddyLink.userId),
+        share: remainingShare(invoice, buddyLink.userId),
         paid: buddyLink.paid,
         buddyId: buddyLink.userId,
         buddyName: info?.name ?? null,
@@ -154,7 +161,7 @@ export function owedByMeShares(invoices: OwedInvoice[], myUserId: string): OwedS
       invoiceId: invoice.id,
       sellerName: invoice.data.seller.name,
       dateTimeCreated: invoice.data.dateTimeCreated,
-      share: computeShareForBuddy(invoice, myUserId),
+      share: remainingShare(invoice, myUserId),
       paid: myLink.paid,
       ownerId: invoice.user.id,
       ownerName: invoice.user.name,

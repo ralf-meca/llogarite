@@ -37,8 +37,9 @@ export function buddyTillPayments(data: PaymentData): Record<string, number> {
   return payments;
 }
 
-function debtOf(share: number, paidAtTill: number): PersonDebt {
-  const debt = share - paidAtTill;
+// `settled` is what was already balanced away against the owner's own debts.
+function debtOf(share: number, paidAtTill: number, settled = 0): PersonDebt {
+  const debt = share - paidAtTill - settled;
   return { share, paidAtTill, debt: debt > AMOUNT_EPSILON ? debt : 0 };
 }
 
@@ -63,7 +64,8 @@ export function invoiceDebts(data: PaymentData): InvoiceDebts {
     const paid = payments[buddyId] ?? 0;
     buddiesShare += share;
     buddiesPaid += paid;
-    buddies[buddyId] = debtOf(share, paid);
+    const settled = data.buddies?.find((buddy) => buddy.userId === buddyId)?.settled ?? 0;
+    buddies[buddyId] = debtOf(share, paid, settled);
   }
 
   return {

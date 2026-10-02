@@ -84,6 +84,10 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 type LoginScreenProps = {
   onAuthenticated: (auth: AuthResponse) => void;
+  // The address and code from the sign-in email's button, when the app was
+  // opened by it. They are entered and submitted as if typed.
+  loginLink?: { email: string; code: string } | null;
+  onLoginLinkHandled?: () => void;
 };
 
 // 'email' asks for the address and mails a code, 'code' takes that code back.
@@ -114,7 +118,7 @@ function getEmailSuggestions(value: string): string[] {
   );
 }
 
-export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
+export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: LoginScreenProps) {
   const { t } = useTranslation();
   // The screen draws edge to edge, so anything pinned to the bottom has to be
   // lifted clear of the system navigation bar or it sits underneath it.
@@ -212,7 +216,10 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   // The code is passed in rather than read from state, so the auto-submit on the
   // sixth digit doesn't race the state update that triggered it.
-  const handleVerifyCode = (value: string) => {
+  //
+  // The address is passed too when it comes from a sign-in link, which can
+  // arrive before this screen has ever been given one.
+  const handleVerifyCode = (value: string, address: string = email) => {
     if (isSubmitting) {
       return;
     }
@@ -221,7 +228,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       return;
     }
     setIsSubmitting(true);
-    verifyLoginCode(email.trim(), value)
+    verifyLoginCode(address.trim(), value)
       .then((auth) => {
         setIsSubmitting(false);
         if (auth.user.hasPassword) {
@@ -243,6 +250,27 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         showError(verifyError.message);
       });
   };
+
+  // Opened from the email's button: show the code step filled in and submit
+  // it. The address falls back to the one already typed here, for a link that
+  // somehow lost it on the way. A wrong or expired code fails as a typed one
+  // would, with the same message, and leaves the code step open to retype.
+  useEffect(() => {
+    if (!loginLink) {
+      return;
+    }
+    const address = loginLink.email || email;
+    onLoginLinkHandled?.();
+    if (!address) {
+      return;
+    }
+    setEmail(address);
+    setCode(loginLink.code);
+    setStep('code');
+    handleVerifyCode(loginLink.code, address);
+    // Runs once per link; the handlers it calls are not part of what it reacts to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginLink]);
 
   const handleCodeChange = (value: string) => {
     const digits = value.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH);

@@ -52,6 +52,8 @@ type BuddiesScreenProps = {
   onInvoicesChanged: () => void;
   onSelectBuddy: (buddy: Buddy) => void;
   onSelectInvoice: (invoiceId: string) => void;
+  // Opens a buddy's invoice that this user owes a share on, read-only.
+  onSelectOwedInvoice: (invoice: OwedInvoice) => void;
   initialTab?: BuddyTab;
   highlightInvoiceId?: string | null;
   // A code the app was opened on, from someone else's invite link.
@@ -73,6 +75,7 @@ export function BuddiesScreen({
   onInvoicesChanged,
   onSelectBuddy,
   onSelectInvoice,
+  onSelectOwedInvoice,
   initialTab,
   highlightInvoiceId,
   initialCode,
@@ -270,6 +273,13 @@ export function BuddiesScreen({
         },
       ],
     );
+  };
+
+  const openOwed = (share: OwedShare) => {
+    const invoice = owedInvoices.find((candidate) => candidate.id === share.invoiceId);
+    if (invoice) {
+      onSelectOwedInvoice(invoice);
+    }
   };
 
   const handleNotifyPaid = (share: OwedShare) => {
@@ -538,14 +548,16 @@ export function BuddiesScreen({
                     </Text>
                   </Pressable>
                   <View style={styles.rowBody}>
-                    <View style={styles.rowLeft}>
+                    <Pressable style={styles.rowLeft} onPress={() => openOwed(share)}>
                       <Text style={styles.rowSeller} numberOfLines={1}>
                         {share.sellerName}
                       </Text>
                       <Text style={styles.rowDate}>{toDateLabel(new Date(share.dateTimeCreated))}</Text>
-                    </View>
+                    </Pressable>
                     <View style={styles.rowRight}>
-                      <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                      <Pressable onPress={() => openOwed(share)}>
+                        <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                      </Pressable>
                       <Pressable
                         style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
                         onPress={() => handleNotifyPaid(share)}

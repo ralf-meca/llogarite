@@ -54,6 +54,10 @@ export type InvoiceSeller = {
 export type InvoiceBuddy = {
   userId: string;
   paid: boolean;
+  // What has already come off this buddy's share by balancing it against what
+  // the invoice's owner owed them elsewhere. A share can be part settled; once
+  // it is fully covered, `paid` is set as well.
+  settled?: number;
 };
 
 export type InvoiceVerificationResult = {
