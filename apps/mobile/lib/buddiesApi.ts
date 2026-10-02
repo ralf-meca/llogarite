@@ -55,6 +55,28 @@ export async function respondToBuddyRequest(connectionId: string, accept: boolea
   }
 }
 
+// Ends the connection for both sides. What was already split with them stays.
+export async function removeBuddy(connectionId: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/buddies/${connectionId}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    // A refusal comes with the reason, written to be shown as it is - today
+    // that there are still unpaid invoices between the two.
+    if (response.status === 409) {
+      const body: { message?: unknown } | null = await response.json().catch(() => null);
+      if (typeof body?.message === 'string' && body.message) {
+        throw new Error(body.message);
+      }
+    }
+    throw new Error(describeHttpError(response.status, {}, 'Heqja e shokut dështoi. Provo përsëri.'));
+  }
+}
+
 export async function fetchBuddies(): Promise<Buddy[]> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');

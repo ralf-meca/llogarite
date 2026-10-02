@@ -1,15 +1,25 @@
 import {
+  CaretDownIcon,
+  CaretUpIcon,
   CheckCircleIcon,
   CheckIcon,
   PaperPlaneTiltIcon,
   ShareNetworkIcon,
+  UserMinusIcon,
   UserPlusIcon,
   XIcon,
 } from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
-import { fetchBuddies, fetchBuddyRequests, respondToBuddyRequest, sendBuddyRequest, type Buddy } from '../lib/buddiesApi';
+import {
+  fetchBuddies,
+  fetchBuddyRequests,
+  removeBuddy,
+  respondToBuddyRequest,
+  sendBuddyRequest,
+  type Buddy,
+} from '../lib/buddiesApi';
 import {
   allBuddyInvoiceShares,
   owedByMeShares,
@@ -75,6 +85,10 @@ export function BuddiesScreen({
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [requests, setRequests] = useState<Buddy[]>([]);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
+  // The list of current buddies starts folded away: it is there to manage
+  // them now and then, not to be read on every visit.
+  const [isBuddyListOpen, setIsBuddyListOpen] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [owedInvoices, setOwedInvoices] = useState<OwedInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [tab, setTab] = useState<BuddyTab>(initialTab ?? 'owedToMe');
@@ -121,6 +135,73 @@ export function BuddiesScreen({
     () => owedByMeShares(owedInvoices, userId).filter((share) => !share.paid),
     [owedInvoices, userId],
   );
+
+  // The people behind the list on show - who owes me, or whom I owe - each
+  // once, in the order their invoices come. Tapping one narrows the list to
+  // them; tapping them again, or changing tab, shows everyone.
+  const [personFilter, setPersonFilter] = useState<string | null>(null);
+  const people = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string | null; email: string; avatarUrl: string | null }>();
+    if (tab === 'owedToMe') {
+      for (const share of owedToMeShares) {
+        if (!seen.has(share.buddyId)) {
+          seen.set(share.buddyId, {
+            id: share.buddyId,
+            name: share.buddyName,
+            email: share.buddyEmail,
+            avatarUrl: share.buddyAvatarUrl,
+          });
+        }
+      }
+    } else {
+      for (const share of owedByMeSharesList) {
+        if (!seen.has(share.ownerId)) {
+          seen.set(share.ownerId, {
+            id: share.ownerId,
+            name: share.ownerName,
+            email: share.ownerEmail,
+            avatarUrl: share.ownerAvatarUrl,
+          });
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }, [tab, owedToMeShares, owedByMeSharesList]);
+  // A filter on someone who has since dropped out of the list - their last
+  // invoice was just paid - stops applying rather than leaving it empty.
+  const activePerson = people.some((person) => person.id === personFilter) ? personFilter : null;
+  const shownOwedToMe = activePerson ? owedToMeShares.filter((share) => share.buddyId === activePerson) : owedToMeShares;
+  const shownOwedByMe = activePerson
+    ? owedByMeSharesList.filter((share) => share.ownerId === activePerson)
+    : owedByMeSharesList;
+
+  const changeTab = (next: BuddyTab) => {
+    setTab(next);
+    setPersonFilter(null);
+  };
+
+  const handleRemoveBuddy = (buddy: Buddy) => {
+    Alert.alert(t('buddies.removeTitle', { name: buddy.name ?? buddy.email }), t('buddies.removeMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('buddies.remove'),
+        style: 'destructive',
+        onPress: () => {
+          setRemovingId(buddy.connectionId);
+          removeBuddy(buddy.connectionId)
+            .then(() => {
+              setRemovingId(null);
+              setBuddies((current) => current.filter((candidate) => candidate.connectionId !== buddy.connectionId));
+              showSuccess(t('buddies.removed'));
+            })
+            .catch((error: Error) => {
+              setRemovingId(null);
+              showError(error.message);
+            });
+        },
+      },
+    ]);
+  };
 
   const handleShareCode = () => {
     if (!myCode) {
@@ -233,6 +314,53 @@ export function BuddiesScreen({
           </Pressable>
         </View>
 
+        <GlassView style={styles.card}>
+          <Pressable
+            style={styles.buddyListHeader}
+            onPress={() => setIsBuddyListOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isBuddyListOpen }}
+          >
+            <Text style={styles.buddyListTitle}>
+              {t('buddies.myBuddies')} ({buddies.length})
+            </Text>
+            {isBuddyListOpen ? (
+              <CaretUpIcon size={16} color={colors.textMuted} />
+            ) : (
+              <CaretDownIcon size={16} color={colors.textMuted} />
+            )}
+          </Pressable>
+          {isBuddyListOpen &&
+            (buddies.length === 0 ? (
+              <Text style={styles.buddyListEmpty}>{t('buddies.noBuddiesYet')}</Text>
+            ) : (
+              buddies.map((buddy) => (
+                <View key={buddy.connectionId} style={styles.buddyListRow}>
+                  <UserAvatar user={buddy} size={36} />
+                  <View style={styles.buddyListText}>
+                    <Text style={styles.requestName} numberOfLines={1}>
+                      {buddy.name ?? buddy.email}
+                    </Text>
+                    {buddy.name && (
+                      <Text style={styles.buddyListEmail} numberOfLines={1}>
+                        {buddy.email}
+                      </Text>
+                    )}
+                  </View>
+                  <Pressable
+                    style={[styles.requestButton, styles.rejectButton]}
+                    onPress={() => handleRemoveBuddy(buddy)}
+                    disabled={removingId !== null}
+                    hitSlop={6}
+                    accessibilityLabel={t('buddies.remove')}
+                  >
+                    <UserMinusIcon size={18} color="#dc2626" />
+                  </Pressable>
+                </View>
+              ))
+            ))}
+        </GlassView>
+
         {requests.length > 0 && (
           <GlassView style={styles.card}>
             <Text style={styles.cardLabel}>{t('buddies.pendingRequests')}</Text>
@@ -264,7 +392,7 @@ export function BuddiesScreen({
         <View style={styles.tabs}>
           <Pressable
             style={[styles.tabButton, tab === 'owedToMe' && styles.tabButtonActive]}
-            onPress={() => setTab('owedToMe')}
+            onPress={() => changeTab('owedToMe')}
           >
             <Text style={[styles.tabButtonText, tab === 'owedToMe' && styles.tabButtonTextActive]} numberOfLines={1}>
               {t('buddies.tabOwedToMe')}
@@ -272,7 +400,7 @@ export function BuddiesScreen({
           </Pressable>
           <Pressable
             style={[styles.tabButton, tab === 'owedByMe' && styles.tabButtonActive]}
-            onPress={() => setTab('owedByMe')}
+            onPress={() => changeTab('owedByMe')}
           >
             <Text style={[styles.tabButtonText, tab === 'owedByMe' && styles.tabButtonTextActive]} numberOfLines={1}>
               {t('buddies.tabOwedByMe')}
@@ -280,12 +408,51 @@ export function BuddiesScreen({
           </Pressable>
         </View>
 
+        {people.length > 0 && (
+          <ScrollView
+            horizontal
+            // Kept on screen rather than fading out, so a row that runs past
+            // the edge says so. Android only draws it when there is more to
+            // scroll to, which is exactly when it is wanted.
+            showsHorizontalScrollIndicator
+            persistentScrollbar
+            style={styles.peopleScroll}
+            contentContainerStyle={styles.peopleRow}
+          >
+            {people.map((person) => {
+              const isSelected = activePerson === person.id;
+              return (
+                <Pressable
+                  key={person.id}
+                  style={styles.person}
+                  onPress={() => setPersonFilter(isSelected ? null : person.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <View
+                    style={[
+                      styles.personRing,
+                      isSelected && styles.personRingSelected,
+                      activePerson !== null && !isSelected && styles.personRingDimmed,
+                    ]}
+                  >
+                    <UserAvatar user={person} size={40} />
+                  </View>
+                  <Text style={[styles.personName, isSelected && styles.personNameSelected]} numberOfLines={1}>
+                    {(person.name ?? person.email).split(/[\s@]/)[0]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+
         {tab === 'owedToMe' ? (
           <>
             {!isLoading && owedToMeShares.length === 0 && (
               <Text style={styles.emptyText}>{t('buddies.noOwedToMe')}</Text>
             )}
-            {owedToMeShares.map((share) => {
+            {shownOwedToMe.map((share) => {
               const isMarking = markingId === share.invoiceId;
               const isHighlighted = highlightedId === share.invoiceId;
               return (
@@ -349,7 +516,7 @@ export function BuddiesScreen({
             {!isLoading && owedByMeSharesList.length === 0 && (
               <Text style={styles.emptyText}>{t('buddies.noOwedByMe')}</Text>
             )}
-            {owedByMeSharesList.map((share) => {
+            {shownOwedByMe.map((share) => {
               const isNotifying = notifyingId === share.invoiceId;
               return (
                 <GlassView key={share.invoiceId} style={styles.row}>
@@ -528,6 +695,76 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  // Sideways-scrolling, so any number of people fits on one line.
+  peopleScroll: {
+    flexGrow: 0,
+  },
+  // Room underneath for the scrollbar, clear of the names.
+  peopleRow: {
+    gap: 14,
+    paddingTop: 2,
+    paddingBottom: 10,
+  },
+  person: {
+    width: 56,
+    alignItems: 'center',
+    gap: 4,
+  },
+  // Always there, so choosing someone does not shift the row; only its colour
+  // and the glow change.
+  personRing: {
+    padding: 2,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  personRingSelected: {
+    borderColor: colors.primary,
+    boxShadow: '0px 0px 10px rgba(89,128,166,0.65)',
+  },
+  personRingDimmed: {
+    opacity: 0.5,
+  },
+  personName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  personNameSelected: {
+    color: colors.primary,
+  },
+  buddyListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  buddyListTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  buddyListEmpty: {
+    marginTop: 12,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  buddyListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  buddyListText: {
+    flex: 1,
+  },
+  buddyListEmail: {
+    marginTop: 1,
+    fontSize: 12,
+    color: colors.textMuted,
   },
   requestRow: {
     flexDirection: 'row',

@@ -261,6 +261,10 @@ export const en = {
   'buddies.noOwedByMe': "You don't have any unpaid invoices.",
   'buddies.notifyPaid': 'Notify as paid',
   'buddies.notifySent': 'Your buddy has been notified.',
+  'buddies.remove': 'Remove',
+  'buddies.removeTitle': 'Remove {name}?',
+  'buddies.removeMessage': 'You will no longer be expense buddies. Invoices already split stay as they are.',
+  'buddies.removed': 'Buddy removed.',
 
   'buddyDetail.totalUnpaid': 'Total unpaid',
   'buddyDetail.unpaidInvoices': 'Unpaid invoices',

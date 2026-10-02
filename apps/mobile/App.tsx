@@ -9,6 +9,7 @@ import {
     FlatList,
     Linking,
     Modal,
+    PanResponder,
     Pressable,
     StyleSheet,
     Text,
@@ -155,6 +156,20 @@ function AppContent() {
     const [isReceiptScannerVisible, setIsReceiptScannerVisible] = useState(false);
     const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
+    // On the home screen a swipe towards the right pulls the profile drawer in
+    // from the left edge, the way it slides. Only a clearly sideways drag is
+    // claimed, so scrolling the page up and down is left alone.
+    const homeSwipe = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+                gesture.dx > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
+            onPanResponderRelease: (_event, gesture) => {
+                if (gesture.dx > 56 || gesture.vx > 0.5) {
+                    setIsUserMenuVisible(true);
+                }
+            },
+        }),
+    ).current;
     const [isPlansOverlayOpen, setIsPlansOverlayOpen] = useState(false);
     // Everyone's accepted invoices, not the signed-in user's own: the price
     // screens compare across people now, which is the point of reviewing them.
@@ -863,20 +878,22 @@ function AppContent() {
 
                     <View style={[styles.sheet, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom }]}>
                         {screen === "dashboard" ? (
-                            <DashboardScreen
-                                invoices={savedInvoices}
-                                onSelectBudget={() => setScreen("budget")}
-                                onSelectInvoiceList={() => setScreen("list")}
-                                onSelectCategory={(categoryId) => {
-                                    // The card counts this month only, so the list it opens is
-                                    // scoped the same way - otherwise tapping a figure lands you
-                                    // on a list that disagrees with it.
-                                    setSelectedCategory(categoryId);
-                                    setSelectedMonthKey(currentMonthKey());
-                                    setScreen("list");
-                                }}
-                                onSelectInvoice={(invoice) => handleSelectInvoice(invoice, "list")}
-                            />
+                            <View style={styles.homeSwipeArea} {...homeSwipe.panHandlers}>
+                                <DashboardScreen
+                                    invoices={savedInvoices}
+                                    onSelectBudget={() => setScreen("budget")}
+                                    onSelectInvoiceList={() => setScreen("list")}
+                                    onSelectCategory={(categoryId) => {
+                                        // The card counts this month only, so the list it opens is
+                                        // scoped the same way - otherwise tapping a figure lands you
+                                        // on a list that disagrees with it.
+                                        setSelectedCategory(categoryId);
+                                        setSelectedMonthKey(currentMonthKey());
+                                        setScreen("list");
+                                    }}
+                                    onSelectInvoice={(invoice) => handleSelectInvoice(invoice, "list")}
+                                />
+                            </View>
                         ) : screen === "list" ? (
                             <FlatList
                                 style={styles.list}
@@ -1316,6 +1333,9 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: radius.sheet,
         borderTopRightRadius: radius.sheet,
         overflow: "hidden",
+    },
+    homeSwipeArea: {
+        flex: 1,
     },
     statusText: {
         textAlign: "center",
