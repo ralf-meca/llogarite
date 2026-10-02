@@ -2,8 +2,8 @@
   "expo": {
     "name": "Llogarite",
     "slug": "mobile",
-    "version": "1.1.4",
-    "orientation": "portrait",
+    "version": "1.1.5",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "llogarite",
@@ -25,7 +25,7 @@
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "versionCode": 33,
+      "versionCode": 34,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -71,7 +71,9 @@
       "./plugins/withReleaseMatchingFallbacks",
       "./plugins/withMonorepoMetroRoot",
       "./plugins/withReleaseSigning",
-      "./plugins/withMinifyRelease"
+      "./plugins/withMinifyRelease",
+      "./plugins/withoutStatusBarColor",
+      "./plugins/withPortraitOnPhones"
     ],
     "extra": {
       "eas": {
