@@ -1,4 +1,16 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    Patch,
+    Post,
+    UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BuddiesService, BuddySummary } from './buddies.service';
@@ -33,5 +45,11 @@ export class BuddiesController {
     @Get()
     listBuddies(@CurrentUser() userId: string): Promise<BuddySummary[]> {
         return this.buddiesService.listBuddies(userId);
+    }
+
+    @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    removeBuddy(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
+        return this.buddiesService.removeBuddy(userId, id);
     }
 }

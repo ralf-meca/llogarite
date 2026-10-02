@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { hasUnsettledDebtWith } from '../invoices/invoice-debts';
+import { Invoice } from '../invoices/invoice.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
@@ -19,6 +21,8 @@ export class BuddiesService {
     constructor(
         @InjectRepository(BuddyConnection)
         private readonly connectionsRepository: Repository<BuddyConnection>,
+        @InjectRepository(Invoice)
+        private readonly invoicesRepository: Repository<Invoice>,
         private readonly usersService: UsersService,
         private readonly notificationsService: NotificationsService,
     ) {}
@@ -103,6 +107,48 @@ export class BuddiesService {
             const other = connection.requesterId === userId ? connection.addressee : connection.requester;
             return this.toSummary(connection, other);
         });
+    }
+
+    // Either side can end a connection, but only once the two are square: with
+    // money still owed between them, removing the buddy would leave a debt
+    // nobody can see who to chase for. The message is written for the person
+    // reading it, and the app shows it as it comes.
+    //
+    // The row goes rather than being marked, so the two can connect again later
+    // like strangers would. Invoices and projects already shared stay as they are.
+    async removeBuddy(userId: string, connectionId: string): Promise<void> {
+        const connection = await this.connectionsRepository.findOne({ where: { id: connectionId } });
+        const isParty = connection && (connection.requesterId === userId || connection.addresseeId === userId);
+        if (!connection || !isParty || connection.status !== 'accepted') {
+            throw new NotFoundException();
+        }
+        const otherId = connection.requesterId === userId ? connection.addresseeId : connection.requesterId;
+        if (await this.hasUnsettledInvoices(userId, otherId)) {
+            throw new ConflictException(
+                'Nuk mund ta heqësh këtë shok: keni ende fatura të papaguara mes jush. Paguajini fillimisht.',
+            );
+        }
+        await this.connectionsRepository.delete(connectionId);
+    }
+
+    // Whether either of the two still owes the other on any invoice they share:
+    // one of them entered it and the other is a buddy on it.
+    private async hasUnsettledInvoices(firstId: string, secondId: string): Promise<boolean> {
+        // The buddy ids take parameters of their own: the owner column is a
+        // uuid and the ids inside the JSON are text.
+        const onInvoice = (param: string) =>
+            `EXISTS (SELECT 1 FROM jsonb_array_elements(` +
+            `CASE WHEN jsonb_typeof(invoice.data->'buddies') = 'array' THEN invoice.data->'buddies' ELSE '[]'::jsonb END` +
+            `) AS b WHERE b->>'userId' = :${param})`;
+        const invoices = await this.invoicesRepository
+            .createQueryBuilder('invoice')
+            .where(`(invoice.userId = :firstId AND ${onInvoice('secondText')})`, { firstId, secondText: secondId })
+            .orWhere(`(invoice.userId = :secondId AND ${onInvoice('firstText')})`, { secondId, firstText: firstId })
+            .getMany();
+
+        return invoices.some((invoice) =>
+            hasUnsettledDebtWith(invoice.data, invoice.userId === firstId ? secondId : firstId),
+        );
     }
 
     private toSummary(connection: BuddyConnection, user: User): BuddySummary {
