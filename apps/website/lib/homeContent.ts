@@ -20,7 +20,11 @@ export const HOME_CONTENT: Record<'en' | 'sq', HomeContent> = {
       },
       {
         title: 'Projects',
-        body: 'Group invoices by project to see exactly what a renovation, trip, or event actually cost.',
+        body: 'Group invoices by project to see exactly what a renovation or an event actually cost.',
+      },
+      {
+        title: 'Trips',
+        body: 'Give a trip its dates and a budget, in lek or euro. What you spend while away is filed under it, and you can see who paid and who owes whom.',
       },
       {
         title: 'Price tracking',
@@ -47,7 +51,11 @@ export const HOME_CONTENT: Record<'en' | 'sq', HomeContent> = {
       },
       {
         title: 'Projektet',
-        body: 'Grupo faturat sipas projektit për të parë saktësisht sa kushtoi një rinovim, udhëtim, apo eveniment.',
+        body: 'Grupo faturat sipas projektit për të parë saktësisht sa kushtoi një rinovim apo një eveniment.',
+      },
+      {
+        title: 'Udhëtimet',
+        body: 'Jepi udhëtimit datat dhe një buxhet, në lekë ose në euro. Çfarë shpenzon gjatë tij regjistrohet aty, dhe sheh kush ka paguar e kush i detyrohet kujt.',
       },
       {
         title: 'Ndjekja e çmimeve',
