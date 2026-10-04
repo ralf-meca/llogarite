@@ -430,6 +430,10 @@ export const sq: Record<keyof typeof en, string> = {
   'plans.featureEverythingFree': 'Çdo gjë nga plani Falas',
   'plans.cancelSubscription': 'Anullo abonimin',
   'plans.manageFailed': 'Nuk u hap dot menaxhimi i abonimit.',
+  'plans.restore': 'Rikthe blerjen',
+  'plans.restoreNothing': "Nuk u gjet asnjë abonim për t'u rikthyer.",
+  'plans.autoRenewNote':
+    'Abonimi Premium rinovohet automatikisht çdo muaj derisa ta anulosh. Mund ta anulosh në çdo kohë te cilësimet e llogarisë sate në App Store.',
   'plans.currentPlan': 'Plani aktual',
   'plans.buyPremium': 'Bli Premium',
   'plans.paymentsComingSoon': 'Pagesat do të aktivizohen së shpejti.',

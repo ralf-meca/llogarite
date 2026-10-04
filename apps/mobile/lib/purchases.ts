@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import Purchases, { LOG_LEVEL, type PurchasesPackage } from 'react-native-purchases';
 
 const PREMIUM_ENTITLEMENT_ID = 'premium';
@@ -7,7 +7,11 @@ const PREMIUM_ENTITLEMENT_ID = 'premium';
 let isConfigured = false;
 
 export function configurePurchases(userId: string): void {
-  const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+  // RevenueCat issues one key per store.
+  const apiKey =
+    Platform.OS === 'ios'
+      ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
+      : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
   if (!apiKey) {
     return;
   }
@@ -30,6 +34,7 @@ export async function getPremiumPackage(): Promise<PurchasesPackage | null> {
 }
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
+const APP_STORE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 // An app cannot cancel a Play subscription itself - Google only accepts that
 // from its own screen - so this opens it, and Play's policy expects the link to
@@ -39,6 +44,11 @@ const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscripti
 // Deep links to the one subscription when we can name it, and falls back to the
 // list otherwise: a list the user has to read is still better than no way out.
 export async function openManageSubscription(): Promise<void> {
+  // Apple has the one screen for every subscription on the account.
+  if (Platform.OS === 'ios') {
+    await Linking.openURL(APP_STORE_SUBSCRIPTIONS_URL);
+    return;
+  }
   let url = PLAY_SUBSCRIPTIONS_URL;
   try {
     const packageName = Constants.expoConfig?.android?.package;
@@ -52,6 +62,13 @@ export async function openManageSubscription(): Promise<void> {
     // Naming the subscription is a nicety; the list still gets them there.
   }
   await Linking.openURL(url);
+}
+
+// Brings back a subscription bought earlier on the same store account - after
+// a reinstall, or on a second device. Apple requires the app to offer this.
+export async function restorePremium(): Promise<boolean> {
+  const customerInfo = await Purchases.restorePurchases();
+  return Boolean(customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
 }
 
 export async function purchasePremium(pkg: PurchasesPackage): Promise<boolean> {

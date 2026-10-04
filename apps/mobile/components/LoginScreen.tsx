@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -146,7 +147,10 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
   useEffect(() => {
-    GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
+    // Configuring it on iOS without an iOS client throws; see googleButton.
+    if (Platform.OS === 'android') {
+      GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID });
+    }
   }, []);
 
   useEffect(() => {
@@ -389,7 +393,11 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
     </>
   );
 
-  const googleButton = (
+  // Android only for now: on iOS it needs a client of its own, and Apple asks
+  // for Sign in with Apple beside any other provider's button. Until both are
+  // there an iPhone signs in by email code or password, which reach the same
+  // account.
+  const googleButton = Platform.OS !== 'android' ? null : (
     <Pressable
       onPress={handleGoogleSignIn}
       disabled={isSubmitting || isGoogleSubmitting}

@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.rmtech.llogarite",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.rmtech.llogarite",
@@ -21,8 +25,17 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "llogarite.site", "pathPrefix": "/shoku" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "https",
+              "host": "llogarite.site",
+              "pathPrefix": "/shoku"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "versionCode": 35,
@@ -64,7 +77,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Llogarite needs access to your photos so you can upload an invoice image.",
-          "cameraPermission": "Llogarite needs access to your camera so you can take a photo for an invoice or your profile picture."
+          "cameraPermission": "Llogarite needs access to your camera so you can scan the QR code on a receipt, or take a photo of an invoice or your profile picture."
         }
       ],
       "./plugins/withWindowsNinjaFix",
@@ -73,7 +86,16 @@
       "./plugins/withReleaseSigning",
       "./plugins/withMinifyRelease",
       "./plugins/withoutStatusBarColor",
-      "./plugins/withPortraitOnPhones"
+      "./plugins/withPortraitOnPhones",
+      "./plugins/withPortraitOnIos",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -427,6 +427,10 @@ export const en = {
   'plans.featureEverythingFree': 'Everything in the Free plan',
   'plans.cancelSubscription': 'Cancel the subscription',
   'plans.manageFailed': 'Could not open subscription management.',
+  'plans.restore': 'Restore purchase',
+  'plans.restoreNothing': 'No subscription was found to restore.',
+  'plans.autoRenewNote':
+    'The Premium subscription renews automatically every month until you cancel. You can cancel at any time in your App Store account settings.',
   'plans.currentPlan': 'Current plan',
   'plans.buyPremium': 'Buy Premium',
   'plans.paymentsComingSoon': 'Payments will be enabled soon.',

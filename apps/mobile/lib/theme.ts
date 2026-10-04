@@ -1,6 +1,13 @@
-import { StatusBar } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
-export const HEADER_INSET = (StatusBar.currentHeight ?? 32) + 8;
+// How far a screen's header sits from the top. Android reports its status bar
+// height; iOS does not, so there it is the safe area - which is what clears the
+// notch or the Dynamic Island.
+const TOP_INSET =
+  Platform.OS === 'ios' ? (initialWindowMetrics?.insets.top ?? 47) : (StatusBar.currentHeight ?? 32);
+
+export const HEADER_INSET = TOP_INSET + 8;
 
 export const colors = {
   primary: '#5980A6',

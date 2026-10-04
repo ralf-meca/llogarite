@@ -1,8 +1,14 @@
+import { Platform } from 'react-native';
 import mobileAds, { AdEventType, InterstitialAd, TestIds } from 'react-native-google-mobile-ads';
 
 // The live unit only in a release build. A dev build keeps Google's sample unit
 // so a reloading Metro session cannot pour requests into the real one.
 const AD_UNIT_ID = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-3717243561831400/9138753257';
+
+// Ads run on Android only for now. The unit above belongs to the Android app,
+// and on iOS an ad request also wants Apple's tracking prompt, which the app
+// does not show. Until iOS has a unit of its own, nothing is requested there.
+const ADS_ENABLED = Platform.OS === 'android';
 
 // Devices listed here are served test creatives from the live unit. This app is
 // tested on release builds, where __DEV__ is false, so without this the test
@@ -84,7 +90,7 @@ function loadNext(): void {
 }
 
 export function preloadInterstitialAd(): void {
-  if (state !== 'idle') {
+  if (!ADS_ENABLED || state !== 'idle') {
     return;
   }
   ensureInitialized()
@@ -99,6 +105,9 @@ export function preloadInterstitialAd(): void {
 }
 
 export function showInterstitialAd(): void {
+  if (!ADS_ENABLED) {
+    return;
+  }
   if (state !== 'ready' || !interstitial) {
     // Nothing loaded yet. Skipping costs one impression; waiting would cost the
     // user a stall on a screen they have already finished with.

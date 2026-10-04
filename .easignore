@@ -1,0 +1,50 @@
+# What EAS Build leaves out of the archive it uploads. When this file exists
+# EAS reads it INSTEAD of the .gitignore files, so everything they exclude has
+# to be repeated here. Without it the archive was 857 MB: the generated
+# android/ folder under apps/mobile was being packed in.
+
+# Dependencies - EAS installs its own
+node_modules
+
+# Generated native folders - EAS runs prebuild itself
+apps/mobile/android
+apps/mobile/ios
+
+# Build outputs and caches
+dist
+web-build
+out
+.next
+.turbo
+.expo
+.kotlin
+*.tsbuildinfo
+*.log
+*.aab
+*.apk
+
+# Secrets and signing material. Android credentials are read from this machine
+# by the EAS CLI ("credentialsSource": "local"), not from the archive.
+.env
+.env.local
+.env*.local
+.env.production
+!apps/mobile/.env.production
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+release-keystore.properties
+credentials.json
+
+# Not part of the app
+docs
+postgres_data
+.claude
+.idea
+.vscode
+.DS_Store
+Thumbs.db

@@ -1,11 +1,11 @@
 import { ArrowLeftIcon, CheckCircleIcon, CrownIcon, XCircleIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import { redeemDiscountCode } from '../lib/discountCodesApi';
 import { useTranslation } from '../lib/i18n';
-import { getPremiumPackage, openManageSubscription, purchasePremium } from '../lib/purchases';
+import { getPremiumPackage, openManageSubscription, purchasePremium, restorePremium } from '../lib/purchases';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
@@ -13,6 +13,14 @@ import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 
 const PREMIUM_MONTHLY_PRICE = 2;
+
+// The App Store's rules shape this screen on an iPhone: the price shown has to
+// be the one the store will charge (it differs by country), premium may only be
+// unlocked through the store - so no codes - and a subscription screen has to
+// offer restoring a purchase and link to the terms and the privacy policy.
+const IS_IOS = Platform.OS === 'ios';
+const TERMS_URL = 'https://llogarite.site/terms-of-service/';
+const PRIVACY_URL = 'https://llogarite.site/privacy-policy/';
 
 type PlansScreenProps = {
   isPremium: boolean;
@@ -44,7 +52,35 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [storePrice, setStorePrice] = useState<string | null>(null);
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
+
+  useEffect(() => {
+    if (!IS_IOS) {
+      return;
+    }
+    getPremiumPackage()
+      .then((pkg) => setStorePrice(pkg?.product.priceString ?? null))
+      .catch(() => undefined);
+  }, []);
+
+  const handleRestore = async () => {
+    setIsRestoring(true);
+    try {
+      if (await restorePremium()) {
+        showSuccess(t('plans.premiumActivated'));
+        onPremiumGranted();
+      } else {
+        showError(t('plans.restoreNothing'));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
+      showError(message || t('plans.restoreNothing'));
+    } finally {
+      setIsRestoring(false);
+    }
+  };
 
   const handleApplyCode = () => {
     if (!code.trim()) {
@@ -139,12 +175,16 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
             </View>
             <GlassView style={[styles.planCard, styles.planCardPremium]}>
               <Text style={styles.planName}>{t('plans.premiumPlan')}</Text>
-              <Text style={styles.planPrice}>
-                {discountedPrice ?? PREMIUM_MONTHLY_PRICE}€
-                {discountedPrice !== null && discountedPrice !== PREMIUM_MONTHLY_PRICE && (
-                  <Text style={styles.planPriceOriginal}> {PREMIUM_MONTHLY_PRICE}€</Text>
-                )}
-              </Text>
+              {IS_IOS ? (
+                <Text style={styles.planPrice}>{storePrice ?? ' '}</Text>
+              ) : (
+                <Text style={styles.planPrice}>
+                  {discountedPrice ?? PREMIUM_MONTHLY_PRICE}€
+                  {discountedPrice !== null && discountedPrice !== PREMIUM_MONTHLY_PRICE && (
+                    <Text style={styles.planPriceOriginal}> {PREMIUM_MONTHLY_PRICE}€</Text>
+                  )}
+                </Text>
+              )}
               <Text style={styles.planPeriod}>{t('plans.perMonth')}</Text>
               <View style={styles.featureList}>
                 <FeatureRow label={t('plans.featureEverythingFree')} included />
@@ -178,7 +218,28 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
           </Pressable>
         )}
 
-        {!isPremium && (
+        {IS_IOS && (
+          <View style={styles.storeTerms}>
+            <Text style={styles.storeTermsText}>{t('plans.autoRenewNote')}</Text>
+            {!isPremium && (
+              <Pressable onPress={handleRestore} disabled={isRestoring} style={styles.manageLink}>
+                <Text style={styles.manageLinkText}>
+                  {isRestoring ? t('plans.purchasing') : t('plans.restore')}
+                </Text>
+              </Pressable>
+            )}
+            <View style={styles.storeLinks}>
+              <Pressable onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
+                <Text style={styles.manageLinkText}>{t('legal.termsTitle')}</Text>
+              </Pressable>
+              <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+                <Text style={styles.manageLinkText}>{t('legal.privacyTitle')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {!isPremium && !IS_IOS && (
           <GlassView style={styles.codeCard}>
             <Text style={styles.codeTitle}>{t('plans.haveReferralCode')}</Text>
             <View style={styles.codeRow}>
@@ -313,6 +374,20 @@ const styles = StyleSheet.create({
   manageLink: {
     alignSelf: 'center',
     paddingVertical: 4,
+  },
+  storeTerms: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  storeTermsText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  storeLinks: {
+    flexDirection: 'row',
+    gap: 20,
   },
   manageLinkText: {
     fontSize: 13,
