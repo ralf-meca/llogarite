@@ -3,21 +3,19 @@ import { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
-import { redeemDiscountCode } from '../lib/discountCodesApi';
 import { useTranslation } from '../lib/i18n';
 import { getPremiumPackage, openManageSubscription, purchasePremium, restorePremium } from '../lib/purchases';
 import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
-import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
 
 const PREMIUM_MONTHLY_PRICE = 2;
 
 // The App Store's rules shape this screen on an iPhone: the price shown has to
-// be the one the store will charge (it differs by country), premium may only be
-// unlocked through the store - so no codes - and a subscription screen has to
-// offer restoring a purchase and link to the terms and the privacy policy.
+// be the one the store will charge (it differs by country), and a subscription
+// screen has to offer restoring a purchase and link to the terms and the
+// privacy policy.
 const IS_IOS = Platform.OS === 'ios';
 const TERMS_URL = 'https://llogarite.site/terms-of-service/';
 const PRIVACY_URL = 'https://llogarite.site/privacy-policy/';
@@ -48,9 +46,6 @@ function FeatureRow({ label, included }: FeatureRowProps) {
 
 export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreenProps) {
   const { t } = useTranslation();
-  const [code, setCode] = useState('');
-  const [isRedeeming, setIsRedeeming] = useState(false);
-  const [discountPercent, setDiscountPercent] = useState<number | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [storePrice, setStorePrice] = useState<string | null>(null);
@@ -81,31 +76,6 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
       setIsRestoring(false);
     }
   };
-
-  const handleApplyCode = () => {
-    if (!code.trim()) {
-      return;
-    }
-    setIsRedeeming(true);
-    redeemDiscountCode(code.trim())
-      .then((result) => {
-        setIsRedeeming(false);
-        setDiscountPercent(result.discountPercent);
-        if (result.isPremium) {
-          showSuccess(t('plans.premiumActivated'));
-          onPremiumGranted();
-        } else {
-          showSuccess(t('plans.codeApplied', { percent: result.discountPercent }));
-        }
-      })
-      .catch((error: Error) => {
-        setIsRedeeming(false);
-        showError(error.message);
-      });
-  };
-
-  const discountedPrice =
-    discountPercent !== null ? Math.round(PREMIUM_MONTHLY_PRICE * (1 - discountPercent / 100) * 100) / 100 : null;
 
   const handleCancelSubscription = async () => {
     try {
@@ -178,12 +148,7 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
               {IS_IOS ? (
                 <Text style={styles.planPrice}>{storePrice ?? ' '}</Text>
               ) : (
-                <Text style={styles.planPrice}>
-                  {discountedPrice ?? PREMIUM_MONTHLY_PRICE}€
-                  {discountedPrice !== null && discountedPrice !== PREMIUM_MONTHLY_PRICE && (
-                    <Text style={styles.planPriceOriginal}> {PREMIUM_MONTHLY_PRICE}€</Text>
-                  )}
-                </Text>
+                <Text style={styles.planPrice}>{PREMIUM_MONTHLY_PRICE}€</Text>
               )}
               <Text style={styles.planPeriod}>{t('plans.perMonth')}</Text>
               <View style={styles.featureList}>
@@ -237,28 +202,6 @@ export function PlansScreen({ isPremium, onBack, onPremiumGranted }: PlansScreen
               </Pressable>
             </View>
           </View>
-        )}
-
-        {!isPremium && !IS_IOS && (
-          <GlassView style={styles.codeCard}>
-            <Text style={styles.codeTitle}>{t('plans.haveReferralCode')}</Text>
-            <View style={styles.codeRow}>
-              <GlassTextInput
-                style={styles.codeInput}
-                placeholder={t('plans.codePlaceholder')}
-                autoCapitalize="characters"
-                value={code}
-                onChangeText={setCode}
-              />
-              <GlassButton
-                label={isRedeeming ? '...' : t('plans.apply')}
-                variant="accent"
-                style={styles.codeButton}
-                onPress={handleApplyCode}
-                disabled={isRedeeming || !code.trim()}
-              />
-            </View>
-          </GlassView>
         )}
       </KeyboardAwareScrollView>
 
@@ -341,12 +284,6 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginTop: 8,
   },
-  planPriceOriginal: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textMuted,
-    textDecorationLine: 'line-through',
-  },
   planPeriod: {
     fontSize: 12,
     color: colors.textMuted,
@@ -407,24 +344,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
-  },
-  codeCard: {
-    padding: 20,
-  },
-  codeTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textDark,
-    marginBottom: 12,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  codeInput: {
-    flex: 1,
-  },
-  codeButton: {
-    paddingHorizontal: 20,
   },
 });

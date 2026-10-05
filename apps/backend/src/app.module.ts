@@ -6,7 +6,6 @@ import {AdminModule} from './admin/admin.module';
 import {AuthModule} from './auth/auth.module';
 import {BuddiesModule} from './buddies/buddies.module';
 import {BudgetModule} from './budget/budget.module';
-import {DiscountCodesModule} from './discount-codes/discount-codes.module';
 import {ExchangeRatesModule} from './exchange-rates/exchange-rates.module';
 import {InvoicesModule} from './invoices/invoices.module';
 import {MonthlyPaymentsModule} from './monthly-payments/monthly-payments.module';
@@ -40,7 +39,6 @@ import {RevenueCatWebhookModule} from './webhooks/revenuecat-webhook.module';
         MonthlyPaymentsModule,
         ProjectsModule,
         BuddiesModule,
-        DiscountCodesModule,
         UsersModule,
         AuthModule,
         RevenueCatWebhookModule,
