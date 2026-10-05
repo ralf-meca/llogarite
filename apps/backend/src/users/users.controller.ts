@@ -12,7 +12,10 @@ export class UsersController {
     @Get('me')
     async me(@CurrentUser() userId: string) {
         const code = await this.usersService.ensureCode(userId);
-        return { code };
+        // The app keeps what it was told at sign-in, and a subscription can end
+        // or an admin flag change long after that. It asks here to catch up.
+        const user = await this.usersService.findById(userId);
+        return { code, isPremium: user?.isPremium === true, isAdmin: user?.isAdmin === true };
     }
 
     @Patch('me/push-token')

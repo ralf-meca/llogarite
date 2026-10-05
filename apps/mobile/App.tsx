@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    AppState,
     BackHandler,
     FlatList,
     Linking,
@@ -55,6 +56,7 @@ import { fetchNotifications, markNotificationRead, syncMonthlyPaymentReminder } 
 import { addPaymentReminderFiredListener } from "./lib/paymentNotifications";
 import { NotificationBell } from "./components/NotificationBell";
 import { preloadInterstitialAd, showInterstitialAd } from "./lib/ads";
+import { fetchAccountStatus } from "./lib/usersApi";
 import { parseInvoiceQrUrl, verifyInvoice, type InvoiceItem, type InvoiceVerificationResult } from "./lib/invoiceApi";
 import { toLocalIsoString } from "./lib/date";
 import { currentMonthKey, monthKeyOf } from "./lib/monthlySpending";
@@ -114,6 +116,9 @@ const MAIN_SCREENS = new Set<Screen>([
 ]);
 
 const PREMIUM_SCREENS = new Set<NavScreen>(["projects", "products", "buddies"]);
+// How long after a purchase the server is given to hear of it from the store
+// before its "not premium" is believed.
+const PURCHASE_SETTLE_MS = 10 * 60 * 1000;
 
 type OnboardingStepConfig = OnboardingStep & { screen: NavScreen };
 
@@ -242,6 +247,36 @@ function AppContent() {
             .catch(() => setActiveTrip(null));
     }, []);
 
+    // Premium is saved on the device at sign-in, and a subscription can end, or
+    // start on another device, long after that. So the server is asked again
+    // whenever the app is opened or brought back to the front.
+    //
+    // The server hears of a purchase from the store a little after the app
+    // does, and closing the store's sheet brings the app to the front. Without
+    // the pause below, that first check would take premium away again seconds
+    // after it was bought.
+    const premiumGrantedAt = useRef(0);
+    const refreshAccountStatus = useCallback(() => {
+        fetchAccountStatus()
+            .then((status) => {
+                if (!status) {
+                    return;
+                }
+                if (!status.isPremium && Date.now() - premiumGrantedAt.current < PURCHASE_SETTLE_MS) {
+                    return;
+                }
+                setUser((current) => {
+                    if (!current || (current.isPremium === status.isPremium && current.isAdmin === status.isAdmin)) {
+                        return current;
+                    }
+                    const updated = { ...current, ...status };
+                    saveUser(updated);
+                    return updated;
+                });
+            })
+            .catch(() => undefined);
+    }, []);
+
     // Projects are a premium feature, so a free account has no trip to default to.
     const userId = user?.id;
     const isPremiumUser = Boolean(user?.isPremium);
@@ -252,6 +287,19 @@ function AppContent() {
             setActiveTrip(null);
         }
     }, [userId, isPremiumUser, loadActiveTrip]);
+
+    useEffect(() => {
+        if (!userId) {
+            return;
+        }
+        refreshAccountStatus();
+        const subscription = AppState.addEventListener("change", (state) => {
+            if (state === "active") {
+                refreshAccountStatus();
+            }
+        });
+        return () => subscription.remove();
+    }, [userId, refreshAccountStatus]);
 
     const startOnboardingIfNeeded = useCallback(() => {
         hasCompletedOnboarding().then((completed) => {
@@ -477,6 +525,7 @@ function AppContent() {
         if (!user) {
             return;
         }
+        premiumGrantedAt.current = Date.now();
         const updated = { ...user, isPremium: true };
         setUser(updated);
         saveUser(updated);
