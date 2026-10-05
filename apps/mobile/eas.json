@@ -29,5 +29,12 @@
         "credentialsSource": "local"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6819026425"
+      }
+    }
   }
 }
