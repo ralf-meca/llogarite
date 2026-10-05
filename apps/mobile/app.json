@@ -2,7 +2,7 @@
   "expo": {
     "name": "Llogarite",
     "slug": "mobile",
-    "version": "1.1.7",
+    "version": "1.1.8",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,11 @@
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:llogarite.site"
+      ]
     },
     "android": {
       "package": "com.rmtech.llogarite",
@@ -38,7 +42,7 @@
           ]
         }
       ],
-      "versionCode": 36,
+      "versionCode": 37,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -65,6 +69,7 @@
       "expo-secure-store",
       "@react-native-google-signin/google-signin",
       "expo-notifications",
+      "expo-apple-authentication",
       "@react-native-community/datetimepicker",
       [
         "react-native-google-mobile-ads",

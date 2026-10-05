@@ -14,6 +14,15 @@ export class User {
     @Column({ unique: true, nullable: true })
     googleId: string | null;
 
+    // Apple's id for the person, from Sign in with Apple.
+    @Column({ type: 'varchar', unique: true, nullable: true })
+    appleId: string | null;
+
+    // What Apple gave at sign-in for withdrawing its grant when the account is
+    // deleted. Never read out with the rest of the user.
+    @Column({ type: 'varchar', select: false, nullable: true })
+    appleRefreshToken: string | null;
+
     @Column({ nullable: true })
     name: string | null;
 

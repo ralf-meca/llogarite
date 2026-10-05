@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { readAppleRevocationConfig, revokeAppleToken } from '../auth/apple-revocation';
 import { User } from './user.entity';
 
 const CODE_CHARS = '0123456789';
@@ -20,6 +22,7 @@ export class UsersService {
     constructor(
         @InjectRepository(User)
         private readonly usersRepository: Repository<User>,
+        private readonly configService: ConfigService,
     ) {}
 
     findByEmail(email: string): Promise<User | null> {
@@ -35,7 +38,37 @@ export class UsersService {
     }
 
     async deleteAccount(id: string): Promise<void> {
+        await this.withdrawAppleGrant(id);
         await this.usersRepository.delete(id);
+    }
+
+    // Someone who signed in with Apple has the app listed under their Apple
+    // ID; deleting the account takes it off that list too. Best effort, and
+    // nothing at all until the key for it is in the environment: a failure
+    // here must never keep a person from deleting their account.
+    private async withdrawAppleGrant(id: string): Promise<void> {
+        try {
+            const clientId = this.configService.get<string>('APPLE_CLIENT_ID') ?? 'com.rmtech.llogarite';
+            const config = readAppleRevocationConfig(this.configService, clientId);
+            const refreshToken = config ? await this.findAppleRefreshToken(id) : null;
+            if (config && refreshToken) {
+                await revokeAppleToken(config, refreshToken);
+            }
+        } catch {
+            // The account is deleted regardless.
+        }
+    }
+
+    async setAppleRefreshToken(id: string, appleRefreshToken: string): Promise<void> {
+        await this.usersRepository.update(id, { appleRefreshToken });
+    }
+
+    async findAppleRefreshToken(id: string): Promise<string | null> {
+        const user = await this.usersRepository.findOne({
+            where: { id },
+            select: { id: true, appleRefreshToken: true },
+        });
+        return user?.appleRefreshToken ?? null;
     }
 
     async setAvatar(id: string, image: string): Promise<void> {
@@ -119,10 +152,28 @@ export class UsersService {
         });
     }
 
+    findByAppleId(appleId: string): Promise<User | null> {
+        return this.usersRepository.findOne({
+            where: { appleId },
+            select: {
+                id: true,
+                email: true,
+                passwordHash: true,
+                appleId: true,
+                name: true,
+                avatarUrl: true,
+                isPremium: true,
+                isAdmin: true,
+                createdAt: true,
+            },
+        });
+    }
+
     create(input: {
         email: string;
         passwordHash?: string;
         googleId?: string;
+        appleId?: string;
         name?: string;
         avatarUrl?: string;
     }): Promise<User> {
@@ -132,6 +183,10 @@ export class UsersService {
 
     async updatePassword(id: string, passwordHash: string): Promise<void> {
         await this.usersRepository.update(id, { passwordHash });
+    }
+
+    async linkAppleId(id: string, appleId: string): Promise<void> {
+        await this.usersRepository.update(id, { appleId });
     }
 
     async linkGoogleId(id: string, googleId: string): Promise<void> {

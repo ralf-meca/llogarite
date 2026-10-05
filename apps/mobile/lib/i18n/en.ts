@@ -39,6 +39,7 @@ export const en = {
   'login.continueWithGoogle': 'Continue with Google',
   'login.signingInWithGoogle': 'Signing in with Google...',
   'login.googleNotConfigured': 'Google sign-in is not configured.',
+  'login.appleFailed': 'Apple sign-in failed. Try again.',
   'login.noAccount': "Don't have an account? Register",
   'login.hasAccount': 'Already have an account? Sign in',
   'login.disclaimerAgree': 'By signing in or registering, you agree to our',

@@ -137,6 +137,29 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   return response.json();
 }
 
+export async function loginWithApple(
+  identityToken: string,
+  name: string | null,
+  authorizationCode: string | null,
+): Promise<AuthResponse> {
+  if (!API_BASE_URL) {
+    throw new Error('Serveri nuk është i konfiguruar.');
+  }
+  const response = await apiFetch(`${API_BASE_URL}/auth/apple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      identityToken,
+      ...(name ? { name } : {}),
+      ...(authorizationCode ? { authorizationCode } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(describeHttpError(response.status, {}, 'Kyçja me Apple dështoi. Provo përsëri.'));
+  }
+  return response.json();
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   if (!API_BASE_URL) {
     throw new Error('Serveri nuk është i konfiguruar.');

@@ -22,7 +22,7 @@ export const PRIVACY_SECTIONS_EN: Section[] = [
   },
   {
     heading: '2. Data we collect',
-    body: 'We collect: your email address and password (encrypted, never stored in plain text); your name and profile photo if you sign in with Google; the invoice data you save (seller, items, prices, dates, category); results from scanning a QR code or invoice photo; your budget and monthly payment settings; and expense-buddy connections you create within the app.',
+    body: 'We collect: your email address and password (encrypted, never stored in plain text); your name and profile photo if you sign in with Google or Apple; the invoice data you save (seller, items, prices, dates, category); results from scanning a QR code or invoice photo; your budget and monthly payment settings; and expense-buddy connections you create within the app.',
   },
   {
     heading: '3. How we use your data',
@@ -30,7 +30,7 @@ export const PRIVACY_SECTIONS_EN: Section[] = [
   },
   {
     heading: '4. Data sharing',
-    body: "We do not sell your personal data to anyone. Invoice identifiers (IIC, tax ID, date) are sent to the tax authority's public verification API only to confirm the invoice's validity. If you use Google sign-in, some data is exchanged with Google under their own privacy policy. Expense buddies you connect with can see the invoices you share with them.",
+    body: "We do not sell your personal data to anyone. Invoice identifiers (IIC, tax ID, date) are sent to the tax authority's public verification API only to confirm the invoice's validity. If you use Google or Apple sign-in, some data is exchanged with that provider under its own privacy policy. Expense buddies you connect with can see the invoices you share with them, and everyone on a shared project or trip can see the expenses filed in it. Prices from verified invoices are combined across all users to power price tracking: other users can see the product, the price, the seller and the date, but never who bought it.",
   },
   {
     heading: '5. Storage and security',
@@ -61,7 +61,7 @@ export const PRIVACY_SECTIONS_SQ: Section[] = [
   },
   {
     heading: '2. Të dhënat që mbledhim',
-    body: 'Mbledhim: adresën e email-it dhe fjalëkalimin (të koduar, kurrë në tekst të thjeshtë); emrin dhe fotografinë e profilit nëse kyçesh me Google; të dhënat e faturave që ruan (shitësi, artikujt, çmimet, datat, kategoria); rezultatet e skanimit të kodit QR ose fotografisë së faturës; cilësimet e buxhetit dhe pagesave mujore; dhe lidhjet me shokë shpenzimesh që krijon brenda aplikacionit.',
+    body: 'Mbledhim: adresën e email-it dhe fjalëkalimin (të koduar, kurrë në tekst të thjeshtë); emrin dhe fotografinë e profilit nëse kyçesh me Google ose Apple; të dhënat e faturave që ruan (shitësi, artikujt, çmimet, datat, kategoria); rezultatet e skanimit të kodit QR ose fotografisë së faturës; cilësimet e buxhetit dhe pagesave mujore; dhe lidhjet me shokë shpenzimesh që krijon brenda aplikacionit.',
   },
   {
     heading: '3. Si i përdorim të dhënat',
@@ -69,7 +69,7 @@ export const PRIVACY_SECTIONS_SQ: Section[] = [
   },
   {
     heading: '4. Ndarja e të dhënave',
-    body: 'Nuk i shesim të dhënat e tua personale askujt. Identifikuesit e faturës (IIC, NIPT, data) dërgohen tek API-ja publike e verifikimit e autoritetit tatimor vetëm për të konfirmuar vlefshmërinë e faturës. Nëse përdor kyçjen me Google, disa të dhëna shkëmbehen me Google sipas politikës së tyre të privatësisë. Shokët e shpenzimeve që lidh me llogarinë tënde mund të shohin faturat që ndan me ta.',
+    body: 'Nuk i shesim të dhënat e tua personale askujt. Identifikuesit e faturës (IIC, NIPT, data) dërgohen tek API-ja publike e verifikimit e autoritetit tatimor vetëm për të konfirmuar vlefshmërinë e faturës. Nëse përdor kyçjen me Google ose Apple, disa të dhëna shkëmbehen me atë ofrues sipas politikës së tij të privatësisë. Shokët e shpenzimeve që lidh me llogarinë tënde mund të shohin faturat që ndan me ta, dhe të gjithë pjesëtarët e një projekti ose udhëtimi të përbashkët mund të shohin shpenzimet e regjistruara në të. Çmimet nga faturat e verifikuara bashkohen nga të gjithë përdoruesit për ndjekjen e çmimeve: përdoruesit e tjerë mund të shohin produktin, çmimin, shitësin dhe datën, por kurrë se kush e ka blerë.',
   },
   {
     heading: '5. Ruajtja dhe siguria',

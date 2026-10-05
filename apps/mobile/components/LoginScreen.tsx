@@ -29,6 +29,7 @@ import {
 import { useToasts } from '../hooks/useToasts';
 import {
   login,
+  loginWithApple,
   loginWithGoogle,
   requestLoginCode,
   setPassword as setAccountPassword,
@@ -39,6 +40,7 @@ import { saveToken } from '../lib/authStorage';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { CodeInput } from './CodeInput';
+import { AppleSignInButton, type AppleCredential } from './AppleSignInButton';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -393,6 +395,28 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
     </>
   );
 
+  const handleAppleCredential = ({ identityToken, name, authorizationCode }: AppleCredential) => {
+    setIsGoogleSubmitting(true);
+    loginWithApple(identityToken, name, authorizationCode)
+      .then((auth) => {
+        setIsGoogleSubmitting(false);
+        onAuthenticated(auth);
+      })
+      .catch((error: Error) => {
+        setIsGoogleSubmitting(false);
+        showError(error.message || t('login.appleFailed'));
+      });
+  };
+
+  // Renders nothing off iOS.
+  const appleButton = (
+    <AppleSignInButton
+      disabled={isSubmitting || isGoogleSubmitting}
+      onCredential={handleAppleCredential}
+      onError={() => showError(t('login.appleFailed'))}
+    />
+  );
+
   // Android only for now: on iOS it needs a client of its own, and Apple asks
   // for Sign in with Apple beside any other provider's button. Until both are
   // there an iPhone signs in by email code or password, which reach the same
@@ -493,6 +517,7 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
                       disabled={isSubmitting || isGoogleSubmitting}
                     />
                     {googleButton}
+                    {appleButton}
                     <Pressable onPress={() => setStep('password')}>
                       <Text style={styles.switchMethodText}>{t('login.usePassword')}</Text>
                     </Pressable>
@@ -560,6 +585,7 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
                       disabled={isSubmitting || isGoogleSubmitting}
                     />
                     {googleButton}
+                    {appleButton}
                     <View style={styles.switchMethodBlock}>
                       <Text style={styles.switchMethodHint}>{t('login.passwordOnlyHint')}</Text>
                       <Pressable onPress={() => setStep('email')}>

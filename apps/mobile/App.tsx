@@ -11,6 +11,7 @@ import {
     Linking,
     Modal,
     PanResponder,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -119,6 +120,10 @@ const PREMIUM_SCREENS = new Set<NavScreen>(["projects", "products", "buddies"]);
 // How long after a purchase the server is given to hear of it from the store
 // before its "not premium" is believed.
 const PURCHASE_SETTLE_MS = 10 * 60 * 1000;
+// How far in from the left edge a drag may start and still count as "back" on
+// iOS, and the screens where it does not apply.
+const BACK_SWIPE_EDGE_WIDTH = 32;
+const BACK_SWIPE_OFF_SCREENS = new Set<Screen>(["dashboard", "auth", "loading"]);
 
 type OnboardingStepConfig = OnboardingStep & { screen: NavScreen };
 
@@ -447,11 +452,15 @@ function AppContent() {
     // llogarite://hyr?kodi=123456&email=..., sent by the button in the sign-in
     // email. The sign-in code goes by `kodi` so that it is never mistaken for a
     // buddy code, here or by app versions that only know the first kind.
+    //
+    // On iOS the site's own links open the app directly, so the sign-in one
+    // also arrives as the page's address: https://llogarite.site/hyr/#k=...&e=...
     useEffect(() => {
         const readCode = (url: string | null) => {
-            const login = url?.match(/[?&]kodi=(\d{6})(?:\D|$)/);
+            const login =
+                url?.match(/[?&]kodi=(\d{6})(?:\D|$)/) ?? url?.match(/\/hyr\/?(?:\?[^#]*)?#(?:[^#]*&)?k=(\d{6})(?:\D|$)/);
             if (login) {
-                const address = url?.match(/[?&]email=([^&#]+)/);
+                const address = url?.match(/[?&]email=([^&#]+)/) ?? url?.match(/#(?:[^#]*&)?e=([^&#]+)/);
                 let email = "";
                 try {
                     email = address ? decodeURIComponent(address[1]) : "";
@@ -837,6 +846,29 @@ function AppContent() {
         return () => subscription.remove();
     }, []);
 
+    // iOS has no back button or system back gesture for an app that keeps its
+    // own screens, so a drag in from the left edge does what Android's back
+    // does. Only a drag that starts at the edge and runs sideways is claimed,
+    // which leaves taps and scrolling alone. Not on the home screen, where the
+    // same drag opens the profile drawer, nor before signing in.
+    const backSwipeScreenRef = useRef(screen);
+    backSwipeScreenRef.current = screen;
+    const backSwipe = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+                !BACK_SWIPE_OFF_SCREENS.has(backSwipeScreenRef.current) &&
+                gesture.x0 <= BACK_SWIPE_EDGE_WIDTH &&
+                gesture.dx > 12 &&
+                Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
+            onPanResponderRelease: (_event, gesture) => {
+                if (gesture.dx > 60 || gesture.vx > 0.5) {
+                    hardwareBackRef.current();
+                }
+            },
+        }),
+    ).current;
+    const backSwipeHandlers = Platform.OS === "ios" ? backSwipe.panHandlers : {};
+
     const handleReceiptCaptured = (photoUri: string) => {
         setIsProcessingReceipt(true);
 
@@ -940,7 +972,7 @@ function AppContent() {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={styles.container} {...backSwipeHandlers}>
             {screen === "loading" ? (
                 <Text style={styles.statusText}>{t("common.loading")}</Text>
             ) : screen === "auth" ? (

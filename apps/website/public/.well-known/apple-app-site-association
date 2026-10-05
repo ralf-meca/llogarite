@@ -1,0 +1,29 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "WX42JY4FKX.com.rmtech.llogarite"
+        ],
+        "components": [
+          {
+            "/": "/shoku",
+            "comment": "Buddy invite"
+          },
+          {
+            "/": "/shoku/*",
+            "comment": "Buddy invite"
+          },
+          {
+            "/": "/hyr",
+            "comment": "Sign-in link from the code email"
+          },
+          {
+            "/": "/hyr/*",
+            "comment": "Sign-in link from the code email"
+          }
+        ]
+      }
+    ]
+  }
+}

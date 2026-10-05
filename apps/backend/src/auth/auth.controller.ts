@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { AppleAuthDto } from './dto/apple-auth.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -69,6 +70,12 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     loginWithGoogle(@Body() dto: GoogleAuthDto): Promise<AuthResponse> {
         return this.authService.loginWithGoogle(dto);
+    }
+
+    @Post('apple')
+    @HttpCode(HttpStatus.OK)
+    loginWithApple(@Body() dto: AppleAuthDto): Promise<AuthResponse> {
+        return this.authService.loginWithApple(dto);
     }
 
     @Patch('password')

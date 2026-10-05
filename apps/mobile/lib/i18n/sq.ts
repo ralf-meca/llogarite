@@ -41,6 +41,7 @@ export const sq: Record<keyof typeof en, string> = {
   'login.continueWithGoogle': 'Vazhdo me Google',
   'login.signingInWithGoogle': 'Duke u kyçur me Google...',
   'login.googleNotConfigured': 'Kyçja me Google nuk është konfiguruar.',
+  'login.appleFailed': 'Kyçja me Apple dështoi. Provo përsëri.',
   'login.noAccount': 'Nuk ke llogari? Regjistrohu',
   'login.hasAccount': 'Ke llogari? Kyçu',
   'login.disclaimerAgree': 'Duke u kyçur ose regjistruar, ti pranon',

@@ -18,6 +18,13 @@ import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { verifyAppleIdentityToken } from './apple-identity';
+import {
+    exchangeAppleAuthorizationCode,
+    readAppleRevocationConfig,
+    type AppleRevocationConfig,
+} from './apple-revocation';
+import { AppleAuthDto } from './dto/apple-auth.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -48,6 +55,10 @@ function generateNumericCode(): string {
 export class AuthService {
     private readonly googleClientId: string | undefined;
     private readonly googleClient: OAuth2Client;
+    // The iOS app's bundle identifier: who Apple's identity tokens are issued to.
+    private readonly appleClientId: string;
+    // Null until the Sign in with Apple key is in the environment.
+    private readonly appleRevocation: AppleRevocationConfig | null;
 
     constructor(
         private readonly usersService: UsersService,
@@ -59,6 +70,8 @@ export class AuthService {
     ) {
         this.googleClientId = configService.get<string>('GOOGLE_CLIENT_ID');
         this.googleClient = new OAuth2Client(this.googleClientId);
+        this.appleClientId = configService.get<string>('APPLE_CLIENT_ID') ?? 'com.rmtech.llogarite';
+        this.appleRevocation = readAppleRevocationConfig(configService, this.appleClientId);
     }
 
     async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -242,6 +255,52 @@ export class AuthService {
 
         const user = await this.usersService.create({ email, googleId, name, avatarUrl });
         return this.buildAuthResponse(user);
+    }
+
+    async loginWithApple(dto: AppleAuthDto): Promise<AuthResponse> {
+        const identity = await verifyAppleIdentityToken(dto.identityToken, this.appleClientId);
+        if (!identity) {
+            throw new UnauthorizedException('Invalid Apple token');
+        }
+        const name = dto.name?.trim() || undefined;
+
+        const existingByAppleId = await this.usersService.findByAppleId(identity.appleId);
+        if (existingByAppleId) {
+            await this.keepAppleGrant(existingByAppleId.id, dto.authorizationCode);
+            return this.buildAuthResponse(existingByAppleId);
+        }
+
+        // A first sign-in. Without an address there is nothing to make the
+        // account from; Apple includes one unless the token is a stale one.
+        if (!identity.email) {
+            throw new UnauthorizedException('Invalid Apple token');
+        }
+
+        // Someone who already has an account under this address - by email
+        // code, password or Google - gets that account, now reachable by Apple
+        // too. Apple has verified the address, the same as Google does.
+        const existingByEmail = await this.usersService.findByEmailWithPassword(identity.email);
+        if (existingByEmail) {
+            await this.usersService.linkAppleId(existingByEmail.id, identity.appleId);
+            await this.keepAppleGrant(existingByEmail.id, dto.authorizationCode);
+            return this.buildAuthResponse(existingByEmail);
+        }
+
+        const user = await this.usersService.create({ email: identity.email, appleId: identity.appleId, name });
+        await this.keepAppleGrant(user.id, dto.authorizationCode);
+        return this.buildAuthResponse(user);
+    }
+
+    // Holds on to what is needed to withdraw Apple's grant later. Never stands
+    // in the way of the sign-in it is part of.
+    private async keepAppleGrant(userId: string, authorizationCode: string | undefined): Promise<void> {
+        if (!this.appleRevocation || !authorizationCode) {
+            return;
+        }
+        const refreshToken = await exchangeAppleAuthorizationCode(this.appleRevocation, authorizationCode);
+        if (refreshToken) {
+            await this.usersService.setAppleRefreshToken(userId, refreshToken).catch(() => undefined);
+        }
     }
 
     private buildAuthResponse(user: User): AuthResponse {
