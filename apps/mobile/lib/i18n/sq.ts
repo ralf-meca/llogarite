@@ -317,6 +317,10 @@ export const sq: Record<keyof typeof en, string> = {
   'manualInvoice.paymentsShort': 'Shumat e paguara nuk e mbulojnë totalin: mungojnë {amount}.',
   'manualInvoice.paymentsOver': 'Shumat e paguara e kalojnë totalin me {amount}.',
   'manualInvoice.buddyFallback': 'Shok',
+  'manualInvoice.removeProjectTitle': 'Të hiqet projekti?',
+  'manualInvoice.removeProjectMessage':
+    'Pa projekt, shokët e shpenzimeve hiqen nga kjo faturë, bashkë me pjesët dhe pagesat e tyre.',
+  'manualInvoice.removeProjectConfirm': 'Hiq',
   'manualInvoice.unpaid': 'Papaguar',
   'manualInvoice.itemColumn': 'Artikulli',
   'manualInvoice.quantityColumn': 'Sasia',

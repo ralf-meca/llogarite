@@ -314,6 +314,10 @@ export const en = {
   'manualInvoice.paymentsShort': 'The amounts paid do not cover the total: {amount} is missing.',
   'manualInvoice.paymentsOver': 'The amounts paid are {amount} over the total.',
   'manualInvoice.buddyFallback': 'Buddy',
+  'manualInvoice.removeProjectTitle': 'Remove the project?',
+  'manualInvoice.removeProjectMessage':
+    'Without a project, the expense buddies come off this invoice, along with their shares and payments.',
+  'manualInvoice.removeProjectConfirm': 'Remove',
   'manualInvoice.unpaid': 'Unpaid',
   'manualInvoice.itemColumn': 'Item',
   'manualInvoice.quantityColumn': 'Qty',

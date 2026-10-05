@@ -11,7 +11,7 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
@@ -128,6 +128,14 @@ function toItemDrafts(items: InvoiceItem[], rate: number): ItemDraft[] {
   }));
 }
 
+// Who else is on a project, from the point of view of whoever is writing the
+// invoice. `buddyIds` is the owner's list - it leaves the owner out and has
+// every other member in it, the writer included when they are not the owner.
+function otherProjectMembers(project: Project, viewerId: string | undefined): string[] {
+  const members = [project.userId, ...project.buddyIds];
+  return members.filter((id, index) => id !== viewerId && members.indexOf(id) === index);
+}
+
 // Even split of a row's quantity across the owner + every selected buddy, e.g. a
 // 2-quantity row with one buddy defaults to 1 for them; a 1-quantity row defaults to 0.5
 // (shown as 50% in the picker). Only applied to rows the user hasn't customized yet.
@@ -226,7 +234,9 @@ export function ManualInvoiceScreen({
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedBuddies, setSelectedBuddies] = useState<InvoiceBuddy[]>(
     initialData?.buddies ??
-      (initialData?.projectId ? [] : (defaultTrip?.buddyIds ?? []).map((userId) => ({ userId, paid: false }))),
+      (initialData?.projectId || !defaultTrip
+        ? []
+        : otherProjectMembers(defaultTrip, currentUser?.id).map((userId) => ({ userId, paid: false }))),
   );
   const [buddies, setBuddies] = useState<Buddy[]>([]);
   // Who paid at the till. One person covering the whole bill is `solePayer`,
@@ -265,7 +275,18 @@ export function ManualInvoiceScreen({
       .then(setProjects)
       .catch(() => setProjects([]));
     fetchBuddies()
-      .then(setBuddies)
+      .then((loaded) => {
+        setBuddies(loaded);
+        // A new invoice can only be shared with the writer's own buddies. A
+        // trip may have people on it who are the owner's buddies and not
+        // theirs, so those the trip put forward are dropped once it is known
+        // who is who. A saved invoice keeps whoever is on it.
+        if (!initialData?.buddies) {
+          setSelectedBuddies((current) =>
+            current.filter((buddy) => loaded.some((candidate) => candidate.id === buddy.userId)),
+          );
+        }
+      })
       .catch(() => setBuddies([]));
   }, []);
 
@@ -531,7 +552,32 @@ export function ManualInvoiceScreen({
     setRateStatus('idle');
   };
 
+  // An invoice on no project is the writer's alone: the buddies go, and with
+  // them what each had on a row and anything they were down as having paid.
+  const clearProjectAndBuddies = () => {
+    setProjectId(null);
+    setSelectedBuddies([]);
+    setSolePayer(OWNER_KEY);
+    setSplitPayments(null);
+    setOwnerPaid(false);
+    setIsItemSplitEnabled(false);
+    setItems((current) => current.map((item) => ({ ...item, buddyQuantities: {}, buddySplitTouched: false })));
+  };
+
   const handleProjectChange = (newProjectId: string | null) => {
+    if (newProjectId === null && selectedBuddies.length > 0) {
+      // On a saved invoice the buddies may already owe or have paid, so that
+      // is not undone without asking.
+      if (isEditing) {
+        Alert.alert(t('manualInvoice.removeProjectTitle'), t('manualInvoice.removeProjectMessage'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('manualInvoice.removeProjectConfirm'), style: 'destructive', onPress: clearProjectAndBuddies },
+        ]);
+        return;
+      }
+      clearProjectAndBuddies();
+      return;
+    }
     setProjectId(newProjectId);
     const project = projects.find((candidate) => candidate.id === newProjectId);
     // The project's currency is where a new invoice starts. One already saved
@@ -539,11 +585,15 @@ export function ManualInvoiceScreen({
     if (project && !isEditing && !isCurrencyLocked) {
       changeCurrency(project.currency ?? 'ALL');
     }
-    if (!project || project.buddyIds.length === 0) {
+    if (!project) {
       return;
     }
+    // Only those of its members the writer can share an invoice with.
+    const members = otherProjectMembers(project, currentUser?.id).filter((memberId) =>
+      buddies.some((candidate) => candidate.id === memberId),
+    );
     setSelectedBuddies((current) => {
-      const missing = project.buddyIds
+      const missing = members
         .filter((buddyId) => !current.some((buddy) => buddy.userId === buddyId))
         .map((buddyId) => ({ userId: buddyId, paid: false }));
       return missing.length > 0 ? [...current, ...missing] : current;
