@@ -113,7 +113,7 @@ export class InvoicesService {
                 await this.notificationsService.notify(buddyUser.id, buddyUser.pushToken, {
                     type: 'invoice_buddy_added',
                     title: 'Shtuar në një faturë',
-                    body: `${owner.name ?? owner.email} të shtoi si shok shpenzimesh në një faturë.`,
+                    body: `${owner.name ?? owner.email} ndau një faturë me ty.`,
                     data: { buddyId: owner.id, invoiceId },
                 });
             }),
