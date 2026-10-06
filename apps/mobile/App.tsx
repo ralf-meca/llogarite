@@ -78,6 +78,7 @@ import {
 import { configurePurchases } from "./lib/purchases";
 import { BOTTOM_NAV_HEIGHT, HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type PricedInvoice, type ProductSummary } from "./lib/productPrices";
+import { captureReceipt } from "./lib/receiptCapture";
 import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
 import {
@@ -862,8 +863,18 @@ function AppContent() {
                     parsed = parseReceipt(result);
                 } catch (parseError) {
                     console.log("[OCR parse error]", parseError);
+                    // Development only: a receipt the parser choked on is the kind
+                    // most worth keeping.
+                    captureReceipt(photoUri, result, null);
                     throw new Error(t("app.receiptParseError"));
                 }
+                // Development only, and a no-op otherwise: keeps the receipt so the
+                // parser can be scored against it later.
+                captureReceipt(photoUri, result, parsed).then((kept) => {
+                    if (kept !== null) {
+                        showSuccess(`Receipt captured for testing (${kept} kept).`);
+                    }
+                });
                 const qrParams = toQrParams(parsed);
                 setIsProcessingReceipt(false);
                 setIsReceiptScannerVisible(false);

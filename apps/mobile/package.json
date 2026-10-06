@@ -8,6 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "check:env": "node scripts/check-env-sync.js",
+    "receipts:pull": "node scripts/receipt-fixtures.js pull",
+    "receipts:score": "node scripts/receipt-fixtures.js score",
     "prebuild:android": "npm run check:env && expo prebuild --platform android --clean --no-install"
   },
   "dependencies": {
