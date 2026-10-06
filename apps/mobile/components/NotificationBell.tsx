@@ -1,6 +1,6 @@
 import { BellIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { toDateLabel } from '../lib/date';
 import { useTranslation } from '../lib/i18n';
 import { fetchNotifications, markAllNotificationsRead, type AppNotification } from '../lib/notificationsApi';
@@ -31,7 +31,20 @@ export function NotificationBell({
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // The bell swings when tapped, as if rung: side to side, less each time, to rest.
+  const swing = useRef(new Animated.Value(0)).current;
+  const ring = () => {
+    swing.setValue(0);
+    Animated.sequence(
+      [-1, 0.8, -0.55, 0.3, 0].map((toValue) =>
+        Animated.timing(swing, { toValue, duration: 150, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ),
+    ).start();
+  };
+  const bellRotation = swing.interpolate({ inputRange: [-1, 1], outputRange: ['-22deg', '22deg'] });
+
   const open = () => {
+    ring();
     setIsOpen(true);
     setIsLoading(true);
     fetchNotifications()
@@ -59,7 +72,9 @@ export function NotificationBell({
   return (
     <>
       <Pressable style={styles.button} hitSlop={12} onPress={open}>
-        <BellIcon size={22} weight="fill" color={colors.white} />
+        <Animated.View style={{ transform: [{ rotate: bellRotation }] }}>
+          <BellIcon size={22} weight="fill" color={colors.white} />
+        </Animated.View>
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>

@@ -11,8 +11,8 @@ import {
   WalletIcon,
   type Icon,
 } from 'phosphor-react-native';
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, colors, radius } from '../lib/theme';
@@ -47,6 +47,66 @@ const MORE_ITEMS: NavItem[] = [
   { key: 'buddies', icon: UsersIcon, labelKey: 'drawer.buddies', premium: true },
   { key: 'review', icon: SealCheckIcon, labelKey: 'drawer.review', admin: true },
 ];
+
+type NavTabProps = {
+  icon: Icon;
+  isSelected: boolean;
+  onPress: () => void;
+  // The label, and any badge that sits on the tab.
+  children: ReactNode;
+};
+
+const TAB_ICON_SIZE = 20;
+
+// One slot of the bar.
+function NavTab({ icon: TabIcon, isSelected, onPress, children }: NavTabProps) {
+  // 0 outlined, 1 filled. The filled drawing sits over the outlined one behind a
+  // window that opens from the left, so the fill sweeps across the icon like a swipe.
+  // Only on the way in: a tab that is left goes back to its outline at once.
+  const fill = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
+  useEffect(() => {
+    if (!isSelected) {
+      fill.stopAnimation();
+      fill.setValue(0);
+      return;
+    }
+    Animated.timing(fill, {
+      toValue: 1,
+      duration: 280,
+      easing: Easing.inOut(Easing.cubic),
+      // The window's width is layout, which the native driver cannot animate.
+      useNativeDriver: false,
+    }).start();
+  }, [isSelected, fill]);
+
+  return (
+    <Pressable
+      style={styles.tab}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
+    >
+      <View>
+        {/* Dimmed like the label of a tab not chosen, and gone once the fill has
+            passed over it, so no outline shows around the filled shape. */}
+        <Animated.View
+          style={{ opacity: fill.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.5, 0.5, 0] }) }}
+        >
+          <TabIcon size={TAB_ICON_SIZE} weight="regular" color={colors.primary} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.fillWindow,
+            { width: fill.interpolate({ inputRange: [0, 1], outputRange: [0, TAB_ICON_SIZE] }) },
+          ]}
+        >
+          <TabIcon size={TAB_ICON_SIZE} weight="fill" color={colors.primary} />
+        </Animated.View>
+      </View>
+      {children}
+    </Pressable>
+  );
+}
 
 type BottomNavBarProps = {
   activeScreen: string;
@@ -92,16 +152,12 @@ export function BottomNavBar({
     const isActive = activeScreen === item.key;
     const isLocked = Boolean(item.premium) && !isPremium;
     return (
-      <Pressable
+      <NavTab
         key={item.key}
-        style={styles.tab}
+        isSelected={isActive}
         onPress={() => handleNavigate(item.key)}
-        accessibilityRole="button"
-        accessibilityState={{ selected: isActive }}
+        icon={item.icon}
       >
-        <View style={isActive ? undefined : styles.inactive}>
-          <item.icon size={20} weight={isActive ? 'fill' : 'regular'} color={colors.primary} />
-        </View>
         <Text style={[styles.tabLabel, !isActive && styles.inactive]} numberOfLines={1}>
           {t(item.labelKey)}
         </Text>
@@ -110,7 +166,7 @@ export function BottomNavBar({
             <CrownIcon size={11} weight="fill" color={colors.textMuted} />
           </View>
         )}
-      </Pressable>
+      </NavTab>
     );
   };
 
@@ -124,19 +180,11 @@ export function BottomNavBar({
 
         {RIGHT_ITEMS.map(renderTab)}
 
-        <Pressable
-          style={styles.tab}
+        <NavTab
+          isSelected={isMoreActive}
           onPress={() => setIsMoreOpen(true)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: isMoreActive }}
+          icon={DotsThreeOutlineIcon}
         >
-          <View style={isMoreActive ? undefined : styles.inactive}>
-            <DotsThreeOutlineIcon
-              size={20}
-              weight={isMoreActive ? 'fill' : 'regular'}
-              color={colors.primary}
-            />
-          </View>
           <Text style={[styles.tabLabel, !isMoreActive && styles.inactive]} numberOfLines={1}>
             {t('drawer.more')}
           </Text>
@@ -145,7 +193,7 @@ export function BottomNavBar({
               <Text style={styles.badgeText}>{pendingBuddyRequests}</Text>
             </View>
           )}
-        </Pressable>
+        </NavTab>
       </View>
 
       <Modal
@@ -210,6 +258,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  fillWindow: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: TAB_ICON_SIZE,
+    overflow: 'hidden',
   },
   tabLabel: {
     fontSize: 9,
