@@ -2,7 +2,7 @@
   "expo": {
     "name": "Llogarite",
     "slug": "mobile",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -42,7 +42,7 @@
           ]
         }
       ],
-      "versionCode": 37,
+      "versionCode": 38,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
