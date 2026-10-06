@@ -20,15 +20,40 @@ export type ShareableRow = {
   buddyQuantities: Record<string, number>;
 };
 
-// Each buddy's own claimed quantity on a row is entirely their share. Whatever quantity is
-// left unclaimed on that row is pooled and divided evenly across the owner + whichever buddies
-// did NOT claim a specific quantity on that row themselves — a buddy who already took their
-// own cut of a row doesn't also get a slice of what's left.
-export function computeBuddyShareFromRows(rows: ShareableRow[], buddyUserId: string, allBuddyIds: string[]): number {
+// Whether a bill is divided row by row. Invoices saved since the form began to say so carry
+// the answer; an older one is divided row by row if anyone was given a quantity on any row.
+export function isSplitByItem(rows: ShareableRow[], stored?: boolean | null): boolean {
+  if (typeof stored === 'boolean') {
+    return stored;
+  }
+  return rows.some((row) => Object.values(row.buddyQuantities).some((quantity) => quantity > 0));
+}
+
+// A bill is divided one of two ways.
+//
+// Row by row: each buddy owes exactly the quantities put against their name, and nothing on a
+// row they were taken off. What nobody was given is the owner's.
+//
+// Evenly: no row names anyone, and every row is shared equally by the owner and all the
+// buddies.
+//
+// The two must not be mixed. A buddy taken off a row is stored as having no quantity there,
+// which is also what "no row names anyone" looks like - so reading it row by row as "shares
+// what is left" charged people for rows they had been removed from.
+export function computeBuddyShareFromRows(
+  rows: ShareableRow[],
+  buddyUserId: string,
+  allBuddyIds: string[],
+  splitByItem?: boolean | null,
+): number {
+  const byItem = isSplitByItem(rows, splitByItem);
   let total = 0;
   for (const row of rows) {
     const myQuantity = row.buddyQuantities[buddyUserId] ?? 0;
     total += myQuantity * row.unitPrice;
+    if (byItem) {
+      continue;
+    }
 
     const assignedQuantity = Object.values(row.buddyQuantities).reduce((sum, qty) => sum + qty, 0);
     const remainingQuantity = Math.max(0, row.quantity - assignedQuantity);
@@ -53,7 +78,7 @@ export function computeShareForBuddy(invoice: SavedInvoice, buddyUserId: string)
     unitPrice: item.unitPriceAfterVat,
     buddyQuantities: item.buddyQuantities ?? {},
   }));
-  return computeBuddyShareFromRows(rows, buddyUserId, allBuddyIds);
+  return computeBuddyShareFromRows(rows, buddyUserId, allBuddyIds, invoice.data.itemSplit);
 }
 
 // These lists are all "what a buddy owes the invoice's owner". An invoice a

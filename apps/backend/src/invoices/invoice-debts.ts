@@ -1,7 +1,8 @@
-// Who still owes what on one invoice, worked out the way the app does: each
-// buddy's own claimed quantity on a row is theirs, what is left of the row is
-// split evenly between the owner and the buddies who claimed nothing on it,
-// and whatever someone paid at the till comes off their share.
+// Who still owes what on one invoice, worked out the way the app does. A bill
+// is divided either row by row - each buddy owes the quantities against their
+// name and nothing on a row they were taken off - or evenly, every row shared
+// by the owner and all the buddies. Whatever someone paid at the till comes
+// off their share.
 
 type Item = { quantity: number; unitPrice: number; buddyQuantities: Record<string, number> };
 // `settled` is what has already been taken off this buddy's share by balancing
@@ -34,11 +35,26 @@ function readBuddies(data: Record<string, unknown>): BuddyLink[] {
         }));
 }
 
-function shareOf(items: Item[], buddyId: string, buddyIds: string[]): number {
+// Whether the bill is divided row by row. Invoices saved since the app began
+// to say so carry the answer (itemSplit); an older one is divided row by row
+// if anyone was given a quantity on any row.
+function isSplitByItem(data: Record<string, unknown>, items: Item[]): boolean {
+    if (typeof data.itemSplit === 'boolean') {
+        return data.itemSplit;
+    }
+    return items.some((item) => Object.values(item.buddyQuantities).some((qty) => (Number(qty) || 0) > 0));
+}
+
+function shareOf(items: Item[], buddyId: string, buddyIds: string[], byItem: boolean): number {
     let total = 0;
     for (const item of items) {
         const own = Number(item.buddyQuantities[buddyId] ?? 0) || 0;
         total += own * item.unitPrice;
+        // Row by row, a buddy with nothing against their name on a row owes
+        // nothing for it: what is left of the row is the owner's.
+        if (byItem) {
+            continue;
+        }
 
         const assigned = Object.values(item.buddyQuantities).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
         const remaining = Math.max(0, item.quantity - assigned);
@@ -83,7 +99,8 @@ export function hasUnsettledDebtWith(data: Record<string, unknown>, buddyId: str
     const total = Number(data.totalPrice ?? 0) || 0;
     const payments = tillPayments(data, buddyIds, total);
 
-    const share = shareOf(items, buddyId, buddyIds);
+    const byItem = isSplitByItem(data, items);
+    const share = shareOf(items, buddyId, buddyIds, byItem);
     const paidAtTill = payments[buddyId] ?? 0;
     if (share - paidAtTill - link.settled > EPSILON && !link.paid) {
         return true;
@@ -91,7 +108,7 @@ export function hasUnsettledDebtWith(data: Record<string, unknown>, buddyId: str
 
     // The other direction: this buddy put in more than their share, and the
     // owner has not yet covered their own.
-    const buddiesShare = buddyIds.reduce((sum, id) => sum + shareOf(items, id, buddyIds), 0);
+    const buddiesShare = buddyIds.reduce((sum, id) => sum + shareOf(items, id, buddyIds, byItem), 0);
     const buddiesPaid = Object.values(payments).reduce((sum, amount) => sum + amount, 0);
     const ownerDebt = total - buddiesShare - (total - buddiesPaid);
     return paidAtTill - share > EPSILON && ownerDebt > EPSILON && data.ownerPaid !== true;
@@ -113,7 +130,8 @@ export function remainingBuddyDebt(data: Record<string, unknown>, buddyId: strin
     if (Object.keys(tillPayments(data, buddyIds, total)).length > 0) {
         return 0;
     }
-    const debt = shareOf(readItems(data), buddyId, buddyIds) - link.settled;
+    const items = readItems(data);
+    const debt = shareOf(items, buddyId, buddyIds, isSplitByItem(data, items)) - link.settled;
     return debt > EPSILON ? debt : 0;
 }
 

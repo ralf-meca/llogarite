@@ -3,10 +3,13 @@ import {
   ArrowLeftIcon,
   CalendarIcon,
   CaretDownIcon,
+  CaretUpIcon,
   CheckSquareIcon,
+  InfoIcon,
   CrownIcon,
   PencilSlashIcon,
   SquareIcon,
+  StorefrontIcon,
   UserPlusIcon,
   UsersIcon,
   XCircleIcon,
@@ -18,7 +21,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
-import { computeBuddyShareFromRows } from '../lib/buddyExpenses';
+import { computeBuddyShareFromRows, isSplitByItem } from '../lib/buddyExpenses';
 import { categoryIcon, suggestCategory } from '../lib/categories';
 import {
   CURRENCIES,
@@ -234,13 +237,19 @@ export function ManualInvoiceScreen({
   const defaultTrip = isEditing ? null : (activeTrip ?? null);
   // A verified invoice came from a fiscal QR code, whenever it is opened.
   const isCurrencyLocked = Boolean(lockCurrency) || initialData?.verified === true;
+  // A new invoice that arrives already filled in was read off a receipt - its QR
+  // code or a photo of it. What is read that way is an Albanian receipt, in lek,
+  // so it starts in lek and does not follow a trip into euros: 227 lek read off
+  // the paper must not become 227 euros. Unlike a verified one it can still be
+  // switched by hand, for the photo of a receipt from abroad.
+  const isReadFromReceipt = Boolean(initialData) && !isEditing;
   // The form is filled in the invoice's own currency throughout - prices,
   // shares, who paid what - and turned into lek only on the way out. An
   // invoice being edited keeps its currency; a new one takes the trip's.
   const [currency, setCurrency] = useState<Currency>(() =>
     isEditing && initialData
       ? invoiceCurrency(initialData)
-      : isCurrencyLocked
+      : isCurrencyLocked || isReadFromReceipt
         ? 'ALL'
         : (defaultTrip?.currency ?? 'ALL'),
   );
@@ -286,9 +295,23 @@ export function ManualInvoiceScreen({
     [],
   );
   const [isBuddyPickerOpen, setIsBuddyPickerOpen] = useState(false);
+  // The buddies' cards - who paid, and how the bill is shared - are folded away into
+  // a pill beside the project until asked for, which keeps a long form short. The
+  // one time they open by themselves is when the writer adds the first buddy by
+  // hand: that is them asking to share the bill. Buddies a trip brings along with
+  // it stay folded.
+  const [isBuddiesExpanded, setIsBuddiesExpanded] = useState(false);
   const [isItemSplitEnabled, setIsItemSplitEnabled] = useState(() =>
     Boolean(
-      initialData?.items.some((item) => Object.values(item.buddyQuantities ?? {}).some((qty) => qty > 0)),
+      initialData &&
+        isSplitByItem(
+          initialData.items.map((item) => ({
+            quantity: item.quantity,
+            unitPrice: item.unitPriceAfterVat,
+            buddyQuantities: item.buddyQuantities ?? {},
+          })),
+          initialData.itemSplit,
+        ),
     ),
   );
   const { toasts, showError, dismissToast } = useToasts();
@@ -366,7 +389,8 @@ export function ManualInvoiceScreen({
     ...itemRows.flatMap((row) => [row.unitPrice, row.unitPrice * row.quantity]),
   ]);
   const allBuddyIds = selectedBuddies.map((buddy) => buddy.userId);
-  const getBuddyShare = (buddyId: string) => computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds);
+  const getBuddyShare = (buddyId: string) =>
+    computeBuddyShareFromRows(itemRows, buddyId, allBuddyIds, isItemSplitEnabled);
   const buddiesTotal = allBuddyIds.reduce((sum, buddyId) => sum + getBuddyShare(buddyId), 0);
   const groupShare = total - buddiesTotal;
 
@@ -374,7 +398,9 @@ export function ManualInvoiceScreen({
   // under way stands in until the project list has loaded.
   const selectedProject =
     projects.find((project) => project.id === projectId) ?? (activeTrip?.id === projectId ? activeTrip : undefined);
-  const showPaidBy = selectedProject?.kind === 'trip' && selectedBuddies.length > 0;
+  const hasBuddies = selectedBuddies.length > 0;
+  const showBuddyCards = hasBuddies && isBuddiesExpanded;
+  const showPaidBy = selectedProject?.kind === 'trip' && showBuddyCards;
   // Dropped only when the invoice is known not to be on a trip, so an edit
   // saved before the projects arrive cannot quietly lose who paid.
   const isKnownNonTrip = projectId === null || (selectedProject !== undefined && selectedProject.kind !== 'trip');
@@ -492,6 +518,9 @@ export function ManualInvoiceScreen({
 
   const toggleBuddy = (buddyId: string) => {
     const isRemoving = selectedBuddies.some((buddy) => buddy.userId === buddyId);
+    if (!isRemoving && selectedBuddies.length === 0) {
+      setIsBuddiesExpanded(true);
+    }
     const nextBuddyIds = isRemoving
       ? selectedBuddies.filter((buddy) => buddy.userId !== buddyId).map((buddy) => buddy.userId)
       : [...selectedBuddies.map((buddy) => buddy.userId), buddyId];
@@ -536,6 +565,12 @@ export function ManualInvoiceScreen({
         }
         return { ...item, buddyQuantities: nextQuantities, buddySplitTouched: true };
       }),
+    );
+  };
+
+  const setItemBuddyQuantities = (index: number, quantities: Record<string, number>) => {
+    setItems((current) =>
+      current.map((item, i) => (i === index ? { ...item, buddyQuantities: quantities, buddySplitTouched: true } : item)),
     );
   };
 
@@ -604,7 +639,7 @@ export function ManualInvoiceScreen({
     const project = projects.find((candidate) => candidate.id === newProjectId);
     // The project's currency is where a new invoice starts. One already saved
     // was written in what it was written in, whichever project it moves to.
-    if (project && !isEditing && !isCurrencyLocked) {
+    if (project && !isEditing && !isCurrencyLocked && !isReadFromReceipt) {
       changeCurrency(project.currency ?? 'ALL');
     }
     if (!project) {
@@ -725,6 +760,7 @@ export function ManualInvoiceScreen({
         : null,
       paidBy: null,
       ownerPaid: othersPaid && ownerPaid,
+      itemSplit: isItemSplitEnabled && selectedBuddies.length > 0,
     });
   };
 
@@ -790,33 +826,98 @@ export function ManualInvoiceScreen({
             )}
           </>
         )}
-        <GlassTextInput
-          style={styles.input}
-          placeholder={t('manualInvoice.sellerPlaceholder')}
-          value={sellerName}
-          onChangeText={setSellerName}
-        />
+        <View style={styles.input}>
+          <GlassTextInput
+            style={styles.sellerInput}
+            placeholder={t('manualInvoice.sellerPlaceholder')}
+            value={sellerName}
+            onChangeText={setSellerName}
+          />
+          <View style={styles.sellerIcon} pointerEvents="none">
+            <StorefrontIcon size={18} color={colors.textMuted} />
+          </View>
+        </View>
 
+        {/* With the buddies' cards open the project has the row to itself, as wide as
+            the fields above it. With them folded away - or with no buddies yet - it is
+            a pill, and the buddies sit beside it as another. */}
         <View style={styles.pickersRow}>
           <View style={styles.pickerSlot}>
-            <PremiumLock locked={!isPremium} onPress={onRequirePremium} style={styles.lockWrap}>
-              <ProjectPicker projects={projects} value={projectId} onChange={handleProjectChange} />
+            <PremiumLock
+              locked={!isPremium}
+              onPress={onRequirePremium}
+            >
+              <ProjectPicker
+                projects={projects}
+                value={projectId}
+                onChange={handleProjectChange}
+                variant={showBuddyCards ? 'field' : 'wide-pill'}
+              />
             </PremiumLock>
           </View>
           {/* Just a trigger button here (no Modal inside), so hiding it via style when
-              buddies exist can't suppress repaints for the shared modal below. */}
-          <View style={[styles.pickerSlot, selectedBuddies.length > 0 && styles.hiddenSlot]}>
-            <PremiumLock locked={!isPremium} onPress={onRequirePremium} style={styles.lockWrap}>
-              <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
-                <UsersIcon size={14} color="#374151" />
+              the cards are open can't suppress repaints for the shared modal below. */}
+          <View style={[styles.pickerSlot, showBuddyCards && styles.hiddenSlot]}>
+            {hasBuddies ? (
+              <Pressable
+                style={styles.buddyPillTrigger}
+                onPress={() => setIsBuddiesExpanded(true)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: false }}
+              >
+                <View style={styles.buddyStack}>
+                  {selectedBuddies.slice(0, 3).map((buddy, index) => (
+                    <View key={buddy.userId} style={index > 0 && styles.buddyStackOverlap}>
+                      <UserAvatar
+                        user={buddies.find((candidate) => candidate.id === buddy.userId) ?? null}
+                        size={20}
+                      />
+                    </View>
+                  ))}
+                </View>
                 <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
-                  {t('buddyPicker.addBuddy')}
+                  {t(selectedBuddies.length === 1 ? 'manualInvoice.buddiesFoldedOne' : 'manualInvoice.buddiesFolded', {
+                    count: selectedBuddies.length,
+                  })}
                 </Text>
                 <CaretDownIcon size={12} color="#6b7280" />
               </Pressable>
-            </PremiumLock>
+            ) : (
+              <PremiumLock locked={!isPremium} onPress={onRequirePremium}>
+                <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
+                  <UsersIcon size={14} color="#374151" />
+                  <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
+                    {t('buddyPicker.addBuddy')}
+                  </Text>
+                  <CaretDownIcon size={12} color="#6b7280" />
+                </Pressable>
+              </PremiumLock>
+            )}
           </View>
         </View>
+
+        {/* Open, the buddies' cards sit inside one outlined box with the heading that
+            folds them away, so they read as a single section that can be closed. The
+            box itself is never hidden - it holds the picker's Modal (see below). */}
+        <View style={showBuddyCards && styles.buddiesSection}>
+        {showBuddyCards && (
+          <Pressable
+            style={styles.buddiesSectionHeader}
+            onPress={() => setIsBuddiesExpanded(false)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: true }}
+          >
+            <UsersIcon size={16} weight="fill" color={colors.primary} />
+            <Text style={styles.buddiesSectionTitle} numberOfLines={1}>
+              {t('buddyPicker.title')}
+            </Text>
+            <View style={styles.buddiesSectionClose}>
+              <Text style={styles.buddiesSectionCloseText}>{t('manualInvoice.buddiesHide')}</Text>
+              <CaretUpIcon size={12} weight="bold" color={colors.primary} />
+            </View>
+          </Pressable>
+        )}
 
         {/* The one instance that actually owns the shared Modal, mounted at a stable
             position that's never a display:'none' descendant — Fabric stops repainting
@@ -870,7 +971,7 @@ export function ManualInvoiceScreen({
         )}
 
         <GlassView
-          style={[styles.card, styles.buddiesCard, selectedBuddies.length === 0 && styles.hiddenCard]}
+          style={[styles.card, styles.buddiesCard, !showBuddyCards && styles.hiddenCard]}
         >
           <View style={styles.buddiesHeader}>
               <Text style={styles.buddiesTitle}>{t('manualInvoice.buddiesTitle')}</Text>
@@ -975,6 +1076,12 @@ export function ManualInvoiceScreen({
                 </View>
               );
             })}
+            {isItemSplitEnabled && selectedBuddies.length > 0 && (
+              <View style={styles.itemSplitHint}>
+                <InfoIcon size={14} color={colors.textMuted} />
+                <Text style={styles.itemSplitHintText}>{t('manualInvoice.itemSplitHint')}</Text>
+              </View>
+            )}
             {selectedBuddies.length > 0 && (
               <View style={styles.buddiesSummary}>
                 <View style={styles.buddiesSummaryRow}>
@@ -988,6 +1095,7 @@ export function ManualInvoiceScreen({
               </View>
             )}
         </GlassView>
+        </View>
 
         <GlassView style={styles.card}>
           <View style={styles.itemsHeader}>
@@ -1019,12 +1127,10 @@ export function ManualInvoiceScreen({
                 >
                   <View style={styles.itemRow}>
                     <View style={[styles.nameColumn, styles.nameCell]}>
+                      <ItemCategoryIcon size={18} color={colors.primary} />
                       <Text style={styles.nameText} numberOfLines={1}>
                         {item.name}
                       </Text>
-                      <View style={styles.categoryBadge}>
-                        <ItemCategoryIcon size={9} color={colors.primary} weight="fill" />
-                      </View>
                     </View>
                     <Text style={[styles.cellText, styles.qtyColumn]}>{item.quantity}</Text>
                     <Text style={[styles.cellText, styles.priceColumn]}>
@@ -1043,6 +1149,7 @@ export function ManualInvoiceScreen({
                           unitPrice={rowUnitPrice}
                           buddyQuantities={item.buddyQuantities}
                           onQuantityChange={(buddyId, quantity) => setItemBuddyQuantity(index, buddyId, quantity)}
+                          onQuantitiesChange={(quantities) => setItemBuddyQuantities(index, quantities)}
                         />
                       </View>
                     )}
@@ -1268,6 +1375,17 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 12,
   },
+  // Room on the left for the shop icon, which is laid over the field.
+  sellerInput: {
+    paddingLeft: 44,
+  },
+  sellerIcon: {
+    position: 'absolute',
+    left: 16,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1299,13 +1417,6 @@ const styles = StyleSheet.create({
   hiddenSlot: {
     display: 'none',
   },
-  // The controls this wraps size themselves (alignSelf: 'flex-start'), so the
-  // wrapper must not stretch either — otherwise its press target would cover
-  // the empty half of the row next to the pill.
-  lockWrap: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-  },
   lockedControl: {
     opacity: 0.5,
   },
@@ -1330,10 +1441,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primaryTint,
   },
+  // Fills its half of the row, the label taking the slack so the arrow sits at the
+  // far end.
   buddyPillTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1343,16 +1455,56 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   buddyPillTriggerText: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
     color: colors.textDark,
-    flexShrink: 1,
   },
   card: {
     padding: 20,
   },
   buddiesCard: {
     marginBottom: 16,
+  },
+  buddyStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buddyStackOverlap: {
+    marginLeft: -7,
+  },
+  buddiesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  buddiesSectionTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textDark,
+  },
+  buddiesSection: {
+    marginBottom: 16,
+    paddingTop: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sheet,
+    backgroundColor: colors.primaryTint,
+  },
+  buddiesSectionClose: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  buddiesSectionCloseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   hiddenCard: {
     display: 'none',
@@ -1489,6 +1641,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
   },
+  itemSplitHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+  },
+  itemSplitHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMuted,
+  },
   payerBackdrop: {
     flex: 1,
     justifyContent: 'center',
@@ -1589,30 +1753,17 @@ const styles = StyleSheet.create({
   itemBlockPressed: {
     opacity: 0.6,
   },
+  // The category's icon, then the name beside it.
   nameCell: {
-    position: 'relative',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  // Keeps the name from starting underneath the badge on the corner.
   nameText: {
-    paddingLeft: 12,
+    flex: 1,
     fontSize: 14,
     fontWeight: '600',
     color: colors.textDark,
-  },
-  // Carries a white ring so it stays legible where it overlaps the row above.
-  categoryBadge: {
-    position: 'absolute',
-    top: -6,
-    left: -6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
-    borderWidth: 1.5,
-    borderColor: colors.white,
   },
   cellText: {
     fontSize: 14,

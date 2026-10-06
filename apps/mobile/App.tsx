@@ -1035,6 +1035,17 @@ function AppContent() {
                             <View style={styles.homeSwipeArea} {...homeSwipe.panHandlers}>
                                 <DashboardScreen
                                     invoices={savedInvoices}
+                                    userId={user?.id ?? ""}
+                                    onSelectBuddies={(tab) => {
+                                        // Same rule as every other way in: buddies are a
+                                        // Premium screen.
+                                        if (PREMIUM_SCREENS.has("buddies") && !user?.isPremium) {
+                                            setScreen("plans");
+                                            return;
+                                        }
+                                        setBuddiesInitialTab(tab);
+                                        setScreen("buddies");
+                                    }}
                                     onSelectBudget={() => setScreen("budget")}
                                     onSelectInvoiceList={() => setScreen("list")}
                                     onSelectCategory={(categoryId) => {

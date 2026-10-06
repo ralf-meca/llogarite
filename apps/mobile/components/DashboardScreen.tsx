@@ -1,6 +1,8 @@
-import { CaretRightIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { ArrowDownLeftIcon, ArrowUpRightIcon, CaretRightIcon } from 'phosphor-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
+import { allBuddyInvoiceShares, owedByMeShares } from '../lib/buddyExpenses';
 import { fetchBudget } from '../lib/budgetApi';
 import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from '../lib/categories';
 import { currentMonthCategoryTotals, dominantCategory } from '../lib/categorySpending';
@@ -13,7 +15,7 @@ import {
   groupByMonth,
   monthKeyOf,
 } from '../lib/monthlySpending';
-import type { SavedInvoice } from '../lib/savedInvoicesApi';
+import { fetchOwedInvoices, type OwedInvoice, type SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
@@ -23,6 +25,9 @@ const CHART_WIDTH = Dimensions.get('window').width - 88;
 const TOP_CATEGORIES = 5;
 const RECENT_INVOICES = 5;
 const TREND_MONTHS = 8;
+// Money coming in, money going out.
+const DEBT_IN_COLOR = '#10b981';
+const DEBT_OUT_COLOR = '#ef4444';
 
 // Today counts: on the 1st you have spent a day's worth, not nothing.
 function daysElapsedInMonth(): number {
@@ -45,6 +50,9 @@ function shortDate(iso: string): string {
 
 type DashboardScreenProps = {
   invoices: SavedInvoice[];
+  userId: string;
+  // Opens the buddies screen on the side that was tapped.
+  onSelectBuddies: (tab: 'owedToMe' | 'owedByMe') => void;
   onSelectBudget: () => void;
   onSelectInvoiceList: () => void;
   onSelectCategory: (categoryId: string) => void;
@@ -53,6 +61,8 @@ type DashboardScreenProps = {
 
 export function DashboardScreen({
   invoices,
+  userId,
+  onSelectBuddies,
   onSelectBudget,
   onSelectInvoiceList,
   onSelectCategory,
@@ -66,6 +76,45 @@ export function DashboardScreen({
       .then((budget) => setBudgetTarget(budget?.amount ?? null))
       .catch(() => setBudgetTarget(null));
   }, []);
+
+  // What is still open between the reader and their buddies. Quietly absent if it
+  // cannot be loaded: the buddies screen is where a failure gets reported.
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
+  const [owedInvoices, setOwedInvoices] = useState<OwedInvoice[]>([]);
+  useEffect(() => {
+    let isCurrent = true;
+    Promise.all([fetchBuddies(), fetchOwedInvoices()])
+      .then(([buddyList, owed]) => {
+        if (isCurrent) {
+          setBuddies(buddyList);
+          setOwedInvoices(owed);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isCurrent = false;
+    };
+  }, [invoices]);
+
+  const owedToMe = useMemo(() => {
+    const open = allBuddyInvoiceShares(invoices, buddies).filter((share) => !share.paid && share.share > 0);
+    return {
+      total: open.reduce((sum, share) => sum + share.share, 0),
+      people: new Set(open.map((share) => share.buddyId)).size,
+    };
+  }, [invoices, buddies]);
+  const owedByMe = useMemo(() => {
+    const open = owedByMeShares(owedInvoices, userId).filter((share) => !share.paid && share.share > 0);
+    return {
+      total: open.reduce((sum, share) => sum + share.share, 0),
+      people: new Set(open.map((share) => share.ownerId)).size,
+    };
+  }, [owedInvoices, userId]);
+  const hasOpenDebts = owedToMe.total > 0 || owedByMe.total > 0;
+  const peopleLabel = (count: number) =>
+    count === 0
+      ? t('dashboard.buddiesNone')
+      : t(count === 1 ? 'dashboard.buddiesPerson' : 'dashboard.buddiesPeople', { count });
 
   const monthSpent = currentMonthTotal(invoices);
   const hasBudget = budgetTarget !== null && budgetTarget > 0;
@@ -154,6 +203,51 @@ export function DashboardScreen({
           <Text style={styles.statLabel}>{t('dashboard.invoicesShort')}</Text>
         </Pressable>
       </View>
+
+      {/* Only when something is open either way: a card of two zeroes says nothing. */}
+      {hasOpenDebts && (
+        <GlassView style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>{t('dashboard.buddies')}</Text>
+            <Pressable
+              onPress={() => onSelectBuddies(owedToMe.total > 0 ? 'owedToMe' : 'owedByMe')}
+              hitSlop={8}
+              style={styles.viewAll}
+            >
+              <Text style={styles.viewAllText}>{t('dashboard.viewAllBuddies')}</Text>
+              <CaretRightIcon size={12} color={colors.primary} weight="bold" />
+            </Pressable>
+          </View>
+          <View style={styles.debtRow}>
+            <Pressable
+              style={({ pressed }) => [styles.debtCell, pressed && styles.categoryRowPressed]}
+              onPress={() => onSelectBuddies('owedToMe')}
+            >
+              <View style={styles.debtLabelRow}>
+                <ArrowDownLeftIcon size={12} color={DEBT_IN_COLOR} weight="bold" />
+                <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedToMe')}</Text>
+              </View>
+              <Text style={[styles.trendValue, { color: DEBT_IN_COLOR }]} numberOfLines={1}>
+                {formatAmountLoose(owedToMe.total)}
+              </Text>
+              <Text style={styles.debtPeople}>{peopleLabel(owedToMe.people)}</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.debtCell, pressed && styles.categoryRowPressed]}
+              onPress={() => onSelectBuddies('owedByMe')}
+            >
+              <View style={styles.debtLabelRow}>
+                <ArrowUpRightIcon size={12} color={DEBT_OUT_COLOR} weight="bold" />
+                <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedByMe')}</Text>
+              </View>
+              <Text style={[styles.trendValue, { color: DEBT_OUT_COLOR }]} numberOfLines={1}>
+                {formatAmountLoose(owedByMe.total)}
+              </Text>
+              <Text style={styles.debtPeople}>{peopleLabel(owedByMe.people)}</Text>
+            </Pressable>
+          </View>
+        </GlassView>
+      )}
 
       {invoices.length === 0 ? (
         <Text style={styles.emptyText}>{t('dashboard.noInvoicesForStats')}</Text>
@@ -448,6 +542,33 @@ const styles = StyleSheet.create({
   },
   trendCell: {
     flex: 1,
+  },
+  debtRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  debtCell: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.neutral,
+  },
+  debtLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  debtLabel: {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+  },
+  debtPeople: {
+    fontSize: 11,
+    marginTop: 2,
+    color: colors.textMuted,
   },
   trendValue: {
     fontSize: 17,

@@ -20,7 +20,10 @@ export type InvoiceDebts = {
   hasOtherPayers: boolean;
 };
 
-type PaymentData = Pick<InvoiceVerificationResult, 'totalPrice' | 'items' | 'buddies' | 'payments' | 'paidBy'>;
+type PaymentData = Pick<
+  InvoiceVerificationResult,
+  'totalPrice' | 'items' | 'buddies' | 'payments' | 'paidBy' | 'itemSplit'
+>;
 
 // What each buddy paid at the till. Only buddies are stored: the owner's part
 // is whatever the others did not cover. An older invoice names a single payer
@@ -60,7 +63,7 @@ export function invoiceDebts(data: PaymentData): InvoiceDebts {
   let buddiesShare = 0;
   let buddiesPaid = 0;
   for (const buddyId of buddyIds) {
-    const share = computeBuddyShareFromRows(rows, buddyId, buddyIds);
+    const share = computeBuddyShareFromRows(rows, buddyId, buddyIds, data.itemSplit);
     const paid = payments[buddyId] ?? 0;
     buddiesShare += share;
     buddiesPaid += paid;

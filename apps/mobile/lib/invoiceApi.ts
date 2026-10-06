@@ -42,9 +42,9 @@ export type InvoiceItem = {
   unitPriceBeforeVat: number;
   unitPriceAfterVat: number;
   category?: string;
-  // Units of this row's quantity claimed exclusively by a buddy (buddyId -> qty, 0..quantity).
-  // Whatever quantity is left unclaimed falls into the shared pool, split evenly across the
-  // owner + every attached buddy who didn't claim anything on this row.
+  // Units of this row's quantity that are a buddy's (buddyId -> qty, 0..quantity). Only read
+  // when the bill is divided row by row (see `itemSplit` on the invoice); what nobody was
+  // given is then the owner's. A buddy with no entry has nothing on this row.
   buddyQuantities?: Record<string, number>;
 };
 
@@ -84,6 +84,9 @@ export type InvoiceVerificationResult = {
   paidBy?: string | null;
   // Whether the owner has settled what they owe. Only read when buddies paid.
   ownerPaid?: boolean;
+  // How the bill is divided among the buddies: row by row (true), or all of it evenly (false).
+  // Missing on invoices saved before this was recorded, where it is worked out from the rows.
+  itemSplit?: boolean;
 };
 
 export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVerificationResult> {

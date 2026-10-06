@@ -6,6 +6,7 @@ import {
   Dimensions,
   Platform,
   Pressable,
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
@@ -386,7 +387,14 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
       {getEmailSuggestions(email).length > 0 && (
         <View style={styles.emailSuggestions}>
           {getEmailSuggestions(email).map((suggestion) => (
-            <Pressable key={suggestion} style={styles.emailSuggestionChip} onPress={() => setEmail(suggestion)}>
+            <Pressable
+              key={suggestion}
+              style={styles.emailSuggestionChip}
+              onPress={() => {
+                setEmail(suggestion);
+                Keyboard.dismiss();
+              }}
+            >
               <Text style={styles.emailSuggestionText}>{suggestion}</Text>
             </Pressable>
           ))}
@@ -471,6 +479,9 @@ export function LoginScreen({ onAuthenticated, loginLink, onLoginLinkHandled }: 
             ref={pagerRef}
             horizontal
             pagingEnabled
+            // Otherwise the first tap on anything in the form only puts the keyboard
+            // away, and the button or suggestion under it needs a second one.
+            keyboardShouldPersistTaps="handled"
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={handleCarouselScrollEnd}
             style={{ height: pagerHeight }}

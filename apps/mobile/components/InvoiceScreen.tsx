@@ -1,8 +1,9 @@
 import { ArrowLeftIcon, PencilSimpleIcon } from 'phosphor-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { VerificationState } from '../App';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceItem } from '../lib/invoiceApi';
+import { colors, radius } from '../lib/theme';
 import { GlassButton } from './GlassButton';
 import { GlassView } from './GlassView';
 import { InvoiceReceipt } from './InvoiceReceipt';
@@ -58,11 +59,27 @@ export function InvoiceScreen({
         </Pressable>
       )}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      {/* The wait for the tax authority's answer, which can run to several seconds:
+          centred, with something moving, so it reads as work under way. */}
+      {verification.status === 'loading' && (
+        <View style={styles.verifying}>
+          <View style={styles.verifyingCard}>
+            <View style={styles.verifyingSpinner}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+            <Text style={styles.verifyingTitle}>{t('invoice.verifying')}</Text>
+            <Text style={styles.verifyingDetail}>{t('invoice.verifyingDetail')}</Text>
+          </View>
+        </View>
+      )}
+
+      <ScrollView
+        style={[styles.scroll, verification.status === 'loading' && styles.hidden]}
+        contentContainerStyle={styles.scrollContent}
+      >
         {verification.status === 'invalid' && (
           <Text style={styles.errorText}>{t('invoice.invalidQr')}</Text>
         )}
-        {verification.status === 'loading' && <Text>{t('invoice.verifying')}</Text>}
         {verification.status === 'error' && (
           <Text style={styles.errorText}>{t('invoice.verificationFailed', { message: verification.message })}</Text>
         )}
@@ -147,6 +164,46 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
+  },
+  verifying: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 80,
+  },
+  verifyingCard: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    borderRadius: radius.sheet,
+    backgroundColor: colors.white,
+  },
+  verifyingSpinner: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    backgroundColor: colors.primaryTint,
+  },
+  verifyingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: colors.textDark,
+    marginBottom: 8,
+  },
+  verifyingDetail: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: colors.textMuted,
   },
   scrollContent: {
     paddingHorizontal: 24,

@@ -5,7 +5,6 @@ import { useTranslation } from '../lib/i18n';
 import { listProducts, type PricedInvoice, type ProductSummary } from '../lib/productPrices';
 import { colors } from '../lib/theme';
 import { GlassTextInput } from './GlassTextInput';
-import { GlassView } from './GlassView';
 
 type ProductsScreenProps = {
   invoices: PricedInvoice[];
@@ -63,16 +62,21 @@ export function ProductsScreen({ invoices, onSelectProduct }: ProductsScreenProp
           </Text>
         )}
 
-        {filtered.map((product) => (
-          <Pressable key={product.key} onPress={() => onSelectProduct(product)}>
-            <GlassView style={styles.row}>
+        {/* One plain list, its rows told apart by a hairline, rather than a box each. */}
+        <View>
+          {filtered.map((product, index) => (
+            <Pressable
+              key={product.key}
+              style={({ pressed }) => [styles.row, index > 0 && styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => onSelectProduct(product)}
+            >
               <Text style={styles.rowName} numberOfLines={1}>
                 {product.name}
               </Text>
-              <CaretRightIcon size={18} color="#9ca3af" />
-            </GlassView>
-          </Pressable>
-        ))}
+              <CaretRightIcon size={16} color="#9ca3af" />
+            </Pressable>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -134,13 +138,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 4,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#d1d5db',
+  },
+  rowPressed: {
+    opacity: 0.5,
   },
   rowName: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#1f2937',
   },
 });

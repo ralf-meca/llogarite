@@ -1,4 +1,4 @@
-import { MinusCircleIcon, PlusCircleIcon, UsersIcon } from 'phosphor-react-native';
+import { EqualsIcon, MinusCircleIcon, PlusCircleIcon, UserMinusIcon, UsersIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Buddy } from '../lib/buddiesApi';
@@ -14,6 +14,8 @@ type ItemAssignPickerProps = {
   unitPrice: number;
   buddyQuantities: Record<string, number>;
   onQuantityChange: (buddyId: string, quantity: number) => void;
+  // Replaces every buddy's quantity on the row at once.
+  onQuantitiesChange: (quantities: Record<string, number>) => void;
 };
 
 export function ItemAssignPicker({
@@ -22,6 +24,7 @@ export function ItemAssignPicker({
   unitPrice,
   buddyQuantities,
   onQuantityChange,
+  onQuantitiesChange,
 }: ItemAssignPickerProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -36,6 +39,23 @@ export function ItemAssignPicker({
   const remainingPercent = rowQuantity > 0 ? Math.ceil((remainingQuantity / rowQuantity) * 100) : 0;
   const claimedBuddies = buddies.filter((buddy) => (buddyQuantities[buddy.id] ?? 0) > 0);
   const percentStep = 5;
+
+  // One button, two jobs: take every buddy off the row, or - once nobody has a part of
+  // it - share it out evenly between the owner and all of them.
+  const handleBulkToggle = () => {
+    if (isCustomized) {
+      onQuantitiesChange({});
+      return;
+    }
+    const share = rowQuantity > 0 ? rowQuantity / (buddies.length + 1) : 0;
+    if (share <= 0) {
+      return;
+    }
+    if (!Number.isInteger(share)) {
+      setMode('percentage');
+    }
+    onQuantitiesChange(Object.fromEntries(buddies.map((buddy) => [buddy.id, share])));
+  };
 
   const toPercent = (quantity: number) => (rowQuantity > 0 ? Math.round((quantity / rowQuantity) * 100) : 0);
   const fromPercent = (percent: number) => (percent / 100) * rowQuantity;
@@ -116,6 +136,16 @@ export function ItemAssignPicker({
                     </View>
                   );
                 })}
+                <Pressable style={styles.bulkRow} onPress={handleBulkToggle} accessibilityRole="button">
+                  {isCustomized ? (
+                    <UserMinusIcon size={16} weight="bold" color={colors.primary} />
+                  ) : (
+                    <EqualsIcon size={16} weight="bold" color={colors.primary} />
+                  )}
+                  <Text style={styles.bulkRowText} numberOfLines={1}>
+                    {t(isCustomized ? 'itemAssignPicker.clearAll' : 'itemAssignPicker.splitEvenly')}
+                  </Text>
+                </Pressable>
                 <View style={styles.restRow}>
                   <View style={styles.restIcon}>
                     <UsersIcon size={16} weight="fill" color={colors.primary} />
@@ -242,6 +272,21 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     minWidth: 16,
     textAlign: 'center',
+  },
+  bulkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    marginVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.primaryTint,
+  },
+  bulkRowText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   restRow: {
     flexDirection: 'row',
