@@ -21,6 +21,13 @@ type InvoiceScreenProps = {
   // is the person looking at it.
   owner?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   ownerIsViewer?: boolean;
+  onMarkOwnerPaid?: () => void;
+  isMarkingOwnerPaid?: boolean;
+  viewerId?: string;
+  onMarkBuddyPaid?: (buddyUserId: string) => void;
+  markingBuddyId?: string | null;
+  onNotifyPaid?: () => void;
+  isNotifyingPaid?: boolean;
 };
 
 export function InvoiceScreen({
@@ -34,6 +41,13 @@ export function InvoiceScreen({
   onSelectItem,
   owner,
   ownerIsViewer,
+  onMarkOwnerPaid,
+  isMarkingOwnerPaid,
+  viewerId,
+  onMarkBuddyPaid,
+  markingBuddyId,
+  onNotifyPaid,
+  isNotifyingPaid,
 }: InvoiceScreenProps) {
   const { t } = useTranslation();
   return (
@@ -88,6 +102,13 @@ export function InvoiceScreen({
             result={verification.data}
             owner={owner}
             ownerIsViewer={ownerIsViewer}
+            onMarkOwnerPaid={onMarkOwnerPaid}
+            isMarkingOwnerPaid={isMarkingOwnerPaid}
+            viewerId={viewerId}
+            onMarkBuddyPaid={onMarkBuddyPaid}
+            markingBuddyId={markingBuddyId}
+            onNotifyPaid={onNotifyPaid}
+            isNotifyingPaid={isNotifyingPaid}
             onSelectItem={onSelectItem}
           />
         )}

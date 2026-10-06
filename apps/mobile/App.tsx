@@ -82,6 +82,8 @@ import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
 import {
     deleteInvoice,
+    notifyInvoicePaid,
+    setBuddyPaid,
     fetchSavedInvoices,
     saveInvoice,
     updateInvoice,
@@ -230,6 +232,9 @@ function AppContent() {
     const [scannedVerifiedData, setScannedVerifiedData] = useState<InvoiceVerificationResult | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isMarkingOwnerPaid, setIsMarkingOwnerPaid] = useState(false);
+    const [markingBuddyId, setMarkingBuddyId] = useState<string | null>(null);
+    const [isNotifyingPaid, setIsNotifyingPaid] = useState(false);
     const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<ProductSummary | null>(null);
@@ -744,6 +749,83 @@ function AppContent() {
         setManualPrefill(null);
         setScannedVerifiedData(null);
         setScreen(detailReturnScreen);
+    };
+
+    // On the viewer's own invoice that buddies paid for: records that the viewer has
+    // paid back what they owed. Everything else about the invoice is sent as it is.
+    const handleMarkOwnerPaid = () => {
+        if (!selectedInvoice) {
+            return;
+        }
+        Alert.alert(t("projectDetail.confirmMarkPaidTitle"), t("app.confirmOwnerPaid"), [
+            { text: t("common.cancel"), style: "cancel" },
+            {
+                text: t("common.confirm"),
+                onPress: () => {
+                    setIsMarkingOwnerPaid(true);
+                    updateInvoice(selectedInvoice.id, { ...selectedInvoice.data, ownerPaid: true })
+                        .then((saved) => {
+                            setIsMarkingOwnerPaid(false);
+                            setSelectedInvoice({ ...selectedInvoice, data: saved.data });
+                            loadSavedInvoices();
+                            showSuccess(t("app.ownerPaidSaved"));
+                        })
+                        .catch((error: Error) => {
+                            setIsMarkingOwnerPaid(false);
+                            showError(error.message);
+                        });
+                },
+            },
+        ]);
+    };
+
+    // The two ways round, as on the buddies screen. On the viewer's own invoice a
+    // buddy's share is marked as paid back...
+    const handleMarkBuddyPaid = (buddyUserId: string) => {
+        if (!selectedInvoice) {
+            return;
+        }
+        Alert.alert(
+            t("buddyDetail.confirmMarkPaidTitle"),
+            t("buddyDetail.confirmMarkPaidMessage", { seller: selectedInvoice.data.seller.name }),
+            [
+                { text: t("common.cancel"), style: "cancel" },
+                {
+                    text: t("common.confirm"),
+                    onPress: () => {
+                        setMarkingBuddyId(buddyUserId);
+                        setBuddyPaid(selectedInvoice.id, buddyUserId, true)
+                            .then((saved) => {
+                                setMarkingBuddyId(null);
+                                setSelectedInvoice({ ...selectedInvoice, data: saved.data });
+                                loadSavedInvoices();
+                            })
+                            .catch((error: Error) => {
+                                setMarkingBuddyId(null);
+                                showError(error.message);
+                            });
+                    },
+                },
+            ],
+        );
+    };
+
+    // ...and on someone else's, the viewer tells the owner they have paid. The owner
+    // is the one who then marks it.
+    const handleNotifyPaid = () => {
+        if (!selectedInvoice) {
+            return;
+        }
+        setIsNotifyingPaid(true);
+        notifyInvoicePaid(selectedInvoice.id)
+            .then(() => {
+                setIsNotifyingPaid(false);
+                showSuccess(t("buddies.notifySent"));
+            })
+            .catch((error: Error) => {
+                setIsNotifyingPaid(false);
+                showError(error.message);
+            });
     };
 
     const handleDelete = () => {
@@ -1406,6 +1488,13 @@ function AppContent() {
                         isDeleting={isDeleting}
                         owner={isDetailReadOnly ? detailOwner : user}
                         ownerIsViewer={!isDetailReadOnly}
+                        onMarkOwnerPaid={isDetailReadOnly ? undefined : handleMarkOwnerPaid}
+                        isMarkingOwnerPaid={isMarkingOwnerPaid}
+                        viewerId={user?.id}
+                        onMarkBuddyPaid={isDetailReadOnly ? undefined : handleMarkBuddyPaid}
+                        markingBuddyId={markingBuddyId}
+                        onNotifyPaid={isDetailReadOnly ? handleNotifyPaid : undefined}
+                        isNotifyingPaid={isNotifyingPaid}
                         onDelete={isDetailReadOnly ? undefined : handleDelete}
                         onEdit={isDetailReadOnly ? undefined : () => setScreen("manual")}
                         onSelectItem={(item) => {

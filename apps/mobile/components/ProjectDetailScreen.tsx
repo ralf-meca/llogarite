@@ -1,4 +1,12 @@
-import { ArrowLeftIcon, CheckCircleIcon, PencilSimpleIcon, SignOutIcon } from 'phosphor-react-native';
+import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  PaperPlaneTiltIcon,
+  PencilSimpleIcon,
+  SignOutIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -17,6 +25,7 @@ import {
   type Project,
   type ProjectExpense,
 } from '../lib/projectsApi';
+import { notifyInvoicePaid, setBuddyPaid, updateInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { ToastHost } from './ToastHost';
@@ -38,6 +47,15 @@ type ProjectDetailScreenProps = {
   onLeft?: () => void;
   onSelectExpense?: (expense: ProjectExpense) => void;
 };
+
+// What the viewer can do about one expense, straight from its row - the same two ways
+// round as the buddies screen. On their own expense they record a share as paid back
+// (a buddy's, or their own when buddies paid the bill); on someone else's they can
+// only tell the owner they have paid, since the owner keeps the record.
+type RowAction =
+  | { kind: 'markBuddy'; buddyId: string; amount: number }
+  | { kind: 'markSelf'; amount: number }
+  | { kind: 'notify'; amount: number };
 
 type PersonTotal = {
   userId: string;
@@ -119,6 +137,9 @@ export function ProjectDetailScreen({
 
   const isOwner = project.userId === currentUserId;
   const [isLeaving, setIsLeaving] = useState(false);
+  // Tapping someone in the list narrows the expenses to the ones they are part of -
+  // entered by them, or shared with them. Tapping them again shows everything.
+  const [personFilter, setPersonFilter] = useState<string | null>(null);
   const isTrip = project.kind === 'trip';
 
   const load = useCallback(() => {
@@ -178,6 +199,17 @@ export function ProjectDetailScreen({
       ]
     : [];
 
+  // A filter on someone no longer in the list stops applying, rather than leaving
+  // the expenses empty with nothing on screen to explain why.
+  const activePerson = people.some((person) => person.userId === personFilter) ? personFilter : null;
+  const shownExpenses = activePerson
+    ? expenses.filter(
+        (expense) =>
+          expense.ownerId === activePerson ||
+          (expense.data.buddies ?? []).some((buddy) => buddy.userId === activePerson),
+      )
+    : expenses;
+
   const nameFor = (userId: string) => {
     if (userId === currentUserId) {
       return t('projectDetail.you');
@@ -207,6 +239,77 @@ export function ProjectDetailScreen({
         : nameFor(payerId),
     );
     return t('projectDetail.paidBy', { name: names.join(', ') });
+  };
+
+  // The expense whose row action is under way, if any.
+  const [busyExpenseId, setBusyExpenseId] = useState<string | null>(null);
+
+  const rowActionFor = (expense: ProjectExpense): RowAction | null => {
+    const debts = invoiceDebts(expense.data);
+    const expenseBuddies = expense.data.buddies ?? [];
+    if (expense.ownerId !== currentUserId) {
+      const mine = expenseBuddies.find((buddy) => buddy.userId === currentUserId);
+      const debt = debts.buddies[currentUserId]?.debt ?? 0;
+      return mine && !mine.paid && debt > 0 ? { kind: 'notify', amount: debt } : null;
+    }
+    if (debts.owner.debt > 0 && expense.data.ownerPaid !== true) {
+      return { kind: 'markSelf', amount: debts.owner.debt };
+    }
+    // One button a row, so it has to be clear whose share it settles: the person the
+    // list is narrowed to, or the only one still owing. Several owing and no filter
+    // leaves it to the list above, or to the invoice itself.
+    const owing = expenseBuddies.filter((buddy) => !buddy.paid && debts.buddies[buddy.userId].debt > 0);
+    const target = activePerson
+      ? owing.find((buddy) => buddy.userId === activePerson)
+      : owing.length === 1
+        ? owing[0]
+        : undefined;
+    return target ? { kind: 'markBuddy', buddyId: target.userId, amount: debts.buddies[target.userId].debt } : null;
+  };
+
+  const runRowAction = (expense: ProjectExpense, action: RowAction) => {
+    const amount = formatProjectMoney(money.convert(action.amount, expense.data));
+    const finish = (message: string) => {
+      setBusyExpenseId(null);
+      showSuccess(message);
+    };
+    const fail = (error: Error) => {
+      setBusyExpenseId(null);
+      showError(error.message);
+    };
+    if (action.kind === 'notify') {
+      setBusyExpenseId(expense.id);
+      notifyInvoicePaid(expense.id)
+        .then(() => finish(t('buddies.notifySent')))
+        .catch(fail);
+      return;
+    }
+    Alert.alert(
+      t('projectDetail.confirmMarkPaidTitle'),
+      action.kind === 'markSelf'
+        ? t('projectDetail.confirmMarkPaidSelf', { amount })
+        : t('projectDetail.confirmMarkPaidMessage', { name: nameFor(action.buddyId), amount }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            setBusyExpenseId(expense.id);
+            const save =
+              action.kind === 'markSelf'
+                ? updateInvoice(expense.id, { ...expense.data, ownerPaid: true })
+                : setBuddyPaid(expense.id, action.buddyId, true);
+            save
+              .then(() => {
+                finish(t('projectDetail.settled'));
+                load();
+                onInvoicesChanged?.();
+              })
+              .catch(fail);
+          },
+        },
+      ],
+    );
   };
 
   const handleSettle = (person: PersonTotal) => {
@@ -324,7 +427,13 @@ export function ProjectDetailScreen({
           <GlassView style={styles.card}>
             <Text style={styles.cardTitle}>{t('projectDetail.whoOwes')}</Text>
             {people.map((person) => (
-              <View key={person.userId} style={styles.personRow}>
+              <Pressable
+                key={person.userId}
+                style={[styles.personRow, activePerson === person.userId && styles.personRowActive]}
+                onPress={() => setPersonFilter((current) => (current === person.userId ? null : person.userId))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activePerson === person.userId }}
+              >
                 <UserAvatar user={avatarFor(person.userId)} size={28} />
                 <Text style={styles.personName} numberOfLines={1}>
                   {nameFor(person.userId)}
@@ -352,21 +461,36 @@ export function ProjectDetailScreen({
                     <Text style={styles.personSettledText}>{t('projectDetail.allPaid')}</Text>
                   </View>
                 )}
-              </View>
+              </Pressable>
             ))}
 
           </GlassView>
         )}
 
         <GlassView style={styles.card}>
-          <Text style={styles.cardTitle}>{t('projectDetail.expenses')}</Text>
+          <View style={styles.expensesHeader}>
+            <Text style={styles.cardTitle}>{t('projectDetail.expenses')}</Text>
+            {/* Says whose expenses these are while narrowed, and undoes it. */}
+            {activePerson && (
+              <Pressable style={styles.filterChip} onPress={() => setPersonFilter(null)} hitSlop={8}>
+                <Text style={styles.filterChipText} numberOfLines={1}>
+                  {nameFor(activePerson)}
+                </Text>
+                <XIcon size={12} weight="bold" color={colors.primary} />
+              </Pressable>
+            )}
+          </View>
 
           {isLoading ? (
             <ActivityIndicator style={styles.loading} color={colors.primary} />
           ) : expenses.length === 0 ? (
             <Text style={styles.emptyText}>{t('projectDetail.noExpenses')}</Text>
+          ) : shownExpenses.length === 0 ? (
+            <Text style={styles.emptyText}>{t('projectDetail.noExpensesForPerson')}</Text>
           ) : (
-            expenses.map((expense) => (
+            shownExpenses.map((expense) => {
+              const action = rowActionFor(expense);
+              return (
               <Pressable
                 key={expense.id}
                 style={styles.expenseRow}
@@ -381,11 +505,40 @@ export function ProjectDetailScreen({
                     {payerLabel(expense)}
                   </Text>
                 </View>
-                <Text style={styles.expenseAmount}>
-                  {formatProjectMoney(money.convert(expense.data.totalPrice, expense.data))}
-                </Text>
+                <View style={styles.expenseAmountColumn}>
+                  <Text style={styles.expenseAmount}>
+                    {formatProjectMoney(money.convert(expense.data.totalPrice, expense.data))}
+                  </Text>
+                  {action && (
+                    <>
+                      {/* Whose share, and how much of the total above it is. */}
+                      <Text style={styles.expenseShare} numberOfLines={1}>
+                        {action.kind === 'markBuddy' ? nameFor(action.buddyId) : t('projectDetail.you')} ·{' '}
+                        {formatProjectMoney(money.convert(action.amount, expense.data))}
+                      </Text>
+                      <Pressable
+                        style={[styles.markPaidButton, busyExpenseId !== null && styles.markPaidButtonDisabled]}
+                        onPress={() => runRowAction(expense, action)}
+                        disabled={busyExpenseId !== null}
+                        hitSlop={6}
+                      >
+                        {action.kind === 'notify' ? (
+                          <PaperPlaneTiltIcon size={13} weight="bold" color={colors.primary} />
+                        ) : (
+                          <CheckIcon size={13} weight="bold" color={colors.primary} />
+                        )}
+                        <Text style={styles.markPaidText}>
+                          {busyExpenseId === expense.id
+                            ? t('common.saving')
+                            : t(action.kind === 'notify' ? 'buddies.notifyPaid' : 'projectDetail.markPaid')}
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
               </Pressable>
-            ))
+              );
+            })
           )}
         </GlassView>
 
@@ -486,6 +639,34 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  // Bled out to the card's edges, so the tint reads as the whole row being chosen.
+  personRowActive: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primaryTint,
+  },
+  expensesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: '60%',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: colors.primaryTint,
+  },
+  filterChipText: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   personName: {
     flex: 1,
     fontSize: 14,
@@ -513,6 +694,9 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   markPaidButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
@@ -560,6 +744,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.textDark,
+  },
+  expenseAmountColumn: {
+    alignItems: 'flex-end',
+    gap: 4,
+    maxWidth: '55%',
+  },
+  expenseShare: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.danger,
   },
   leaveButton: {
     flexDirection: 'row',

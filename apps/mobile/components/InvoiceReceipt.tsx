@@ -23,10 +23,34 @@ type InvoiceReceiptProps = {
   owner?: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
   // True when the owner is the person looking at it, who is then called "you".
   ownerIsViewer?: boolean;
+  // Settles what the owner still owes the buddies who paid. Only given on the
+  // owner's own invoice: they are the one who knows they paid it back.
+  onMarkOwnerPaid?: () => void;
+  isMarkingOwnerPaid?: boolean;
+  // The same two ways round the buddies screen offers. On the owner's own invoice,
+  // a buddy's share can be marked as paid back. On someone else's, the viewer can
+  // only tell the owner they have paid: the owner keeps the record.
+  viewerId?: string;
+  onMarkBuddyPaid?: (buddyUserId: string) => void;
+  markingBuddyId?: string | null;
+  onNotifyPaid?: () => void;
+  isNotifyingPaid?: boolean;
   onSelectItem?: (item: InvoiceItem) => void;
 };
 
-export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: InvoiceReceiptProps) {
+export function InvoiceReceipt({
+  result,
+  owner,
+  ownerIsViewer,
+  onMarkOwnerPaid,
+  isMarkingOwnerPaid,
+  viewerId,
+  onMarkBuddyPaid,
+  markingBuddyId,
+  onNotifyPaid,
+  isNotifyingPaid,
+  onSelectItem,
+}: InvoiceReceiptProps) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
@@ -118,6 +142,7 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
           <Text style={styles.buddiesTitle}>{t('invoiceReceipt.buddiesTitle')}</Text>
           {/* When buddies paid, the owner may owe part of the bill too. */}
           {debts.hasOtherPayers && (
+            <>
             <View style={styles.buddyRow}>
               {/* Someone else's invoice arrives without their photo, but its owner
                   is one of the viewer's buddies, whose list carries it. */}
@@ -145,6 +170,20 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
                 <CircleIcon size={16} color="#9ca3af" />
               )}
             </View>
+            {/* The owner's own debt on their own invoice is theirs to tick off. */}
+            {ownerIsViewer && onMarkOwnerPaid && debts.owner.debt > 0 && !result.ownerPaid && (
+              <Pressable
+                style={[styles.markPaidButton, isMarkingOwnerPaid && styles.markPaidButtonDisabled]}
+                onPress={onMarkOwnerPaid}
+                disabled={isMarkingOwnerPaid}
+                hitSlop={6}
+              >
+                <Text style={styles.markPaidText}>
+                  {isMarkingOwnerPaid ? t('common.saving') : t('projectDetail.markPaid')}
+                </Text>
+              </Pressable>
+            )}
+            </>
           )}
           {invoiceBuddies.map((buddy) => {
             const info = buddies.find((candidate) => candidate.id === buddy.userId);
@@ -153,8 +192,13 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
             const position = debts.buddies[buddy.userId];
             const share = position.debt > 0 ? position.debt : position.share;
             const coveredAtTill = position.paidAtTill > AMOUNT_EPSILON && position.debt === 0;
+            const stillOwes = position.debt > 0 && !buddy.paid;
+            const canMarkPaid = Boolean(ownerIsViewer && onMarkBuddyPaid) && stillOwes;
+            const canNotify = !ownerIsViewer && Boolean(onNotifyPaid) && buddy.userId === viewerId && stillOwes;
+            const isMarking = markingBuddyId === buddy.userId;
             return (
-              <View key={buddy.userId} style={styles.buddyRow}>
+              <View key={buddy.userId}>
+              <View style={styles.buddyRow}>
                 <UserAvatar user={info ?? null} size={26} />
                 <Text style={styles.buddyName} numberOfLines={1}>
                   {info?.name ?? info?.email ?? t('manualInvoice.buddyFallback')}
@@ -167,6 +211,31 @@ export function InvoiceReceipt({ result, owner, ownerIsViewer, onSelectItem }: I
                 ) : (
                   <CircleIcon size={16} color="#9ca3af" />
                 )}
+              </View>
+              {canMarkPaid && (
+                <Pressable
+                  style={[styles.markPaidButton, markingBuddyId != null && styles.markPaidButtonDisabled]}
+                  onPress={() => onMarkBuddyPaid?.(buddy.userId)}
+                  disabled={markingBuddyId != null}
+                  hitSlop={6}
+                >
+                  <Text style={styles.markPaidText}>
+                    {isMarking ? t('common.saving') : t('projectDetail.markPaid')}
+                  </Text>
+                </Pressable>
+              )}
+              {canNotify && (
+                <Pressable
+                  style={[styles.markPaidButton, isNotifyingPaid && styles.markPaidButtonDisabled]}
+                  onPress={onNotifyPaid}
+                  disabled={isNotifyingPaid}
+                  hitSlop={6}
+                >
+                  <Text style={styles.markPaidText}>
+                    {isNotifyingPaid ? t('common.saving') : t('buddies.notifyPaid')}
+                  </Text>
+                </Pressable>
+              )}
               </View>
             );
           })}
@@ -290,6 +359,23 @@ const styles = StyleSheet.create({
   },
   buddyShare: {
     fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  // Same pill the project screen settles a debt with, under the row it belongs to.
+  markPaidButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primaryTint,
+  },
+  markPaidButtonDisabled: {
+    opacity: 0.5,
+  },
+  markPaidText: {
+    fontSize: 12,
     fontWeight: '700',
     color: colors.primary,
   },
