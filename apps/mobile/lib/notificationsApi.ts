@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type AppNotification = {
   id: string;
@@ -14,11 +15,11 @@ export type AppNotification = {
 
 export async function fetchNotifications(): Promise<AppNotification[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/notifications`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e njoftimeve dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.notificationsLoadFailed')));
   }
   return response.json();
 }

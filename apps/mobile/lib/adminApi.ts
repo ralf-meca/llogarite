@@ -2,6 +2,7 @@ import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { InvoiceVerificationResult } from './invoiceApi';
+import { tr } from './i18n';
 
 export const INVOICE_LEGITIMACIES = ['pending', 'accepted', 'denied'] as const;
 export type InvoiceLegitimacy = (typeof INVOICE_LEGITIMACIES)[number];
@@ -23,20 +24,20 @@ export type ReviewInvoice = {
 
 export async function fetchReviewInvoices(status: InvoiceLegitimacy): Promise<ReviewInvoice[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/admin/invoices?status=${status}`, {
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Leximi i faturave dështoi.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.invoicesReadFailed')));
   }
   return response.json();
 }
 
 export async function setInvoiceLegitimacy(id: string, legitimacy: InvoiceLegitimacy): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/admin/invoices/${id}/legitimacy`, {
     method: 'PATCH',
@@ -44,6 +45,6 @@ export async function setInvoiceLegitimacy(id: string, legitimacy: InvoiceLegiti
     body: JSON.stringify({ legitimacy }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Ruajtja dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.saveFailed')));
   }
 }

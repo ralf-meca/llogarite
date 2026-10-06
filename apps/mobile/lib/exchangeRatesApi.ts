@@ -2,6 +2,7 @@ import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import type { RateBook } from './currency';
 import { apiFetch } from './http';
+import { tr } from './i18n';
 
 // Rates already fetched this session. A past day's rate never changes, and
 // today's moving a little between two screens is not worth a second request.
@@ -16,13 +17,13 @@ export async function fetchEurRates(dates: string[]): Promise<RateBook> {
 
   if (missing.length > 0) {
     if (!API_BASE_URL) {
-      throw new Error('Serveri nuk është i konfiguruar.');
+      throw new Error(tr('api.noConnection'));
     }
     const response = await apiFetch(`${API_BASE_URL}/exchange-rates?base=EUR&dates=${missing.join(',')}`, {
       headers: await authHeaders(),
     });
     if (!response.ok) {
-      throw new Error('Kursi i këmbimit nuk u mor. Shkruaje me dorë.');
+      throw new Error(tr('api.rateUnavailable'));
     }
     const body: { rates?: Record<string, number> } = await response.json();
     for (const [date, rate] of Object.entries(body.rates ?? {})) {

@@ -20,6 +20,7 @@ import {
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BuddiesScreen } from "./components/BuddiesScreen";
+import { UpdateGate } from "./components/UpdateGate";
 import { BuddyDetailScreen } from "./components/BuddyDetailScreen";
 import { BudgetScreen } from "./components/BudgetScreen";
 import { CategoryFilter } from "./components/CategoryFilter";
@@ -67,6 +68,7 @@ import { useTranslation } from "./lib/i18n";
 import { hasCompletedOnboarding, resetOnboarding, setOnboardingCompleted } from "./lib/onboarding";
 import {
     addNotificationTapListener,
+    type PushNotificationPayload,
     getInitialNotificationData,
     registerPushToken,
     setAppBadgeCount,
@@ -231,6 +233,9 @@ function AppContent() {
     // A sign-in link opened from the code email: the address and code it carried.
     const [pendingLogin, setPendingLogin] = useState<{ email: string; code: string } | null>(null);
     const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(null);
+    // Bumped whenever a notification sends the reader somewhere. It is the `key` of the
+    // screens a notification can lead to, so each one opens afresh and fetches again.
+    const [notificationRefreshKey, setNotificationRefreshKey] = useState(0);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const { toasts, showError, showSuccess, dismissToast } = useToasts();
@@ -331,6 +336,70 @@ function AppContent() {
             .catch(() => setScreen("buddies"));
     }, []);
 
+    // Whether anything is waiting on the reader: buddy requests, and the bell's unread
+    // count (which is also the number on the app's icon).
+    const refreshBadges = useCallback(() => {
+        fetchBuddyRequests()
+            .then((requests) => setPendingBuddyRequests(requests.length))
+            .catch(() => {});
+        fetchNotifications()
+            .then((notifications) => {
+                const count = notifications.filter((n) => !n.read).length;
+                setUnreadNotificationsCount(count);
+                setAppBadgeCount(count);
+            })
+            .catch(() => {});
+    }, []);
+
+    // Where a tapped notification leads, from a cold start and from a running app alike.
+    // Returns whether it led anywhere.
+    //
+    // The screens read their data when they open and not again, so a tap on a
+    // notification while already looking at the screen it points to would show whatever
+    // was loaded before the thing it is about happened. Bumping the key opens the screen
+    // afresh, and what is kept above the screens - the reader's own invoices, which a
+    // buddy paying changes, and the counts - is asked for again.
+    const handleNotificationOpened = (payload: PushNotificationPayload | null): boolean => {
+        const data = payload?.data;
+        if (!data) {
+            return false;
+        }
+        let isHandled = true;
+        if (data.type === "invoice_notify_paid" && data.invoiceId) {
+            setBuddiesInitialTab("owedToMe");
+            setHighlightInvoiceId(data.invoiceId);
+            setScreen("buddies");
+        } else if (data.type === "buddy_request") {
+            setScreen("buddies");
+        } else if (data.type === "invoice_buddy_added" && data.buddyId) {
+            navigateToBuddyDetail(data.buddyId);
+        } else if (data.type === "monthly_payment_reminder" && data.paymentId) {
+            syncMonthlyPaymentReminder({
+                paymentId: data.paymentId,
+                title: payload?.title ?? "",
+                body: payload?.body ?? "",
+            }).then((notification) => {
+                if (notification) {
+                    markNotificationRead(notification.id);
+                }
+            });
+            setScreen("monthlyPayments");
+        } else {
+            isHandled = false;
+        }
+        if (isHandled) {
+            setNotificationRefreshKey((key) => key + 1);
+            loadSavedInvoices();
+            refreshBadges();
+        }
+        if (data.notificationId) {
+            markNotificationRead(data.notificationId);
+        }
+        return isHandled;
+    };
+    const notificationOpenedRef = useRef(handleNotificationOpened);
+    notificationOpenedRef.current = handleNotificationOpened;
+
     useEffect(() => {
         getToken().then((token) => {
             if (!token) {
@@ -339,37 +408,14 @@ function AppContent() {
             }
             getUser().then(setUser);
             getInitialNotificationData().then((payload) => {
-                const data = payload?.data;
-                console.log("cold-start notification data", JSON.stringify(data));
-                if (data?.type === "invoice_notify_paid" && data.invoiceId) {
-                    setBuddiesInitialTab("owedToMe");
-                    setHighlightInvoiceId(data.invoiceId);
-                    setScreen("buddies");
-                } else if (data?.type === "buddy_request") {
-                    setScreen("buddies");
-                } else if (data?.type === "invoice_buddy_added" && data.buddyId) {
-                    navigateToBuddyDetail(data.buddyId);
-                } else if (data?.type === "monthly_payment_reminder" && data.paymentId) {
-                    syncMonthlyPaymentReminder({
-                        paymentId: data.paymentId,
-                        title: payload?.title ?? "",
-                        body: payload?.body ?? "",
-                    }).then((notification) => {
-                        if (notification) {
-                            markNotificationRead(notification.id);
-                        }
-                    });
-                    setScreen("monthlyPayments");
-                } else {
+                console.log("cold-start notification data", JSON.stringify(payload?.data));
+                if (!notificationOpenedRef.current(payload)) {
                     setScreen("dashboard");
                     startOnboardingIfNeeded();
                 }
-                if (data?.notificationId) {
-                    markNotificationRead(data.notificationId);
-                }
             });
         });
-    }, [startOnboardingIfNeeded, navigateToBuddyDetail]);
+    }, [startOnboardingIfNeeded]);
 
     useEffect(() => {
         const step = ONBOARDING_STEPS[onboardingStep];
@@ -392,18 +438,9 @@ function AppContent() {
 
     useEffect(() => {
         if (MAIN_SCREENS.has(screen)) {
-            fetchBuddyRequests()
-                .then((requests) => setPendingBuddyRequests(requests.length))
-                .catch(() => {});
-            fetchNotifications()
-                .then((notifications) => {
-                    const count = notifications.filter((n) => !n.read).length;
-                    setUnreadNotificationsCount(count);
-                    setAppBadgeCount(count);
-                })
-                .catch(() => {});
+            refreshBadges();
         }
-    }, [screen]);
+    }, [screen, refreshBadges]);
 
     useEffect(() => {
         if (user) {
@@ -414,33 +451,9 @@ function AppContent() {
 
     useEffect(() => {
         return addNotificationTapListener((payload) => {
-            const data = payload.data;
-            if (data.type === "invoice_notify_paid" && data.invoiceId) {
-                loadSavedInvoices();
-                setBuddiesInitialTab("owedToMe");
-                setHighlightInvoiceId(data.invoiceId);
-                setScreen("buddies");
-            } else if (data.type === "buddy_request") {
-                setScreen("buddies");
-            } else if (data.type === "invoice_buddy_added" && data.buddyId) {
-                navigateToBuddyDetail(data.buddyId);
-            } else if (data.type === "monthly_payment_reminder" && data.paymentId) {
-                syncMonthlyPaymentReminder({
-                    paymentId: data.paymentId,
-                    title: payload.title ?? "",
-                    body: payload.body ?? "",
-                }).then((notification) => {
-                    if (notification) {
-                        markNotificationRead(notification.id);
-                    }
-                });
-                setScreen("monthlyPayments");
-            }
-            if (data.notificationId) {
-                markNotificationRead(data.notificationId);
-            }
+            notificationOpenedRef.current(payload);
         });
-    }, [loadSavedInvoices, navigateToBuddyDetail]);
+    }, []);
 
     useEffect(() => {
         return addPaymentReminderFiredListener((payload) => {
@@ -584,7 +597,11 @@ function AppContent() {
         });
     };
 
+    // Where a scan ends up when the invoice could not be had from the tax
+    // authority: the form, with whatever was read off the paper. The form
+    // alone does not say why it opened, so the reader is told.
     const fallbackToManualEntry = (prefill: InvoiceVerificationResult) => {
+        showError(t(prefill.items.length > 0 ? "app.receiptPartlyRead" : "app.receiptNotRead"));
         setSelectedInvoice(null);
         setManualPrefill(prefill);
         setScreen("manual");
@@ -998,9 +1015,18 @@ function AppContent() {
                                 setUnreadNotificationsCount(0);
                                 setAppBadgeCount(0);
                             }}
-                            onSelectBuddyId={navigateToBuddyDetail}
-                            onNavigateToBuddies={() => setScreen("buddies")}
-                            onNavigateToMonthlyPayments={() => setScreen("monthlyPayments")}
+                            onSelectBuddyId={(buddyId) => {
+                                setNotificationRefreshKey((key) => key + 1);
+                                navigateToBuddyDetail(buddyId);
+                            }}
+                            onNavigateToBuddies={() => {
+                                setNotificationRefreshKey((key) => key + 1);
+                                setScreen("buddies");
+                            }}
+                            onNavigateToMonthlyPayments={() => {
+                                setNotificationRefreshKey((key) => key + 1);
+                                setScreen("monthlyPayments");
+                            }}
                         />
                     </View>
 
@@ -1099,7 +1125,7 @@ function AppContent() {
                         ) : screen === "budget" ? (
                             <BudgetScreen invoices={savedInvoices} />
                         ) : screen === "monthlyPayments" ? (
-                            <MonthlyPaymentsScreen />
+                            <MonthlyPaymentsScreen key={notificationRefreshKey} />
                         ) : screen === "projects" ? (
                             <ProjectsScreen
                                 invoices={savedInvoices}
@@ -1132,6 +1158,7 @@ function AppContent() {
                             />
                         ) : (
                             <BuddiesScreen
+                                key={notificationRefreshKey}
                                 userId={user?.id ?? ""}
                                 invoices={savedInvoices}
                                 onInvoicesChanged={loadSavedInvoices}
@@ -1267,6 +1294,7 @@ function AppContent() {
             ) : screen === "buddyDetail" ? (
                 selectedBuddy && (
                     <BuddyDetailScreen
+                        key={notificationRefreshKey}
                         buddyId={selectedBuddy.id}
                         buddyName={selectedBuddy.name ?? selectedBuddy.email}
                         userId={user?.id ?? ""}
@@ -1314,14 +1342,31 @@ function AppContent() {
                 onCaptured={handleReceiptCaptured}
             />
 
-            <Modal visible={isProcessingReceipt && !isReceiptScannerVisible} transparent animationType="fade">
-                <View style={styles.processingOverlay}>
-                    <View style={styles.processingCard}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.processingText}>{t("receiptScanner.processing")}</Text>
+            {/* A plain overlay on iOS rather than a Modal. Reading the receipt ends
+                by opening the invoice form, whose item editor is a Modal of its
+                own - and iOS will not present one Modal while another is still
+                being dismissed. The second never appears, yet goes on swallowing
+                every touch, and the app looks frozen. */}
+            {Platform.OS === "ios" ? (
+                isProcessingReceipt &&
+                !isReceiptScannerVisible && (
+                    <View style={[StyleSheet.absoluteFill, styles.processingOverlay]}>
+                        <View style={styles.processingCard}>
+                            <ActivityIndicator color={colors.primary} size="large" />
+                            <Text style={styles.processingText}>{t("receiptScanner.processing")}</Text>
+                        </View>
                     </View>
-                </View>
-            </Modal>
+                )
+            ) : (
+                <Modal visible={isProcessingReceipt && !isReceiptScannerVisible} transparent animationType="fade">
+                    <View style={styles.processingOverlay}>
+                        <View style={styles.processingCard}>
+                            <ActivityIndicator color={colors.primary} size="large" />
+                            <Text style={styles.processingText}>{t("receiptScanner.processing")}</Text>
+                        </View>
+                    </View>
+                </Modal>
+            )}
 
             {/* Opened by the locked project/buddy controls on the expense form. An
                 overlay rather than a screen change on purpose: switching screens
@@ -1374,7 +1419,12 @@ function AppContent() {
             )}
 
             <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" || screen === "manual" ? "light" : "auto"} />
-            <ToastHost toasts={toasts} onDismiss={dismissToast} />
+            {/* Above the tab bar where there is one, so a notice never covers it. */}
+            <ToastHost
+                toasts={toasts}
+                onDismiss={dismissToast}
+                bottomOffset={MAIN_SCREENS.has(screen) ? BOTTOM_NAV_HEIGHT + 28 : undefined}
+            />
         </View>
     );
 }
@@ -1389,6 +1439,7 @@ export default function App() {
             <KeyboardProvider>
                 <LanguageProvider>
                     <AppContent />
+                    <UpdateGate />
                 </LanguageProvider>
             </KeyboardProvider>
         </SafeAreaProvider>

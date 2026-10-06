@@ -1,10 +1,11 @@
-import { PlusIcon, TrashIcon } from 'phosphor-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { CalendarIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { suggestCategory } from '../lib/categories';
-import { parseDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
+import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
@@ -48,7 +49,9 @@ export function MonthlyPaymentsScreen() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
   const [payDatePayment, setPayDatePayment] = useState<MonthlyPayment | null>(null);
-  const [payDateLabel, setPayDateLabel] = useState('');
+  const [payDate, setPayDate] = useState(() => new Date());
+  // Android shows its calendar as a dialog opened on demand; iOS keeps its own in the card.
+  const [isPayDatePickerOpen, setIsPayDatePickerOpen] = useState(false);
   const [isConfirmingPay, setIsConfirmingPay] = useState(false);
   const [buddies, setBuddies] = useState<Buddy[]>([]);
   const { toasts, showError, dismissToast } = useToasts();
@@ -150,18 +153,16 @@ export function MonthlyPaymentsScreen() {
       return;
     }
     setPayDatePayment(payment);
-    setPayDateLabel(todayLabel());
+    setPayDate(new Date());
+    setIsPayDatePickerOpen(false);
   };
 
   const handleConfirmPayDate = () => {
     if (!payDatePayment) {
       return;
     }
-    const date = parseDateLabel(payDateLabel);
-    if (!date) {
-      showError(t('monthlyPayments.invalidDate'));
-      return;
-    }
+    // The day, with no time of day: the picker hands back the moment it was opened at.
+    const date = new Date(payDate.getFullYear(), payDate.getMonth(), payDate.getDate());
 
     setIsConfirmingPay(true);
     const payment = payDatePayment;
@@ -288,12 +289,42 @@ export function MonthlyPaymentsScreen() {
             <Text style={styles.formTitle}>
               {t('monthlyPayments.whenWasPaid', { name: payDatePayment?.name ?? '' })}
             </Text>
-            <GlassTextInput
-              style={styles.input}
-              placeholder={t('monthlyPayments.datePlaceholder')}
-              value={payDateLabel}
-              onChangeText={setPayDateLabel}
-            />
+            {Platform.OS === 'ios' ? (
+              <DateTimePicker
+                value={payDate}
+                mode="date"
+                display="inline"
+                maximumDate={new Date()}
+                accentColor={colors.primary}
+                style={styles.payDatePicker}
+                onChange={(_event, selected) => {
+                  if (selected) {
+                    setPayDate(selected);
+                  }
+                }}
+              />
+            ) : (
+              <>
+                <Pressable style={styles.dateTrigger} onPress={() => setIsPayDatePickerOpen(true)}>
+                  <CalendarIcon size={18} color={colors.textMuted} />
+                  <Text style={styles.dateText}>{toDateLabel(payDate)}</Text>
+                </Pressable>
+                {isPayDatePickerOpen && (
+                  <DateTimePicker
+                    value={payDate}
+                    mode="date"
+                    display="default"
+                    maximumDate={new Date()}
+                    onChange={(event, selected) => {
+                      setIsPayDatePickerOpen(false);
+                      if (event.type === 'set' && selected) {
+                        setPayDate(selected);
+                      }
+                    }}
+                  />
+                )}
+              </>
+            )}
             <GlassButton
               label={isConfirmingPay ? t('common.saving') : t('common.confirm')}
               variant="accent"
@@ -413,6 +444,26 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: colors.primaryTint,
+  },
+  dateText: {
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  payDatePicker: {
+    alignSelf: 'center',
+    marginBottom: 8,
   },
   buddyRow: {
     marginBottom: 16,

@@ -3,6 +3,7 @@ import type { Currency } from './currency';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { InvoiceVerificationResult } from './invoiceApi';
+import { tr } from './i18n';
 
 export type ProjectKind = 'project' | 'trip';
 
@@ -66,13 +67,13 @@ export type ProjectExpense = {
 
 export async function fetchProjectExpenses(projectId: string): Promise<ProjectExpense[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/expenses`, {
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Leximi i shpenzimeve dështoi.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.expensesLoadFailed')));
   }
   return response.json();
 }
@@ -82,7 +83,7 @@ export async function fetchProjectExpenses(projectId: string): Promise<ProjectEx
 // say they were repaid.
 export async function markProjectPaid(projectId: string, buddyId: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/mark-paid`, {
     method: 'POST',
@@ -90,24 +91,24 @@ export async function markProjectPaid(projectId: string, buddyId: string): Promi
     body: JSON.stringify({ buddyId }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Ruajtja dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.saveFailed')));
   }
 }
 
 export async function fetchProjects(): Promise<Project[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e projekteve dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.projectsLoadFailed')));
   }
   return response.json();
 }
 
 export async function createProject(data: ProjectInput): Promise<Project> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects`, {
     method: 'POST',
@@ -115,14 +116,14 @@ export async function createProject(data: ProjectInput): Promise<Project> {
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Shtimi i projektit dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.projectAddFailed')));
   }
   return response.json();
 }
 
 export async function updateProject(id: string, patch: Partial<ProjectInput>): Promise<Project> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects/${id}`, {
     method: 'PATCH',
@@ -131,7 +132,7 @@ export async function updateProject(id: string, patch: Partial<ProjectInput>): P
   });
   if (!response.ok) {
     throw new Error(
-      describeHttpError(response.status, { 404: 'Projekti nuk u gjet.' }, 'Ndryshimi i projektit dështoi. Provo përsëri.'),
+      describeHttpError(response.status, { 404: tr('api.projectNotFound') }, tr('api.projectChangeFailed')),
     );
   }
   return response.json();
@@ -139,7 +140,7 @@ export async function updateProject(id: string, patch: Partial<ProjectInput>): P
 
 export async function deleteProject(id: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/projects/${id}`, {
     method: 'DELETE',
@@ -147,7 +148,7 @@ export async function deleteProject(id: string): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(
-      describeHttpError(response.status, { 404: 'Projekti nuk u gjet.' }, 'Fshirja e projektit dështoi. Provo përsëri.'),
+      describeHttpError(response.status, { 404: tr('api.projectNotFound') }, tr('api.projectDeleteFailed')),
     );
   }
 }

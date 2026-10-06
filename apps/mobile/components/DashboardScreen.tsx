@@ -17,7 +17,6 @@ import type { SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
 import { LineChart } from './LineChart';
-import { UpdateBanner } from './UpdateBanner';
 
 const CATEGORY_IDS = new Set<string>(CATEGORIES.map((category) => category.id));
 const CHART_WIDTH = Dimensions.get('window').width - 88;
@@ -104,8 +103,6 @@ export function DashboardScreen({
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-      <UpdateBanner />
-
       <Pressable onPress={onSelectBudget}>
         <View style={styles.spendCard}>
           <Text style={styles.spendAmount}>{formatAmountLoose(monthSpent)}</Text>

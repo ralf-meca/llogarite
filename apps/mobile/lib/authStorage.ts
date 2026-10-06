@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import type { AuthUser } from './authApi';
+import { tr } from './i18n';
 
 const TOKEN_KEY = 'llogarite_auth_token';
 const USER_KEY = 'llogarite_auth_user';
@@ -32,7 +33,7 @@ export async function clearUser(): Promise<void> {
 export async function authHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
   const token = await getToken();
   if (!token) {
-    throw new Error('Nuk jeni i kyçur.');
+    throw new Error(tr('api.notSignedIn'));
   }
   return { ...extra, Authorization: `Bearer ${token}` };
 }

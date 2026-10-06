@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type MonthlyPayment = {
   id: string;
@@ -20,18 +21,18 @@ export type MonthlyPaymentInput = {
 
 export async function fetchMonthlyPayments(): Promise<MonthlyPayment[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/monthly-payments`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e pagesave dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.paymentsLoadFailed')));
   }
   return response.json();
 }
 
 export async function createMonthlyPayment(data: MonthlyPaymentInput): Promise<MonthlyPayment> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/monthly-payments`, {
     method: 'POST',
@@ -39,7 +40,7 @@ export async function createMonthlyPayment(data: MonthlyPaymentInput): Promise<M
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Shtimi i pagesës dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.paymentAddFailed')));
   }
   return response.json();
 }
@@ -49,7 +50,7 @@ export async function updateMonthlyPayment(
   patch: Partial<MonthlyPaymentInput & { lastPaidMonth: string | null }>,
 ): Promise<MonthlyPayment> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/monthly-payments/${id}`, {
     method: 'PATCH',
@@ -58,7 +59,7 @@ export async function updateMonthlyPayment(
   });
   if (!response.ok) {
     throw new Error(
-      describeHttpError(response.status, { 404: 'Pagesa nuk u gjet.' }, 'Ndryshimi i pagesës dështoi. Provo përsëri.'),
+      describeHttpError(response.status, { 404: tr('api.paymentNotFound') }, tr('api.paymentChangeFailed')),
     );
   }
   return response.json();
@@ -66,7 +67,7 @@ export async function updateMonthlyPayment(
 
 export async function deleteMonthlyPayment(id: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/monthly-payments/${id}`, {
     method: 'DELETE',
@@ -74,7 +75,7 @@ export async function deleteMonthlyPayment(id: string): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(
-      describeHttpError(response.status, { 404: 'Pagesa nuk u gjet.' }, 'Fshirja e pagesës dështoi. Provo përsëri.'),
+      describeHttpError(response.status, { 404: tr('api.paymentNotFound') }, tr('api.paymentDeleteFailed')),
     );
   }
 }

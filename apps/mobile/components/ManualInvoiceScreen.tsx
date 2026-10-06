@@ -1,5 +1,7 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ArrowLeftIcon,
+  CalendarIcon,
   CaretDownIcon,
   CheckSquareIcon,
   CrownIcon,
@@ -11,7 +13,7 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
@@ -28,7 +30,7 @@ import {
   type Currency,
 } from '../lib/currency';
 import { fetchEurRates } from '../lib/exchangeRatesApi';
-import { parseDateLabel, toDateLabel, todayLabel, toLocalIsoString } from '../lib/date';
+import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmount, formatAmountInput, formatAmountLoose, needsCents, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import type { InvoiceBuddy, InvoiceItem, InvoiceVerificationResult } from '../lib/invoiceApi';
@@ -63,6 +65,10 @@ type ManualInvoiceScreenProps = {
   onRequirePremium: () => void;
   onSubmit: (result: InvoiceVerificationResult) => void;
 };
+
+// How long iOS is given to finish dismissing whatever led to the form before
+// the item editor is presented over it.
+const IOS_EDITOR_OPEN_DELAY_MS = 600;
 
 // The owner's key among the payers; every other payer goes by their user id.
 const OWNER_KEY = 'owner';
@@ -193,9 +199,11 @@ export function ManualInvoiceScreen({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [sellerName, setSellerName] = useState(initialData?.seller.name ?? '');
-  const [dateLabel, setDateLabel] = useState(
-    initialData ? toDateLabel(new Date(initialData.dateTimeCreated)) : todayLabel(),
+  const [invoiceDate, setInvoiceDate] = useState(() =>
+    initialData ? new Date(initialData.dateTimeCreated) : new Date(),
   );
+  // Android shows its calendar as a dialog opened on demand; iOS keeps its own in the row.
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   // Lek per unit of the currency the invoice was saved in; the stored amounts
   // are divided by it on the way into the form. A prefilled scan is in lek.
   const loadRate = isEditing && initialData ? invoiceRate(initialData) : 1;
@@ -205,9 +213,24 @@ export function ManualInvoiceScreen({
   // An invoice that opens with no items has nothing to look at yet, so it goes
   // straight to the item screen. Only on mount: emptying the table by removing
   // the last row must not drag the screen back open.
+  //
+  // On iOS it opens a moment later. The form is often reached straight from
+  // the photo picker or the receipt camera, and iOS refuses to present the
+  // editor's Modal while one of those is still sliding away - it then never
+  // shows, but blocks every touch.
+  const opensOnItemEditor = !(initialData && initialData.items.length > 0);
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(
-    initialData && initialData.items.length > 0 ? null : { mode: 'new' },
+    opensOnItemEditor && Platform.OS !== 'ios' ? { mode: 'new' } : null,
   );
+  useEffect(() => {
+    if (!opensOnItemEditor || Platform.OS !== 'ios') {
+      return;
+    }
+    const timer = setTimeout(() => setEditorTarget({ mode: 'new' }), IOS_EDITOR_OPEN_DELAY_MS);
+    return () => clearTimeout(timer);
+    // Only on mount, as above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const defaultTrip = isEditing ? null : (activeTrip ?? null);
   // A verified invoice came from a fiscal QR code, whenever it is opened.
   const isCurrencyLocked = Boolean(lockCurrency) || initialData?.verified === true;
@@ -292,10 +315,9 @@ export function ManualInvoiceScreen({
 
   // The rate follows the invoice's date - the day's rate for a receipt
   // entered a week late is the one from a week ago - until it is typed over.
-  const rateDate = parseDateLabel(dateLabel);
-  const rateDay = rateDate ? toLocalIsoString(rateDate).slice(0, 10) : null;
+  const rateDay = toLocalIsoString(invoiceDate).slice(0, 10);
   useEffect(() => {
-    if (currency === 'ALL' || isRateTouched || !rateDay) {
+    if (currency === 'ALL' || isRateTouched) {
       return;
     }
     let isCurrent = true;
@@ -643,11 +665,9 @@ export function ManualInvoiceScreen({
   };
 
   const handleSubmit = () => {
-    const date = parseDateLabel(dateLabel);
-    if (!date) {
-      showError(t('manualInvoice.invalidDate'));
-      return;
-    }
+    // The day, with no time of day: the picker hands back the moment it was opened at,
+    // and an invoice is dated by its day.
+    const date = new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), invoiceDate.getDate());
 
     if (items.length === 0) {
       showError(t('manualInvoice.noItems'));
@@ -733,12 +753,43 @@ export function ManualInvoiceScreen({
       <View style={styles.sheet}>
       <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bottomOffset={20}>
 
-        <GlassTextInput
-          style={styles.input}
-          placeholder={t('manualInvoice.datePlaceholder')}
-          value={dateLabel}
-          onChangeText={setDateLabel}
-        />
+        {Platform.OS === 'ios' ? (
+          // Apple's own date control: a small button that opens its calendar.
+          <View style={[styles.dateTrigger, styles.dateTriggerIos]}>
+            <CalendarIcon size={18} color={colors.textMuted} />
+            <DateTimePicker
+              value={invoiceDate}
+              mode="date"
+              display="compact"
+              accentColor={colors.primary}
+              onChange={(_event, selected) => {
+                if (selected) {
+                  setInvoiceDate(selected);
+                }
+              }}
+            />
+          </View>
+        ) : (
+          <>
+            <Pressable style={styles.dateTrigger} onPress={() => setIsDatePickerOpen(true)}>
+              <CalendarIcon size={18} color={colors.textMuted} />
+              <Text style={styles.dateText}>{toDateLabel(invoiceDate)}</Text>
+            </Pressable>
+            {isDatePickerOpen && (
+              <DateTimePicker
+                value={invoiceDate}
+                mode="date"
+                display="default"
+                onChange={(event, selected) => {
+                  setIsDatePickerOpen(false);
+                  if (event.type === 'set' && selected) {
+                    setInvoiceDate(selected);
+                  }
+                }}
+              />
+            )}
+          </>
+        )}
         <GlassTextInput
           style={styles.input}
           placeholder={t('manualInvoice.sellerPlaceholder')}
@@ -1216,6 +1267,25 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: colors.primaryTint,
+  },
+  dateTriggerIos: {
+    paddingVertical: 7,
+  },
+  dateText: {
+    fontSize: 16,
+    color: colors.textDark,
   },
   pickersRow: {
     flexDirection: 'row',

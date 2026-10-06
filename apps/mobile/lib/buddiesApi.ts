@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type Buddy = {
   connectionId: string;
@@ -12,7 +13,7 @@ export type Buddy = {
 
 export async function sendBuddyRequest(code: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies/request`, {
     method: 'POST',
@@ -23,8 +24,8 @@ export async function sendBuddyRequest(code: string): Promise<void> {
     throw new Error(
       describeHttpError(
         response.status,
-        { 404: 'Nuk u gjet asnjë përdorues me këtë kod.' },
-        'Dërgimi i kërkesës dështoi. Provo përsëri.',
+        { 404: tr('api.buddyCodeUnknown') },
+        tr('api.requestSendFailed'),
       ),
     );
   }
@@ -32,18 +33,18 @@ export async function sendBuddyRequest(code: string): Promise<void> {
 
 export async function fetchBuddyRequests(): Promise<Buddy[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies/requests`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e kërkesave dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.requestsLoadFailed')));
   }
   return response.json();
 }
 
 export async function respondToBuddyRequest(connectionId: string, accept: boolean): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies/requests/${connectionId}`, {
     method: 'PATCH',
@@ -51,7 +52,7 @@ export async function respondToBuddyRequest(connectionId: string, accept: boolea
     body: JSON.stringify({ accept }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Përgjigja ndaj kërkesës dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.requestReplyFailed')));
   }
 }
 
@@ -66,7 +67,7 @@ export type SettleResult = {
 // reason, written to be shown as it is.
 export async function settleWithBuddy(buddyId: string): Promise<SettleResult> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies/settle/${buddyId}`, {
     method: 'POST',
@@ -77,7 +78,7 @@ export async function settleWithBuddy(buddyId: string): Promise<SettleResult> {
     if (response.status === 400 && typeof body?.message === 'string' && body.message) {
       throw new Error(body.message);
     }
-    throw new Error(describeHttpError(response.status, {}, 'Balancimi dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.settleFailed')));
   }
   return response.json();
 }
@@ -85,7 +86,7 @@ export async function settleWithBuddy(buddyId: string): Promise<SettleResult> {
 // Ends the connection for both sides. What was already split with them stays.
 export async function removeBuddy(connectionId: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies/${connectionId}`, {
     method: 'DELETE',
@@ -100,17 +101,17 @@ export async function removeBuddy(connectionId: string): Promise<void> {
         throw new Error(body.message);
       }
     }
-    throw new Error(describeHttpError(response.status, {}, 'Heqja e shokut dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.buddyRemoveFailed')));
   }
 }
 
 export async function fetchBuddies(): Promise<Buddy[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/buddies`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e shokëve dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.buddiesLoadFailed')));
   }
   return response.json();
 }

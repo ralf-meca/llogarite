@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type AuthUser = {
   id: string;
@@ -19,7 +20,7 @@ export type AuthResponse = {
 
 export async function register(email: string, password: string, name: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
@@ -30,8 +31,8 @@ export async function register(email: string, password: string, name: string): P
     throw new Error(
       describeHttpError(
         response.status,
-        { 409: 'Ky email është regjistruar tashmë.' },
-        'Regjistrimi dështoi. Provo përsëri.',
+        { 409: tr('api.emailTaken') },
+        tr('api.registerFailed'),
       ),
     );
   }
@@ -40,7 +41,7 @@ export async function register(email: string, password: string, name: string): P
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
@@ -52,9 +53,9 @@ export async function login(email: string, password: string): Promise<AuthRespon
       describeHttpError(
         response.status,
         {
-          401: 'Email ose fjalëkalimi është i gabuar. Nëse nuk ke vendosur fjalëkalim, kyçu me kod.',
+          401: tr('api.wrongCredentials'),
         },
-        'Kyçja dështoi. Provo përsëri.',
+        tr('api.signInFailed'),
       ),
     );
   }
@@ -63,7 +64,7 @@ export async function login(email: string, password: string): Promise<AuthRespon
 
 export async function requestLoginCode(email: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/request-code`, {
     method: 'POST',
@@ -74,8 +75,8 @@ export async function requestLoginCode(email: string): Promise<void> {
     throw new Error(
       describeHttpError(
         response.status,
-        { 429: 'Prit pak para se të kërkosh një kod tjetër.' },
-        'Dërgimi i kodit dështoi. Provo përsëri.',
+        { 429: tr('api.codeTooSoon') },
+        tr('api.codeSendFailed'),
       ),
     );
   }
@@ -83,7 +84,7 @@ export async function requestLoginCode(email: string): Promise<void> {
 
 export async function verifyLoginCode(email: string, code: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/verify-code`, {
     method: 'POST',
@@ -94,8 +95,8 @@ export async function verifyLoginCode(email: string, code: string): Promise<Auth
     throw new Error(
       describeHttpError(
         response.status,
-        { 401: 'Kodi është i gabuar ose ka skaduar.' },
-        'Kyçja dështoi. Provo përsëri.',
+        { 401: tr('api.codeInvalid') },
+        tr('api.signInFailed'),
       ),
     );
   }
@@ -104,7 +105,7 @@ export async function verifyLoginCode(email: string, code: string): Promise<Auth
 
 export async function setPassword(newPassword: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/set-password`, {
     method: 'POST',
@@ -115,8 +116,8 @@ export async function setPassword(newPassword: string): Promise<void> {
     throw new Error(
       describeHttpError(
         response.status,
-        { 409: 'Kjo llogari ka tashmë një fjalëkalim.' },
-        'Ruajtja e fjalëkalimit dështoi. Provo përsëri.',
+        { 409: tr('api.passwordAlreadySet') },
+        tr('api.passwordSaveFailed'),
       ),
     );
   }
@@ -124,7 +125,7 @@ export async function setPassword(newPassword: string): Promise<void> {
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/google`, {
     method: 'POST',
@@ -132,7 +133,7 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
     body: JSON.stringify({ idToken }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Kyçja me Google dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.googleFailed')));
   }
   return response.json();
 }
@@ -143,7 +144,7 @@ export async function loginWithApple(
   authorizationCode: string | null,
 ): Promise<AuthResponse> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/apple`, {
     method: 'POST',
@@ -155,14 +156,14 @@ export async function loginWithApple(
     }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Kyçja me Apple dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.appleFailed')));
   }
   return response.json();
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/auth/password`, {
     method: 'PATCH',
@@ -173,8 +174,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
     throw new Error(
       describeHttpError(
         response.status,
-        { 401: 'Fjalëkalimi aktual është i gabuar.' },
-        'Ndryshimi i fjalëkalimit dështoi. Provo përsëri.',
+        { 401: tr('api.currentPasswordWrong') },
+        tr('api.passwordChangeFailed'),
       ),
     );
   }
@@ -182,20 +183,20 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export async function deleteAccount(): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/users/me`, {
     method: 'DELETE',
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Fshirja e llogarisë dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.accountDeleteFailed')));
   }
 }
 
 export async function updateAvatar(imageDataUri: string): Promise<string | null> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/users/me/avatar`, {
     method: 'PATCH',
@@ -203,7 +204,7 @@ export async function updateAvatar(imageDataUri: string): Promise<string | null>
     body: JSON.stringify({ image: imageDataUri }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Ndryshimi i fotos dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.photoChangeFailed')));
   }
   const data: { avatarUrl: string | null } = await response.json();
   return data.avatarUrl;
@@ -211,13 +212,13 @@ export async function updateAvatar(imageDataUri: string): Promise<string | null>
 
 export async function removeAvatar(): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/users/me/avatar`, {
     method: 'DELETE',
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Heqja e fotos dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.photoRemoveFailed')));
   }
 }

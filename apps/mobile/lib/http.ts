@@ -1,3 +1,5 @@
+import { tr } from './i18n';
+
 // Without this a stalled connection never settles, and a screen that shows a
 // pending state while it waits sits there forever with nothing to report.
 const REQUEST_TIMEOUT_MS = 20000;
@@ -8,7 +10,7 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch {
-    throw new Error('Nuk ka lidhje me serverin. Kontrollo lidhjen e internetit.');
+    throw new Error(tr('api.noConnection'));
   } finally {
     clearTimeout(timeout);
   }

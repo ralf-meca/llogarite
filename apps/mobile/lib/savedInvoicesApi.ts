@@ -2,6 +2,7 @@ import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { InvoiceVerificationResult } from './invoiceApi';
+import { tr } from './i18n';
 
 export type SavedInvoice = {
   id: string;
@@ -27,7 +28,7 @@ export type OwedInvoice = {
 
 export async function saveInvoice(data: InvoiceVerificationResult): Promise<SavedInvoice> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices`, {
     method: 'POST',
@@ -35,49 +36,49 @@ export async function saveInvoice(data: InvoiceVerificationResult): Promise<Save
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Ruajtja e faturës dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.invoiceSaveFailed')));
   }
   return response.json();
 }
 
 export async function fetchSavedInvoices(): Promise<SavedInvoice[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e faturave dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.invoicesLoadFailed')));
   }
   return response.json();
 }
 
 export async function fetchOwedInvoices(): Promise<OwedInvoice[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices/owed-by-me`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e faturave dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.invoicesLoadFailed')));
   }
   return response.json();
 }
 
 export async function notifyInvoicePaid(id: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices/${id}/notify-paid`, {
     method: 'POST',
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Njoftimi dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, { 404: tr('api.invoiceNotFound') }, tr('api.notifyFailed')));
   }
 }
 
 export async function updateInvoice(id: string, data: InvoiceVerificationResult): Promise<SavedInvoice> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices/${id}`, {
     method: 'PATCH',
@@ -85,14 +86,14 @@ export async function updateInvoice(id: string, data: InvoiceVerificationResult)
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Ndryshimi dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, { 404: tr('api.invoiceNotFound') }, tr('api.changeFailed')));
   }
   return response.json();
 }
 
 export async function setBuddyPaid(id: string, buddyUserId: string, paid: boolean): Promise<SavedInvoice> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices/${id}/buddy-paid`, {
     method: 'PATCH',
@@ -100,20 +101,20 @@ export async function setBuddyPaid(id: string, buddyUserId: string, paid: boolea
     body: JSON.stringify({ buddyUserId, paid }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Ndryshimi dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, { 404: tr('api.invoiceNotFound') }, tr('api.changeFailed')));
   }
   return response.json();
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/invoices/${id}`, {
     method: 'DELETE',
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, { 404: 'Fatura nuk u gjet.' }, 'Fshirja dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, { 404: tr('api.invoiceNotFound') }, tr('api.deleteFailed')));
   }
 }

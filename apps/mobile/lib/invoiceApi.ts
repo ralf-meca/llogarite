@@ -1,5 +1,6 @@
 import type { Currency } from './currency';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 const VERIFY_INVOICE_URL = 'https://efiskalizimi-app.tatime.gov.al/invoice-check/api/verifyInvoice';
 
@@ -92,8 +93,8 @@ export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVer
     throw new Error(
       describeHttpError(
         response.status,
-        { 404: 'Fatura nuk u gjet. Kontrollo kodin QR.' },
-        'Verifikimi i faturës dështoi. Provo përsëri.',
+        { 404: tr('api.invoiceNotFoundQr') },
+        tr('api.verifyFailed'),
       ),
     );
   }
@@ -101,6 +102,6 @@ export async function verifyInvoice(params: InvoiceQrParams): Promise<InvoiceVer
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error('Verifikimi i faturës dështoi. Provo përsëri.');
+    throw new Error(tr('api.verifyFailed'));
   }
 }

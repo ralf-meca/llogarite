@@ -2,6 +2,7 @@ import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
 import type { PricedInvoice } from './productPrices';
+import { tr } from './i18n';
 
 // Everyone's accepted invoices, stripped to what a price comparison needs. The
 // server shapes them like saved invoices so listProducts and getProductRecords
@@ -13,13 +14,13 @@ export type SharedPriceInvoice = PricedInvoice;
 
 export async function fetchSharedPrices(): Promise<SharedPriceInvoice[]> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/prices`, {
     headers: await authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Leximi i çmimeve dështoi.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.pricesLoadFailed')));
   }
   return response.json();
 }

@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { LanguageContext, translate, type Language, type TranslationKey } from '../lib/i18n';
+import { LanguageContext, setActiveLanguage, translate, type Language, type TranslationKey } from '../lib/i18n';
 
 const LANGUAGE_KEY = 'llogarite_language';
 
@@ -18,6 +18,10 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    setActiveLanguage(language);
+  }, [language]);
 
   const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);

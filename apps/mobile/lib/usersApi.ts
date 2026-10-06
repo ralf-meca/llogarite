@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type AccountStatus = { isPremium: boolean; isAdmin: boolean };
 
@@ -24,11 +25,11 @@ export async function fetchAccountStatus(): Promise<AccountStatus | null> {
 
 export async function fetchMyCode(): Promise<string> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/users/me`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e kodit dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.codeLoadFailed')));
   }
   const body: { code: string } = await response.json();
   return body.code;

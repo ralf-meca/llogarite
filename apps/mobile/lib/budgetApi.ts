@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './apiConfig';
 import { authHeaders } from './authStorage';
 import { apiFetch, describeHttpError } from './http';
+import { tr } from './i18n';
 
 export type BudgetCategoryAllocation = {
   mode: 'percent' | 'amount';
@@ -22,11 +23,11 @@ export function resolveAllocationAmount(allocation: BudgetCategoryAllocation, to
 
 export async function fetchBudget(): Promise<Budget | null> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/budget`, { headers: await authHeaders() });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Marrja e buxhetit dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.budgetLoadFailed')));
   }
   const text = await response.text();
   return text ? JSON.parse(text) : null;
@@ -37,7 +38,7 @@ export async function setBudget(
   categoryAllocations: Record<string, BudgetCategoryAllocation> | null,
 ): Promise<Budget> {
   if (!API_BASE_URL) {
-    throw new Error('Serveri nuk është i konfiguruar.');
+    throw new Error(tr('api.noConnection'));
   }
   const response = await apiFetch(`${API_BASE_URL}/budget`, {
     method: 'PUT',
@@ -45,7 +46,7 @@ export async function setBudget(
     body: JSON.stringify({ amount, categoryAllocations }),
   });
   if (!response.ok) {
-    throw new Error(describeHttpError(response.status, {}, 'Ruajtja e buxhetit dështoi. Provo përsëri.'));
+    throw new Error(describeHttpError(response.status, {}, tr('api.budgetSaveFailed')));
   }
   return response.json();
 }

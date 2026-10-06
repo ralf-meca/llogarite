@@ -22,6 +22,18 @@ export function translate(
   );
 }
 
+// The language the app is showing, for code that runs outside any component:
+// the API layer throws its messages from plain functions, with no hook to ask.
+let activeLanguage: Language = 'sq';
+
+export function setActiveLanguage(language: Language): void {
+  activeLanguage = language;
+}
+
+export function tr(key: TranslationKey, params?: Record<string, string | number>): string {
+  return translate(activeLanguage, key, params);
+}
+
 type LanguageContextValue = {
   language: Language;
   setLanguage: (language: Language) => void;
