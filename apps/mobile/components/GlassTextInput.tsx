@@ -19,7 +19,9 @@ export const GlassTextInput = forwardRef<TextInput, TextInputProps>(function Gla
       ref={ref}
       placeholderTextColor={colors.textMuted}
       {...props}
-      selection={props.selection ?? homeSelection}
+      // A field that selects its text on focus has to be left to it: a caret pinned to
+      // the start would take the selection straight back off.
+      selection={props.selection ?? (props.selectTextOnFocus ? undefined : homeSelection)}
       onFocus={(event) => {
         releaseSelection();
         props.onFocus?.(event);

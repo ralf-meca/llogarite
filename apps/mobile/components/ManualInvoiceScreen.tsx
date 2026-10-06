@@ -622,6 +622,11 @@ export function ManualInvoiceScreen({
   };
 
   const handleProjectChange = (newProjectId: string | null) => {
+    // An invoice not yet saved took its currency from the project, so it goes back to
+    // lek when the project is taken off. A saved one stays in what it was written in.
+    if (newProjectId === null && !isEditing && !isCurrencyLocked) {
+      changeCurrency('ALL');
+    }
     if (newProjectId === null && selectedBuddies.length > 0) {
       // On a saved invoice the buddies may already owe or have paid, so that
       // is not undone without asking.

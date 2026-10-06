@@ -52,6 +52,7 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
   const [value, setValue] = useState<ItemEditorValue>(() => initialValue ?? emptyItemEditorValue());
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
+  const quantityInputRef = useRef<TextInput>(null);
   const priceInputRef = useRef<TextInput>(null);
 
   // The screen stays mounted between openings, so each one has to start from the
@@ -132,15 +133,19 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
               onChangeText={handleNameChange}
               returnKeyType="next"
               submitBehavior="submit"
-              onSubmitEditing={() => priceInputRef.current?.focus()}
+              onSubmitEditing={() => quantityInputRef.current?.focus()}
             />
 
             <View style={styles.fieldRow}>
               <View style={styles.fieldSlot}>
                 <Text style={styles.label}>{t('manualInvoice.quantityColumn')}</Text>
+                {/* Arrives holding a 1: selected on the way in, so the first digit
+                    typed replaces it instead of landing beside it. */}
                 <GlassTextInput
+                  ref={quantityInputRef}
                   style={styles.field}
                   keyboardType="numeric"
+                  selectTextOnFocus
                   value={value.quantity}
                   onChangeText={(quantityInput) => setValue((current) => ({ ...current, quantity: quantityInput }))}
                   returnKeyType="next"
@@ -154,6 +159,7 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
                   ref={priceInputRef}
                   style={styles.field}
                   keyboardType="numeric"
+                  selectTextOnFocus
                   placeholder="0,00"
                   value={value.unitPrice}
                   onChangeText={(priceInput) =>
