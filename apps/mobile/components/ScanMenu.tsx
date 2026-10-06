@@ -4,11 +4,10 @@ import {
   PlusIcon,
   QrCodeIcon,
   ScanIcon,
-  XIcon,
   type Icon,
 } from 'phosphor-react-native';
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { BOTTOM_NAV_HEIGHT, FAB_BOTTOM_OFFSET, FAB_SIZE, colors } from '../lib/theme';
@@ -34,6 +33,31 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
 
+  // 0 closed, 1 open. Turns the plus into a cross and brings the menu up out of
+  // the button, both on a spring so the button feels pressed rather than switched.
+  const openProgress = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.spring(openProgress, {
+      toValue: isOpen ? 1 : 0,
+      friction: 7,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  }, [isOpen, openProgress]);
+
+  const pressTo = (toValue: number) =>
+    Animated.spring(pressScale, { toValue, friction: 4, tension: 220, useNativeDriver: true }).start();
+
+  const iconRotation = openProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '135deg'] });
+  const menuStyle = {
+    opacity: openProgress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 1] }),
+    transform: [
+      { translateY: openProgress.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+      { scale: openProgress.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
+    ],
+  };
+
   const handleSelect = (key: (typeof MENU_ITEMS)[number]['key']) => {
     setIsOpen(false);
     if (key === 'qr') {
@@ -50,21 +74,26 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
   return (
     <>
       <View style={[styles.fabWrapper, { bottom: FAB_BOTTOM_OFFSET + insets.bottom }]} pointerEvents="box-none">
-        <Pressable onPress={() => setIsOpen((prev) => !prev)}>
-          <GlassView style={styles.fab}>
-            {isOpen ? (
-              <XIcon size={28} weight="bold" color="#fff" />
-            ) : (
-              <PlusIcon size={28} weight="bold" color="#fff" />
-            )}
-          </GlassView>
+        <Pressable
+          onPress={() => setIsOpen((prev) => !prev)}
+          onPressIn={() => pressTo(0.88)}
+          onPressOut={() => pressTo(1)}
+        >
+          <Animated.View style={{ transform: [{ scale: pressScale }] }}>
+            <GlassView style={styles.fab}>
+              {/* The same plus, turned until it reads as a cross. */}
+              <Animated.View style={{ transform: [{ rotate: iconRotation }] }}>
+                <PlusIcon size={28} weight="bold" color="#fff" />
+              </Animated.View>
+            </GlassView>
+          </Animated.View>
         </Pressable>
       </View>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
           <View style={[styles.menuWrapper, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom + 44 }]} pointerEvents="box-none">
-            <View style={styles.bubble}>
+            <Animated.View style={[styles.bubble, menuStyle]}>
               <GlassView style={styles.menu}>
                 {MENU_ITEMS.map((item) => (
                   <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
@@ -75,7 +104,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
               </GlassView>
               {/* Outside the GlassView, which clips its children. */}
               <PopoverTail style={styles.tail} />
-            </View>
+            </Animated.View>
           </View>
         </Pressable>
       </Modal>

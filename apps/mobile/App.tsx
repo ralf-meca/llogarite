@@ -13,6 +13,7 @@ import {
     PanResponder,
     Platform,
     Pressable,
+    RefreshControl,
     StyleSheet,
     Text,
     View,
@@ -41,6 +42,7 @@ import { ProjectFormScreen } from "./components/ProjectFormScreen";
 import { ProjectsScreen } from "./components/ProjectsScreen";
 import { QrScannerModal } from "./components/QrScannerModal";
 import { ReceiptScannerModal } from "./components/ReceiptScannerModal";
+import { ScreenTransition, type TransitionDirection } from "./components/ScreenTransition";
 import { ScanMenu } from "./components/ScanMenu";
 import { BottomNavBar, type NavScreen } from "./components/BottomNavBar";
 import { ToastHost } from "./components/ToastHost";
@@ -117,6 +119,28 @@ const MAIN_SCREENS = new Set<Screen>([
     "buddies",
     "review",
 ]);
+
+// How deep into the app a screen sits, for which way it arrives: going deeper comes
+// in from the right, coming back out from the left, and moving sideways just fades.
+// The tabs are 0; anything not listed is too.
+const SCREEN_DEPTH: Partial<Record<Screen, number>> = {
+    detail: 1,
+    invoice: 1,
+    plans: 1,
+    projectDetail: 1,
+    buddyDetail: 1,
+    manual: 2,
+    productDetail: 2,
+    projectForm: 2,
+};
+
+function transitionBetween(from: Screen, to: Screen): TransitionDirection {
+    if (from === "loading" || from === "auth" || to === "auth") {
+        return "fade";
+    }
+    const change = (SCREEN_DEPTH[to] ?? 0) - (SCREEN_DEPTH[from] ?? 0);
+    return change > 0 ? "forward" : change < 0 ? "back" : "fade";
+}
 
 const PREMIUM_SCREENS = new Set<NavScreen>(["projects", "products", "buddies"]);
 // How long after a purchase the server is given to hear of it from the store
@@ -239,6 +263,22 @@ function AppContent() {
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const { toasts, showError, showSuccess, dismissToast } = useToasts();
+
+    // Which way the screen now showing came in, worked out as the screen changes.
+    const shownScreenRef = useRef<Screen>("loading");
+    const screenDirectionRef = useRef<TransitionDirection>("fade");
+    const tabDirectionRef = useRef<TransitionDirection>("none");
+
+    // For a pull down on a list: unlike loadSavedInvoices it can be waited on, and a
+    // failure leaves what is already on screen where it is.
+    const [isListRefreshing, setIsListRefreshing] = useState(false);
+    const refreshSavedInvoices = useCallback(
+        () =>
+            fetchSavedInvoices()
+                .then(setSavedInvoices)
+                .catch((error: Error) => showError(error.message)),
+        [showError],
+    );
 
     const loadSavedInvoices = useCallback(() => {
         fetchSavedInvoices()
@@ -988,8 +1028,23 @@ function AppContent() {
             (selectedCategory === null || hasCategory(invoice, selectedCategory)),
     );
 
+    if (shownScreenRef.current !== screen) {
+        const from = shownScreenRef.current;
+        screenDirectionRef.current = transitionBetween(from, screen);
+        // A tab reached from another tab fades in by itself. One reached from outside
+        // them arrives with the whole tabbed frame, so it has nothing of its own to do.
+        tabDirectionRef.current = MAIN_SCREENS.has(from) && MAIN_SCREENS.has(screen) ? "fade" : "none";
+        shownScreenRef.current = screen;
+    }
+
     return (
         <View style={styles.container} {...backSwipeHandlers}>
+            {/* The tabs share one frame - header, sheet, bar - which stays put while they
+                change inside it; every other screen is a frame of its own. */}
+            <ScreenTransition
+                key={MAIN_SCREENS.has(screen) ? "main" : screen}
+                direction={screenDirectionRef.current}
+            >
             {screen === "loading" ? (
                 <Text style={styles.statusText}>{t("common.loading")}</Text>
             ) : screen === "auth" ? (
@@ -1031,11 +1086,13 @@ function AppContent() {
                     </View>
 
                     <View style={[styles.sheet, { paddingBottom: BOTTOM_NAV_HEIGHT + insets.bottom }]}>
+                        <ScreenTransition key={screen} direction={tabDirectionRef.current}>
                         {screen === "dashboard" ? (
                             <View style={styles.homeSwipeArea} {...homeSwipe.panHandlers}>
                                 <DashboardScreen
                                     invoices={savedInvoices}
                                     userId={user?.id ?? ""}
+                                    onRefresh={refreshSavedInvoices}
                                     onSelectBuddies={(tab) => {
                                         // Same rule as every other way in: buddies are a
                                         // Premium screen.
@@ -1065,6 +1122,17 @@ function AppContent() {
                                 contentContainerStyle={styles.listContent}
                                 data={filteredInvoices}
                                 keyExtractor={(item) => item.id}
+                                refreshControl={
+                                    <RefreshControl
+                                        refreshing={isListRefreshing}
+                                        onRefresh={() => {
+                                            setIsListRefreshing(true);
+                                            refreshSavedInvoices().finally(() => setIsListRefreshing(false));
+                                        }}
+                                        colors={[colors.primary]}
+                                        tintColor={colors.primary}
+                                    />
+                                }
                                 ListHeaderComponent={
                                     <View style={styles.listFilters}>
                                         <MonthFilter
@@ -1190,6 +1258,7 @@ function AppContent() {
                                 onSelectOwedInvoice={(invoice) => openOwedInvoice(invoice, "buddies")}
                             />
                         )}
+                        </ScreenTransition>
                     </View>
 
                     <BottomNavBar
@@ -1268,6 +1337,14 @@ function AppContent() {
                         currentUser={user}
                         onInvoicesChanged={loadSavedInvoices}
                         onBack={() => setScreen("projects")}
+                        onLeft={() => {
+                            // It may have been the trip under way, which new
+                            // invoices would otherwise still default to.
+                            loadActiveTrip();
+                            setSelectedProject(null);
+                            setScreen("projects");
+                            showSuccess(t("app.projectLeft"));
+                        }}
                         onEdit={() => {
                             setEditingProject(selectedProject);
                             setProjectFormReturn("projectDetail");
@@ -1339,6 +1416,7 @@ function AppContent() {
                     />
                 )
             )}
+            </ScreenTransition>
 
             <QrScannerModal
                 visible={isScannerVisible}

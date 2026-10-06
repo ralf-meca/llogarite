@@ -1,6 +1,18 @@
 import { ArrowDownLeftIcon, ArrowUpRightIcon, CaretRightIcon } from 'phosphor-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Easing,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { allBuddyInvoiceShares, owedByMeShares } from '../lib/buddyExpenses';
 import { fetchBudget } from '../lib/budgetApi';
@@ -48,11 +60,49 @@ function shortDate(iso: string): string {
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
 }
 
+// What the buddies card was last built from, kept between visits to this screen. The
+// card only exists once its figures are known, so without this it dropped into the
+// page a moment after everything else on every visit, pushing the rest down.
+let lastDebts: { userId: string; buddies: Buddy[]; owedInvoices: OwedInvoice[] } | null = null;
+
+const BAR_GROW_MS = 1100;
+const BAR_STAGGER_MS = 130;
+
+// How long the monthly line takes to draw itself, and how much of its card has to be
+// on screen before it starts.
+const CHART_DRAW_MS = 1400;
+const CHART_VISIBLE_MARGIN = 120;
+
+// A bar growing out to its share from the left, after an optional wait - the category
+// bars each start a beat after the one above. Grows again from where it stands when
+// the share changes.
+function GrowingBar({ percent, delay = 0, style }: { percent: number; delay?: number; style: StyleProp<ViewStyle> }) {
+  const width = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(width, {
+      toValue: percent,
+      duration: BAR_GROW_MS,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      // Width is a layout property, which the native driver cannot animate.
+      useNativeDriver: false,
+    }).start();
+  }, [percent, delay, width]);
+
+  return (
+    <Animated.View
+      style={[style, { width: width.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
+    />
+  );
+}
+
 type DashboardScreenProps = {
   invoices: SavedInvoice[];
   userId: string;
   // Opens the buddies screen on the side that was tapped.
   onSelectBuddies: (tab: 'owedToMe' | 'owedByMe') => void;
+  // Pulled down on: fetches the invoices again, resolving once they are in.
+  onRefresh: () => Promise<void>;
   onSelectBudget: () => void;
   onSelectInvoiceList: () => void;
   onSelectCategory: (categoryId: string) => void;
@@ -63,6 +113,7 @@ export function DashboardScreen({
   invoices,
   userId,
   onSelectBuddies,
+  onRefresh,
   onSelectBudget,
   onSelectInvoiceList,
   onSelectCategory,
@@ -71,20 +122,55 @@ export function DashboardScreen({
   const { t, language } = useTranslation();
   const [budgetTarget, setBudgetTarget] = useState<number | null>(null);
 
+  // Bumped by a pull down, so what this screen fetches for itself is fetched again too.
+  const [refreshCount, setRefreshCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setRefreshCount((count) => count + 1);
+    // The buddies' figures follow by themselves: they are fetched whenever the invoices change.
+    onRefresh().finally(() => setIsRefreshing(false));
+  };
+
   useEffect(() => {
     fetchBudget()
       .then((budget) => setBudgetTarget(budget?.amount ?? null))
       .catch(() => setBudgetTarget(null));
-  }, []);
+  }, [refreshCount]);
+
+  // The monthly line draws itself from left to right, the first time its card comes
+  // far enough up the screen to be seen - not while it is still below the fold.
+  const chartReveal = useRef(new Animated.Value(0)).current;
+  const hasChartDrawn = useRef(false);
+  const viewportHeight = useRef(0);
+  const scrollOffset = useRef(0);
+  const chartTop = useRef<number | null>(null);
+  const drawChartIfVisible = () => {
+    if (hasChartDrawn.current || chartTop.current === null || viewportHeight.current === 0) {
+      return;
+    }
+    if (scrollOffset.current + viewportHeight.current < chartTop.current + CHART_VISIBLE_MARGIN) {
+      return;
+    }
+    hasChartDrawn.current = true;
+    Animated.timing(chartReveal, {
+      toValue: CHART_WIDTH,
+      duration: CHART_DRAW_MS,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  };
 
   // What is still open between the reader and their buddies. Quietly absent if it
   // cannot be loaded: the buddies screen is where a failure gets reported.
-  const [buddies, setBuddies] = useState<Buddy[]>([]);
-  const [owedInvoices, setOwedInvoices] = useState<OwedInvoice[]>([]);
+  const remembered = lastDebts?.userId === userId ? lastDebts : null;
+  const [buddies, setBuddies] = useState<Buddy[]>(remembered?.buddies ?? []);
+  const [owedInvoices, setOwedInvoices] = useState<OwedInvoice[]>(remembered?.owedInvoices ?? []);
   useEffect(() => {
     let isCurrent = true;
     Promise.all([fetchBuddies(), fetchOwedInvoices()])
       .then(([buddyList, owed]) => {
+        lastDebts = { userId, buddies: buddyList, owedInvoices: owed };
         if (isCurrent) {
           setBuddies(buddyList);
           setOwedInvoices(owed);
@@ -94,27 +180,23 @@ export function DashboardScreen({
     return () => {
       isCurrent = false;
     };
-  }, [invoices]);
+  }, [invoices, userId]);
 
-  const owedToMe = useMemo(() => {
-    const open = allBuddyInvoiceShares(invoices, buddies).filter((share) => !share.paid && share.share > 0);
-    return {
-      total: open.reduce((sum, share) => sum + share.share, 0),
-      people: new Set(open.map((share) => share.buddyId)).size,
-    };
-  }, [invoices, buddies]);
-  const owedByMe = useMemo(() => {
-    const open = owedByMeShares(owedInvoices, userId).filter((share) => !share.paid && share.share > 0);
-    return {
-      total: open.reduce((sum, share) => sum + share.share, 0),
-      people: new Set(open.map((share) => share.ownerId)).size,
-    };
-  }, [owedInvoices, userId]);
-  const hasOpenDebts = owedToMe.total > 0 || owedByMe.total > 0;
-  const peopleLabel = (count: number) =>
-    count === 0
-      ? t('dashboard.buddiesNone')
-      : t(count === 1 ? 'dashboard.buddiesPerson' : 'dashboard.buddiesPeople', { count });
+  const owedToMe = useMemo(
+    () =>
+      allBuddyInvoiceShares(invoices, buddies)
+        .filter((share) => !share.paid)
+        .reduce((sum, share) => sum + share.share, 0),
+    [invoices, buddies],
+  );
+  const owedByMe = useMemo(
+    () =>
+      owedByMeShares(owedInvoices, userId)
+        .filter((share) => !share.paid)
+        .reduce((sum, share) => sum + share.share, 0),
+    [owedInvoices, userId],
+  );
+  const hasOpenDebts = owedToMe > 0 || owedByMe > 0;
 
   const monthSpent = currentMonthTotal(invoices);
   const hasBudget = budgetTarget !== null && budgetTarget > 0;
@@ -151,7 +233,27 @@ export function DashboardScreen({
     .slice(0, RECENT_INVOICES);
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
+      scrollEventThrottle={32}
+      onLayout={(event) => {
+        viewportHeight.current = event.nativeEvent.layout.height;
+        drawChartIfVisible();
+      }}
+      onScroll={(event) => {
+        scrollOffset.current = event.nativeEvent.contentOffset.y;
+        drawChartIfVisible();
+      }}
+    >
       <Pressable onPress={onSelectBudget}>
         <View style={styles.spendCard}>
           <Text style={styles.spendAmount}>{formatAmountLoose(monthSpent)}</Text>
@@ -172,7 +274,7 @@ export function DashboardScreen({
           </Text>
           {hasBudget && (
             <View style={styles.spendTrack}>
-              <View style={[styles.spendFill, { width: `${Math.round(budgetRatio * 100)}%` }]} />
+              <GrowingBar percent={Math.round(budgetRatio * 100)} style={styles.spendFill} />
             </View>
           )}
         </View>
@@ -210,7 +312,7 @@ export function DashboardScreen({
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>{t('dashboard.buddies')}</Text>
             <Pressable
-              onPress={() => onSelectBuddies(owedToMe.total > 0 ? 'owedToMe' : 'owedByMe')}
+              onPress={() => onSelectBuddies(owedToMe > 0 ? 'owedToMe' : 'owedByMe')}
               hitSlop={8}
               style={styles.viewAll}
             >
@@ -228,9 +330,8 @@ export function DashboardScreen({
                 <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedToMe')}</Text>
               </View>
               <Text style={[styles.trendValue, { color: DEBT_IN_COLOR }]} numberOfLines={1}>
-                {formatAmountLoose(owedToMe.total)}
+                {formatAmountLoose(owedToMe)}
               </Text>
-              <Text style={styles.debtPeople}>{peopleLabel(owedToMe.people)}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.debtCell, pressed && styles.categoryRowPressed]}
@@ -241,9 +342,8 @@ export function DashboardScreen({
                 <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedByMe')}</Text>
               </View>
               <Text style={[styles.trendValue, { color: DEBT_OUT_COLOR }]} numberOfLines={1}>
-                {formatAmountLoose(owedByMe.total)}
+                {formatAmountLoose(owedByMe)}
               </Text>
-              <Text style={styles.debtPeople}>{peopleLabel(owedByMe.people)}</Text>
             </Pressable>
           </View>
         </GlassView>
@@ -256,7 +356,7 @@ export function DashboardScreen({
           {topCategories.length > 0 && (
             <GlassView style={styles.card}>
               <Text style={styles.cardTitle}>{t('dashboard.spendingByCategory')}</Text>
-              {topCategories.map((entry) => {
+              {topCategories.map((entry, index) => {
                 const share = categoryGrandTotal > 0 ? entry.total / categoryGrandTotal : 0;
                 const tint = categoryColor(entry.key);
                 const label = CATEGORY_IDS.has(entry.key)
@@ -277,11 +377,10 @@ export function DashboardScreen({
                       <Text style={styles.categoryAmount}>{formatAmountLoose(entry.total)}</Text>
                     </View>
                     <View style={styles.categoryTrack}>
-                      <View
-                        style={[
-                          styles.categoryFill,
-                          { width: `${Math.max(2, Math.round(share * 100))}%`, backgroundColor: tint },
-                        ]}
+                      <GrowingBar
+                        percent={Math.max(2, Math.round(share * 100))}
+                        delay={index * BAR_STAGGER_MS}
+                        style={[styles.categoryFill, { backgroundColor: tint }]}
                       />
                     </View>
                   </Pressable>
@@ -334,10 +433,24 @@ export function DashboardScreen({
             </GlassView>
           )}
 
+          <View
+            onLayout={(event) => {
+              chartTop.current = event.nativeEvent.layout.y;
+              drawChartIfVisible();
+            }}
+          >
           <GlassView style={styles.card}>
             <Text style={styles.cardTitle}>{t('dashboard.spendingByMonth')}</Text>
             <View style={styles.lineChartWrapper}>
-              <LineChart points={monthlyPoints} width={CHART_WIDTH} height={160} />
+              {/* A window onto the chart that widens from the left, so the line appears
+                  to be drawn. The chart itself keeps its full width throughout. */}
+              <View style={styles.chartFrame}>
+                <Animated.View style={[styles.chartWindow, { width: chartReveal }]}>
+                  <View style={styles.chartFrame}>
+                    <LineChart points={monthlyPoints} width={CHART_WIDTH} height={160} />
+                  </View>
+                </Animated.View>
+              </View>
             </View>
             <View style={styles.trendRow}>
               <View style={styles.trendCell}>
@@ -348,7 +461,7 @@ export function DashboardScreen({
               </View>
               <View style={styles.trendCell}>
                 <Text
-                  style={[styles.trendValue, { color: trendPercent !== null && trendPercent > 0 ? '#FA709A' : '#43E97B' }]}
+                  style={[styles.trendValue, { color: trendPercent !== null && trendPercent > 0 ? '#dc2626' : '#059669' }]}
                   numberOfLines={1}
                 >
                   {trendPercent === null ? '—' : `${trendPercent > 0 ? '↑' : '↓'} ${Math.abs(trendPercent)}%`}
@@ -357,6 +470,7 @@ export function DashboardScreen({
               </View>
             </View>
           </GlassView>
+          </View>
         </>
       )}
     </ScrollView>
@@ -532,6 +646,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
+  chartFrame: {
+    width: CHART_WIDTH,
+  },
+  chartWindow: {
+    overflow: 'hidden',
+  },
   trendRow: {
     flexDirection: 'row',
     gap: 12,
@@ -563,11 +683,6 @@ const styles = StyleSheet.create({
   debtLabel: {
     fontSize: 9,
     textTransform: 'uppercase',
-    color: colors.textMuted,
-  },
-  debtPeople: {
-    fontSize: 11,
-    marginTop: 2,
     color: colors.textMuted,
   },
   trendValue: {

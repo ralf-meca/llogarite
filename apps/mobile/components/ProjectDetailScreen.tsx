@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CheckCircleIcon, PencilSimpleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CheckCircleIcon, PencilSimpleIcon, SignOutIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
@@ -12,6 +12,7 @@ import { useTranslation } from '../lib/i18n';
 import { AMOUNT_EPSILON, invoiceDebts } from '../lib/invoicePayments';
 import {
   fetchProjectExpenses,
+  leaveProject,
   markProjectPaid,
   type Project,
   type ProjectExpense,
@@ -32,6 +33,9 @@ type ProjectDetailScreenProps = {
   onInvoicesChanged?: () => void;
   // Opens the project's form. Only offered to its owner.
   onEdit?: () => void;
+  // Called once a buddy has taken themselves off the project, which they can
+  // then no longer open.
+  onLeft?: () => void;
   onSelectExpense?: (expense: ProjectExpense) => void;
 };
 
@@ -99,6 +103,7 @@ export function ProjectDetailScreen({
   onBack,
   onInvoicesChanged,
   onEdit,
+  onLeft,
   onSelectExpense,
 }: ProjectDetailScreenProps) {
   const { t } = useTranslation();
@@ -113,6 +118,8 @@ export function ProjectDetailScreen({
   const { toasts, showError, showSuccess, dismissToast } = useToasts();
 
   const isOwner = project.userId === currentUserId;
+  const [isLeaving, setIsLeaving] = useState(false);
+  const isTrip = project.kind === 'trip';
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -234,6 +241,41 @@ export function ProjectDetailScreen({
     );
   };
 
+  // A buddy may take themselves off a project they were added to, but only while no
+  // expense on it involves them - one they entered, or one they are a buddy on. The
+  // server holds the same line; checking here first says why without a round trip.
+  const handleLeave = () => {
+    const isInvolved = expenses.some(
+      (expense) =>
+        expense.ownerId === currentUserId ||
+        (expense.data.buddies ?? []).some((buddy) => buddy.userId === currentUserId),
+    );
+    if (isInvolved) {
+      showError(t(isTrip ? 'projectDetail.leaveBlockedTrip' : 'projectDetail.leaveBlockedProject'));
+      return;
+    }
+    Alert.alert(
+      t(isTrip ? 'projectDetail.leaveTrip' : 'projectDetail.leaveProject'),
+      t(isTrip ? 'projectDetail.leaveConfirmTrip' : 'projectDetail.leaveConfirmProject', { name: project.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('projectDetail.leaveConfirm'),
+          style: 'destructive',
+          onPress: () => {
+            setIsLeaving(true);
+            leaveProject(project.id)
+              .then(() => onLeft?.())
+              .catch((error: Error) => {
+                setIsLeaving(false);
+                showError(error.message);
+              });
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -346,6 +388,25 @@ export function ProjectDetailScreen({
             ))
           )}
         </GlassView>
+
+        {/* Not while the expenses are still loading: whether leaving is allowed
+            depends on them. */}
+        {!isOwner && onLeft && !isLoading && (
+          <Pressable
+            style={({ pressed }) => [styles.leaveButton, (pressed || isLeaving) && styles.leaveButtonPressed]}
+            onPress={handleLeave}
+            disabled={isLeaving}
+          >
+            {isLeaving ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <SignOutIcon size={18} color={colors.danger} />
+            )}
+            <Text style={styles.leaveButtonText}>
+              {t(isTrip ? 'projectDetail.leaveTrip' : 'projectDetail.leaveProject')}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} bottomOffset={110} />
@@ -499,5 +560,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.textDark,
+  },
+  leaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  leaveButtonPressed: {
+    opacity: 0.5,
+  },
+  leaveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.danger,
   },
 });

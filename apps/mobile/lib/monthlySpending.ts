@@ -50,6 +50,10 @@ export function currentMonthTotal(invoices: SavedInvoice[]): number {
   }, 0);
 }
 
+// What a month has cost on average this year, over the months that are finished - the
+// one under way would drag it down. Counted from the first month there is an invoice
+// for, not from January: the months before someone began keeping invoices are not
+// months they spent nothing in.
 export function averageMonthlyThisYear(invoices: SavedInvoice[]): number {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -58,11 +62,24 @@ export function averageMonthlyThisYear(invoices: SavedInvoice[]): number {
     return 0;
   }
 
-  const total = invoices.reduce((sum, invoice) => {
+  let total = 0;
+  // January, if the invoices go back before this year.
+  let firstMonth = monthsElapsed;
+  for (const invoice of invoices) {
     const date = new Date(invoice.data.dateTimeCreated);
-    const isPriorMonthThisYear = date.getFullYear() === currentYear && date.getMonth() < monthsElapsed;
-    return isPriorMonthThisYear ? sum + invoice.data.totalPrice : sum;
-  }, 0);
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+    if (date.getFullYear() < currentYear) {
+      firstMonth = 0;
+      continue;
+    }
+    if (date.getFullYear() === currentYear && date.getMonth() < monthsElapsed) {
+      total += invoice.data.totalPrice;
+      firstMonth = Math.min(firstMonth, date.getMonth());
+    }
+  }
 
-  return total / monthsElapsed;
+  const monthsCounted = monthsElapsed - firstMonth;
+  return monthsCounted > 0 ? total / monthsCounted : 0;
 }

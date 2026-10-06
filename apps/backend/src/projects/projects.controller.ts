@@ -47,6 +47,12 @@ export class ProjectsController {
         return this.projectsService.markOwnExpensesPaid(userId, id, buddyId);
     }
 
+    @Post(':id/leave')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    leave(@CurrentUser() userId: string, @Param('id') id: string): Promise<void> {
+        return this.projectsService.leave(userId, id);
+    }
+
     @Patch(':id')
     update(
         @CurrentUser() userId: string,

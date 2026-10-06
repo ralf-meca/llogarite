@@ -138,6 +138,27 @@ export async function updateProject(id: string, patch: Partial<ProjectInput>): P
   return response.json();
 }
 
+// Takes the caller off a project they were attached to as a buddy. The server
+// refuses while any expense on it involves them.
+export async function leaveProject(id: string): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error(tr('api.noConnection'));
+  }
+  const response = await apiFetch(`${API_BASE_URL}/projects/${id}/leave`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(
+      describeHttpError(
+        response.status,
+        { 404: tr('api.projectNotFound'), 409: tr('api.projectLeaveBlocked') },
+        tr('api.projectLeaveFailed'),
+      ),
+    );
+  }
+}
+
 export async function deleteProject(id: string): Promise<void> {
   if (!API_BASE_URL) {
     throw new Error(tr('api.noConnection'));

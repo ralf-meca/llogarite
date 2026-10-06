@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice } from '../invoices/invoice.entity';
@@ -220,6 +220,36 @@ export class ProjectsService {
             await this.projectsRepository.update(id, changes);
         }
         return { ...project, ...changes };
+    }
+
+    // A buddy taking themselves off a project someone else attached them to.
+    // Only while nothing on it involves them: an expense they entered, or one
+    // they are a buddy on, would be left pointing at a project they can no
+    // longer open - and at a share nobody could see them owing.
+    async leave(userId: string, id: string): Promise<void> {
+        const project = await this.projectsRepository.findOne({ where: { id } });
+        // The owner cannot leave their own project; they delete it instead.
+        if (!project || project.userId === userId || !project.buddyIds.includes(userId)) {
+            throw new NotFoundException();
+        }
+
+        const invoices = await this.invoicesRepository.find({ where: { projectId: id } });
+        const isInvolved = invoices.some((invoice) => {
+            if (invoice.userId === userId) {
+                return true;
+            }
+            const buddies = Array.isArray(invoice.data.buddies)
+                ? (invoice.data.buddies as Array<Record<string, unknown>>)
+                : [];
+            return buddies.some((buddy) => buddy.userId === userId);
+        });
+        if (isInvolved) {
+            throw new ConflictException('You have expenses on this project');
+        }
+
+        await this.projectsRepository.update(id, {
+            buddyIds: project.buddyIds.filter((buddyId) => buddyId !== userId),
+        });
     }
 
     async remove(userId: string, id: string): Promise<void> {
