@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_CATEGORY, suggestCategory } from '../lib/categories';
-import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { capNumberInput, formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
 import { CategoryPicker } from './CategoryPicker';
@@ -147,7 +147,9 @@ export function ItemEditorModal({ visible, initialValue, onCancel, onSave }: Ite
                   keyboardType="numeric"
                   selectTextOnFocus
                   value={value.quantity}
-                  onChangeText={(quantityInput) => setValue((current) => ({ ...current, quantity: quantityInput }))}
+                  onChangeText={(quantityInput) =>
+                    setValue((current) => ({ ...current, quantity: capNumberInput(quantityInput) }))
+                  }
                   returnKeyType="next"
                   submitBehavior="submit"
                   onSubmitEditing={() => priceInputRef.current?.focus()}

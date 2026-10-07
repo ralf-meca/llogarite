@@ -23,13 +23,27 @@ export function formatAmountLoose(value: number): string {
   return formatAmount(value, needsCents([value]));
 }
 
+// The most any number field takes. Typing past it leaves the field at this figure,
+// which keeps a slipped finger - an extra zero or two - from being saved as an amount.
+export const MAX_INPUT_VALUE = 100000;
+
 export function formatAmountInput(raw: string): string {
   const isNegative = raw.trim().startsWith('-');
   const cleaned = raw.replace(/[^0-9,]/g, '');
   const [integerPart = '', decimalPart] = cleaned.split(',');
+  const whole = Number(integerPart || '0');
+  if (whole > MAX_INPUT_VALUE || (whole === MAX_INPUT_VALUE && Number(decimalPart || '0') > 0)) {
+    return `${isNegative ? '-' : ''}${String(MAX_INPUT_VALUE).replace(/\B(?=(\d{3})+(?!\d))/g, "'")}`;
+  }
   const withThousands = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
   const sign = isNegative ? '-' : '';
   return cleaned.includes(',') ? `${sign}${withThousands},${decimalPart ?? ''}` : `${sign}${withThousands}`;
+}
+
+// For a field that is typed as a plain number rather than an amount - a quantity.
+export function capNumberInput(raw: string): string {
+  const value = Number(raw.replace(',', '.'));
+  return Number.isFinite(value) && value > MAX_INPUT_VALUE ? String(MAX_INPUT_VALUE) : raw;
 }
 
 export function parseAmountInput(raw: string): number {
