@@ -25,7 +25,7 @@ export function formatAmountLoose(value: number): string {
 
 // The most any number field takes. Typing past it leaves the field at this figure,
 // which keeps a slipped finger - an extra zero or two - from being saved as an amount.
-export const MAX_INPUT_VALUE = 100000;
+export const MAX_INPUT_VALUE = 10000000;
 
 export function formatAmountInput(raw: string): string {
   const isNegative = raw.trim().startsWith('-');
