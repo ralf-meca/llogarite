@@ -54,7 +54,7 @@ import type { AuthResponse, AuthUser } from "./lib/authApi";
 import { clearToken, clearUser, getToken, getUser, saveToken, saveUser } from "./lib/authStorage";
 import { categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from "./lib/categories";
 import { dominantCategory, hasCategory } from "./lib/categorySpending";
-import { formatAmount } from "./lib/formatAmount";
+import { showInvoiceMoney } from "./lib/displayCurrency";
 import { fetchBuddies, fetchBuddyRequests, type Buddy } from "./lib/buddiesApi";
 import { fetchNotifications, markNotificationRead, syncMonthlyPaymentReminder } from "./lib/notificationsApi";
 import { addPaymentReminderFiredListener } from "./lib/paymentNotifications";
@@ -1281,7 +1281,7 @@ function AppContent() {
                                                     {t(categoryLabelKey(rowCategory))}
                                                 </Text>
                                             </View>
-                                            <Text style={styles.savedTotal}>{formatAmount(item.data.totalPrice)}</Text>
+                                            <Text style={styles.savedTotal}>{showInvoiceMoney(item.data.totalPrice, item.data)}</Text>
                                         </Pressable>
                                     );
                                 }}

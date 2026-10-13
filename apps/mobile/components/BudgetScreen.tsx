@@ -11,7 +11,14 @@ import {
 } from '../lib/budgetApi';
 import { CATEGORIES, categoryIcon, categoryLabelKey, type CategoryId } from '../lib/categories';
 import { currentMonthCategoryTotals } from '../lib/categorySpending';
-import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import {
+  displayCurrency,
+  moneyFromInput,
+  moneyInputSymbol,
+  moneyInputText,
+  showMoneyLoose,
+} from '../lib/displayCurrency';
+import { formatAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import { currentMonthTotal } from '../lib/monthlySpending';
 import type { SavedInvoice } from '../lib/savedInvoicesApi';
@@ -36,10 +43,6 @@ function emptyAllocations(): Record<CategoryId, AllocationDraft> {
   return drafts;
 }
 
-function formatAmountDisplay(value: number): string {
-  return formatAmount(value).replace(/,00$/, '');
-}
-
 export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const { t } = useTranslation();
   const [target, setTarget] = useState<number | null>(null);
@@ -51,28 +54,30 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const [isEditingCategories, setIsEditingCategories] = useState(false);
   const categoryInputs = useRef<Partial<Record<CategoryId, TextInput | null>>>({});
   const { toasts, showError, dismissToast } = useToasts();
+  // The allocations as they are saved, in lek. The fields hold text in the currency
+  // on show; these are what that text is measured against, and rebuilt from.
+  const savedAllocations = useRef<Record<string, BudgetCategoryAllocation>>({});
+
+  const draftsFromSaved = (): Record<CategoryId, AllocationDraft> => {
+    const drafts = emptyAllocations();
+    for (const [categoryId, allocation] of Object.entries(savedAllocations.current)) {
+      if (categoryId in drafts) {
+        drafts[categoryId as CategoryId] = {
+          mode: allocation.mode,
+          value: allocation.mode === 'percent' ? String(allocation.value) : moneyInputText(allocation.value),
+        };
+      }
+    }
+    return drafts;
+  };
 
   useEffect(() => {
     fetchBudget()
       .then((budget) => {
         setTarget(budget?.amount ?? null);
-        setInput(budget ? formatAmountDisplay(budget.amount) : '');
-        if (budget?.categoryAllocations) {
-          const categoryAllocations = budget.categoryAllocations;
-          setAllocations((current) => {
-            const next = { ...current };
-            for (const [categoryId, allocation] of Object.entries(categoryAllocations)) {
-              if (categoryId in next) {
-                next[categoryId as CategoryId] = {
-                  mode: allocation.mode,
-                  value:
-                    allocation.mode === 'percent' ? String(allocation.value) : formatAmountDisplay(allocation.value),
-                };
-              }
-            }
-            return next;
-          });
-        }
+        setInput(budget ? moneyInputText(budget.amount) : '');
+        savedAllocations.current = budget?.categoryAllocations ?? {};
+        setAllocations(draftsFromSaved());
         setIsLoading(false);
       })
       .catch((error: Error) => {
@@ -81,6 +86,20 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The fields are written in one currency; when the currency on show changes under
+  // them they are written again from what is saved, in the new one.
+  const shownCurrency = displayCurrency();
+  const fieldsCurrency = useRef(shownCurrency);
+  useEffect(() => {
+    if (fieldsCurrency.current === shownCurrency) {
+      return;
+    }
+    fieldsCurrency.current = shownCurrency;
+    setInput(target !== null ? moneyInputText(target) : '');
+    setAllocations(draftsFromSaved());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownCurrency]);
 
   const spent = currentMonthTotal(invoices);
   const targetAmount = target ?? 0;
@@ -91,8 +110,11 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const parsedAllocations = {} as Record<CategoryId, BudgetCategoryAllocation>;
   for (const category of CATEGORIES) {
     const draft = allocations[category.id];
+    const saved = savedAllocations.current[category.id];
     const numericValue =
-      draft.mode === 'percent' ? Number(draft.value.replace(/[^0-9.]/g, '')) : parseAmountInput(draft.value);
+      draft.mode === 'percent'
+        ? Number(draft.value.replace(/[^0-9.]/g, ''))
+        : moneyFromInput(draft.value, saved?.mode === 'amount' ? saved.value : null);
     parsedAllocations[category.id] = { mode: draft.mode, value: Number.isFinite(numericValue) ? numericValue : 0 };
   }
 
@@ -115,7 +137,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   };
 
   const persistBudget = (onSuccess: () => void) => {
-    const amount = parseAmountInput(input);
+    const amount = moneyFromInput(input, target);
     if (!Number.isFinite(amount) || amount < 0) {
       showError(t('budget.invalidAmount'));
       return;
@@ -132,7 +154,8 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
       .then((budget) => {
         setIsSaving(false);
         setTarget(budget.amount);
-        setInput(formatAmountDisplay(budget.amount));
+        setInput(moneyInputText(budget.amount));
+        savedAllocations.current = categoryAllocations;
         onSuccess();
       })
       .catch((error: Error) => {
@@ -167,7 +190,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const showsThisMonth = !isLoading && target !== null;
 
   // Whether the amount in the field is a real one and not the one already saved.
-  const typedBudget = parseAmountInput(input);
+  const typedBudget = moneyFromInput(input, target);
   const isBudgetDirty = input.trim() !== '' && Number.isFinite(typedBudget) && typedBudget !== target;
 
   // The categories' heading stays in view while they scroll. It is a second copy laid
@@ -229,9 +252,9 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
         <GlassView style={styles.card}>
           <Text style={styles.cardLabel}>{t('budget.thisMonth')}</Text>
           <Text style={styles.amountText}>
-            {formatAmountDisplay(spent)}{' '}
+            {showMoneyLoose(spent)}{' '}
             <Text style={styles.amountTarget}>
-              {t('budget.of')} {formatAmountDisplay(target)}
+              {t('budget.of')} {showMoneyLoose(target)}
             </Text>
           </Text>
           <View style={styles.progressWrapper}>
@@ -243,13 +266,19 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
 
       <GlassView style={styles.card}>
         <Text style={styles.cardLabel}>{target !== null ? t('budget.editBudget') : t('budget.setMonthlyBudget')}</Text>
-        <GlassTextInput
-          style={styles.input}
-          placeholder={t('budget.amountPlaceholder')}
-          keyboardType="numeric"
-          value={input}
-          onChangeText={(value) => setInput(formatAmountInput(value))}
-        />
+        {/* The currency sits in the field but is no part of what is typed. */}
+        <View style={styles.amountField}>
+          <GlassTextInput
+            style={[styles.input, styles.amountInput]}
+            placeholder={t('budget.amountPlaceholder')}
+            keyboardType="numeric"
+            value={input}
+            onChangeText={(value) => setInput(formatAmountInput(value))}
+          />
+          <Text style={styles.amountSymbol} pointerEvents="none">
+            {moneyInputSymbol()}
+          </Text>
+        </View>
         {/* Only once the amount differs from the one saved: until then there is
             nothing here to save, and the categories have a save of their own. */}
         {isBudgetDirty && (
@@ -278,7 +307,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
           {CATEGORIES.map((category, index) => {
             const draft = allocations[category.id];
             const allocation = parsedAllocations[category.id];
-            const resolvedAmount = resolveAllocationAmount(allocation, parseAmountInput(input) || 0);
+            const resolvedAmount = resolveAllocationAmount(allocation, typedBudget || 0);
             const categorySpent = spentByCategory.get(category.id) ?? 0;
             const categoryRatio = resolvedAmount > 0 ? categorySpent / resolvedAmount : 0;
             const isEditingCategory = isEditingCategories;
@@ -304,7 +333,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
                       <>
                         {resolvedAmount > 0 ? (
                           <Text style={styles.categoryResolved} numberOfLines={1}>
-                            {formatAmountDisplay(resolvedAmount)}
+                            {showMoneyLoose(resolvedAmount)}
                           </Text>
                         ) : (
                           <Text style={styles.categoryNotDefined} numberOfLines={1}>
@@ -354,7 +383,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
                           <Text
                             style={[styles.modeOptionText, draft.mode === 'amount' && styles.modeOptionTextActive]}
                           >
-                            {t('budget.amountMode')}
+                            {moneyInputSymbol()}
                           </Text>
                         </Pressable>
                       </View>
@@ -366,7 +395,7 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
                       <ProgressBar ratio={categoryRatio} height={6} />
                       <View style={styles.categorySpentLine}>
                         <Text style={styles.categorySpentText} numberOfLines={1}>
-                          {formatAmountDisplay(categorySpent)} {t('budget.of')} {formatAmountDisplay(resolvedAmount)}
+                          {showMoneyLoose(categorySpent)} {t('budget.of')} {showMoneyLoose(resolvedAmount)}
                         </Text>
                         <Text style={styles.categorySpentText}>{Math.round(categoryRatio * 100)}%</Text>
                       </View>
@@ -380,12 +409,12 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
 
         <View style={styles.allocationSummary}>
           <Text style={styles.allocationSummaryText}>
-            {t('budget.allocated', { amount: formatAmountDisplay(totalAllocated) })}
+            {t('budget.allocated', { amount: showMoneyLoose(totalAllocated) })}
           </Text>
           <Text style={[styles.allocationSummaryText, unallocated < 0 && styles.allocationSummaryWarning]}>
             {unallocated >= 0
-              ? t('budget.unallocated', { amount: formatAmountDisplay(unallocated) })
-              : t('budget.overAllocatedBy', { amount: formatAmountDisplay(Math.abs(unallocated)) })}
+              ? t('budget.unallocated', { amount: showMoneyLoose(unallocated) })
+              : t('budget.overAllocatedBy', { amount: showMoneyLoose(Math.abs(unallocated)) })}
           </Text>
         </View>
       </View>
@@ -455,6 +484,20 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 0,
+  },
+  amountField: {
+    justifyContent: 'center',
+  },
+  amountInput: {
+    paddingRight: 52,
+  },
+  amountSymbol: {
+    position: 'absolute',
+    right: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+    opacity: 0.7,
   },
   // Reaches both edges of the screen and is opaque, so the rows passing under it
   // while it is held at the top do not show through.

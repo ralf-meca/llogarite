@@ -27,7 +27,7 @@ import {
   type OwedShare,
 } from '../lib/buddyExpenses';
 import { toDateLabel } from '../lib/date';
-import { formatAmount } from '../lib/formatAmount';
+import { showMoney } from '../lib/displayCurrency';
 import { useTranslation } from '../lib/i18n';
 import {
   fetchOwedInvoices,
@@ -503,7 +503,7 @@ export function BuddiesScreen({
                     </Pressable>
                     <View style={styles.rowRight}>
                       <Pressable onPress={() => onSelectInvoice(share.invoiceId)}>
-                        <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                        <Text style={styles.rowShare}>{showMoney(share.share)}</Text>
                       </Pressable>
                       <Pressable
                         style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
@@ -556,7 +556,7 @@ export function BuddiesScreen({
                     </Pressable>
                     <View style={styles.rowRight}>
                       <Pressable onPress={() => openOwed(share)}>
-                        <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                        <Text style={styles.rowShare}>{showMoney(share.share)}</Text>
                       </Pressable>
                       <Pressable
                         style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}

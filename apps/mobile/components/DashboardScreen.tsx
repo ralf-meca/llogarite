@@ -18,7 +18,8 @@ import { allBuddyInvoiceShares, owedByMeShares } from '../lib/buddyExpenses';
 import { fetchBudget } from '../lib/budgetApi';
 import { CATEGORIES, categoryColor, categoryIcon, categoryLabelKey, categoryPlaceKey } from '../lib/categories';
 import { currentMonthCategoryTotals, dominantCategory } from '../lib/categorySpending';
-import { formatAmountLoose } from '../lib/formatAmount';
+import { showInvoiceMoney, showMoneyLoose } from '../lib/displayCurrency';
+import { needsCents } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
   averageMonthlyThisYear,
@@ -259,11 +260,11 @@ export function DashboardScreen({
     >
       <Pressable onPress={onSelectBudget}>
         <View style={styles.spendCard}>
-          <Text style={styles.spendAmount}>{formatAmountLoose(monthSpent)}</Text>
+          <Text style={styles.spendAmount}>{showMoneyLoose(monthSpent)}</Text>
           <Text style={styles.spendMeta}>
             {hasBudget
               ? t('dashboard.budgetMeta', {
-                  target: formatAmountLoose(budgetTarget as number),
+                  target: showMoneyLoose(budgetTarget as number),
                   percent: Math.round(budgetRatio * 100),
                   // The last day is worth naming: "1 day left" is both wrong
                   // in Albanian, which wants the singular, and less useful
@@ -286,7 +287,7 @@ export function DashboardScreen({
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1}>
-            {hasBudget ? formatAmountLoose(remaining) : '—'}
+            {hasBudget ? showMoneyLoose(remaining) : '—'}
           </Text>
           <Text style={styles.statLabel}>{t('dashboard.remaining')}</Text>
         </View>
@@ -297,7 +298,7 @@ export function DashboardScreen({
               the remaining balance exactly, since there was one day to divide
               by. Needs no budget set, unlike everything beside it. */}
           <Text style={[styles.statValue, { color: '#F093FB' }]} numberOfLines={1}>
-            {formatAmountLoose(monthSpent / daysElapsed)}
+            {showMoneyLoose(monthSpent / daysElapsed)}
           </Text>
           <Text style={styles.statLabel}>{t('dashboard.perDay')}</Text>
         </View>
@@ -333,7 +334,7 @@ export function DashboardScreen({
                 <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedToMe')}</Text>
               </View>
               <Text style={[styles.trendValue, { color: DEBT_IN_COLOR }]} numberOfLines={1}>
-                {formatAmountLoose(owedToMe)}
+                {showMoneyLoose(owedToMe)}
               </Text>
             </Pressable>
             <Pressable
@@ -345,7 +346,7 @@ export function DashboardScreen({
                 <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedByMe')}</Text>
               </View>
               <Text style={[styles.trendValue, { color: debtOutColor }]} numberOfLines={1}>
-                {formatAmountLoose(owedByMe)}
+                {showMoneyLoose(owedByMe)}
               </Text>
             </Pressable>
           </View>
@@ -377,7 +378,7 @@ export function DashboardScreen({
                         {label}
                       </Text>
                       <Text style={styles.categoryPercent}>{Math.round(share * 100)}%</Text>
-                      <Text style={styles.categoryAmount}>{formatAmountLoose(entry.total)}</Text>
+                      <Text style={styles.categoryAmount}>{showMoneyLoose(entry.total)}</Text>
                     </View>
                     <View style={styles.categoryTrack}>
                       <GrowingBar
@@ -429,7 +430,7 @@ export function DashboardScreen({
                         {shortDate(invoice.data.dateTimeCreated)} · {t(categoryLabelKey(category))}
                       </Text>
                     </View>
-                    <Text style={styles.invoiceAmount}>{formatAmountLoose(invoice.data.totalPrice)}</Text>
+                    <Text style={styles.invoiceAmount}>{showInvoiceMoney(invoice.data.totalPrice, invoice.data, needsCents([invoice.data.totalPrice]))}</Text>
                   </Pressable>
                 );
               })}
@@ -458,7 +459,7 @@ export function DashboardScreen({
             <View style={styles.trendRow}>
               <View style={styles.trendCell}>
                 <Text style={[styles.trendValue, { color: colors.primary }]} numberOfLines={1}>
-                  {formatAmountLoose(averageMonthlyThisYear(invoices))}
+                  {showMoneyLoose(averageMonthlyThisYear(invoices))}
                 </Text>
                 <Text style={styles.trendLabel}>{t('dashboard.yearlyAverage')}</Text>
               </View>

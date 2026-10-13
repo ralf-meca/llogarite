@@ -2,6 +2,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import {
   CameraIcon,
+  CoinsIcon,
   CrownSimpleIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -34,9 +35,11 @@ import {
   updateAvatar,
   type AuthUser,
 } from '../lib/authApi';
+import { chosenDisplayCurrency, setDisplayCurrency } from '../lib/displayCurrency';
 import { useTranslation } from '../lib/i18n';
 import { colors, radius } from '../lib/theme';
 import { isNightMode, setNightMode } from '../lib/nightMode';
+import { CurrencySwitch } from './CurrencySwitch';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -357,6 +360,13 @@ export function UserMenuModal({
                   <Text style={styles.menuItemText}>{t('userMenu.language')}</Text>
                   <View style={styles.languageSlot}>
                     <LanguageSwitch />
+                  </View>
+                </View>
+                <View style={styles.menuItem}>
+                  <CoinsIcon size={20} color={colors.textDark} />
+                  <Text style={styles.menuItemText}>{t('userMenu.currency')}</Text>
+                  <View style={styles.languageSlot}>
+                    <CurrencySwitch value={chosenDisplayCurrency()} onValueChange={setDisplayCurrency} />
                   </View>
                 </View>
                 <View style={styles.menuItem}>

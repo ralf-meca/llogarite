@@ -117,6 +117,7 @@ export const sq: Record<keyof typeof en, string> = {
   'userMenu.language': 'Gjuha',
   'userMenu.restartTour': 'Rifillo udhëzuesin',
   'userMenu.nightMode': 'Modaliteti i natës',
+  'userMenu.currency': 'Monedha',
   'userMenu.logout': 'Dil',
   'userMenu.changePasswordTitle': 'Ndrysho fjalëkalimin',
   'userMenu.currentPasswordPlaceholder': 'Fjalëkalimi aktual',

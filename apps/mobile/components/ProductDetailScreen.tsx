@@ -1,7 +1,7 @@
 import { ArrowLeftIcon } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { formatAmount } from '../lib/formatAmount';
+import { showMoney } from '../lib/displayCurrency';
 import { useTranslation } from '../lib/i18n';
 import {
   getProductRecords,
@@ -50,11 +50,11 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.statsRow}>
           <GlassView style={styles.statCard}>
-            <Text style={styles.statValue}>{formatAmount(stats.average)}</Text>
+            <Text style={styles.statValue}>{showMoney(stats.average)}</Text>
             <Text style={styles.statLabel}>{t('productDetail.average')}</Text>
           </GlassView>
           <GlassView style={styles.statCard}>
-            <Text style={styles.statValue}>{formatAmount(stats.lowest)}</Text>
+            <Text style={styles.statValue}>{showMoney(stats.lowest)}</Text>
             <Text style={styles.statLabel}>{t('productDetail.lowest')}</Text>
             {stats.lowestSeller && (
               <Text style={styles.statSeller} numberOfLines={1}>
@@ -63,7 +63,7 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
             )}
           </GlassView>
           <GlassView style={styles.statCard}>
-            <Text style={styles.statValue}>{formatAmount(stats.highest)}</Text>
+            <Text style={styles.statValue}>{showMoney(stats.highest)}</Text>
             <Text style={styles.statLabel}>{t('productDetail.highest')}</Text>
             {stats.highestSeller && (
               <Text style={styles.statSeller} numberOfLines={1}>

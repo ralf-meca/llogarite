@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
-import { formatAmount } from '../lib/formatAmount';
+import { showMoney } from '../lib/displayCurrency';
 import { useTranslation } from '../lib/i18n';
 import type { ChartPoint } from '../lib/productPrices';
 import { colors } from '../lib/theme';
@@ -64,7 +64,7 @@ export function LineChart({ points, width = 300, height = 200, color = colors.pr
 
   let tooltip: { x: number; y: number; w: number; h: number } | null = null;
   if (activePoint && activeCoord) {
-    const valueText = formatAmount(activePoint.value);
+    const valueText = showMoney(activePoint.value);
     const textWidth = Math.max(valueText.length, activePoint.label.length) * 6.5 + 16;
     const tooltipWidth = Math.max(64, textWidth);
     const tooltipHeight = 36;
@@ -113,7 +113,7 @@ export function LineChart({ points, width = 300, height = 200, color = colors.pr
               fill={colors.white}
               textAnchor="middle"
             >
-              {formatAmount(activePoint.value)}
+              {showMoney(activePoint.value)}
             </SvgText>
           </>
         )}

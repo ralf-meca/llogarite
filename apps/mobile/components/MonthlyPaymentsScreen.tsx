@@ -1,12 +1,13 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { suggestCategory } from '../lib/categories';
 import { toDateLabel, toLocalIsoString } from '../lib/date';
-import { formatAmount, formatAmountInput, parseAmountInput } from '../lib/formatAmount';
+import { moneyFromInput, moneyInputSymbol, moneyInputText, showMoney } from '../lib/displayCurrency';
+import { formatAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import {
   createMonthlyPayment,
@@ -90,17 +91,23 @@ export function MonthlyPaymentsScreen() {
 
   useEffect(load, []);
 
+  // What the payment being edited is saved at, in lek, so that an amount left alone
+  // is saved back as it was rather than through euros and back.
+  const editingAmount = useRef<number | null>(null);
+
   const openAdd = () => {
+    editingAmount.current = null;
     setEditingId(null);
     setForm(emptyForm());
     setIsModalVisible(true);
   };
 
   const openEdit = (payment: MonthlyPayment) => {
+    editingAmount.current = payment.amount;
     setEditingId(payment.id);
     setForm({
       name: payment.name,
-      amount: formatAmount(payment.amount),
+      amount: moneyInputText(payment.amount),
       dueDay: String(payment.dueDay),
       buddyIds: payment.buddyIds,
     });
@@ -108,7 +115,7 @@ export function MonthlyPaymentsScreen() {
   };
 
   const handleSubmit = () => {
-    const amount = parseAmountInput(form.amount);
+    const amount = moneyFromInput(form.amount, editingAmount.current);
     const dueDay = Number(form.dueDay);
     if (!form.name.trim()) {
       showError(t('monthlyPayments.nameRequired'));
@@ -217,7 +224,7 @@ export function MonthlyPaymentsScreen() {
               <Pressable style={styles.rowMain} onPress={() => openEdit(payment)}>
                 <Text style={styles.rowName}>{payment.name}</Text>
                 <Text style={styles.rowMeta}>
-                  {formatAmount(payment.amount)} · {t('monthlyPayments.dueDay', { day: payment.dueDay })}
+                  {showMoney(payment.amount)} · {t('monthlyPayments.dueDay', { day: payment.dueDay })}
                 </Text>
               </Pressable>
               <Pressable
@@ -248,13 +255,19 @@ export function MonthlyPaymentsScreen() {
               value={form.name}
               onChangeText={(value) => setForm((current) => ({ ...current, name: value }))}
             />
-            <GlassTextInput
-              style={styles.input}
-              placeholder={t('monthlyPayments.amountPlaceholder')}
-              keyboardType="numeric"
-              value={form.amount}
-              onChangeText={(value) => setForm((current) => ({ ...current, amount: formatAmountInput(value) }))}
-            />
+            {/* The currency sits in the field but is no part of what is typed. */}
+            <View style={styles.amountField}>
+              <GlassTextInput
+                style={[styles.input, styles.amountInput]}
+                placeholder={t('monthlyPayments.amountPlaceholder')}
+                keyboardType="numeric"
+                value={form.amount}
+                onChangeText={(value) => setForm((current) => ({ ...current, amount: formatAmountInput(value) }))}
+              />
+              <Text style={styles.amountSymbol} pointerEvents="none">
+                {moneyInputSymbol()}
+              </Text>
+            </View>
             <GlassTextInput
               style={styles.input}
               placeholder={t('monthlyPayments.dueDayPlaceholder')}
@@ -444,6 +457,22 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 12,
+  },
+  amountField: {
+    justifyContent: 'center',
+  },
+  amountInput: {
+    paddingRight: 52,
+  },
+  amountSymbol: {
+    position: 'absolute',
+    right: 16,
+    // The field's own bottom margin is below it, so centring needs it taken off.
+    marginTop: -12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+    opacity: 0.7,
   },
   dateTrigger: {
     flexDirection: 'row',

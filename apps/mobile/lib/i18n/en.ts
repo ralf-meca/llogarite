@@ -113,6 +113,7 @@ export const en = {
   'userMenu.changePassword': 'Change password',
   'userMenu.language': 'Language',
   'userMenu.nightMode': 'Night mode',
+  'userMenu.currency': 'Currency',
   'userMenu.restartTour': 'Restart tour',
   'userMenu.logout': 'Log out',
   'userMenu.changePasswordTitle': 'Change password',

@@ -10,7 +10,7 @@ import {
 } from '../lib/buddyExpenses';
 import { settleWithBuddy } from '../lib/buddiesApi';
 import { toDateLabel } from '../lib/date';
-import { formatAmount } from '../lib/formatAmount';
+import { showMoney } from '../lib/displayCurrency';
 import { useTranslation } from '../lib/i18n';
 import {
   fetchOwedInvoices,
@@ -80,11 +80,11 @@ export function BuddyDetailScreen({
       Math.abs(difference) <= 0.005
         ? t('buddyDetail.settleOutcomeEven')
         : difference > 0
-          ? t('buddyDetail.settleOutcomeTheyOwe', { name: buddyName, amount: formatAmount(difference) })
-          : t('buddyDetail.settleOutcomeIOwe', { name: buddyName, amount: formatAmount(-difference) });
+          ? t('buddyDetail.settleOutcomeTheyOwe', { name: buddyName, amount: showMoney(difference) })
+          : t('buddyDetail.settleOutcomeIOwe', { name: buddyName, amount: showMoney(-difference) });
     Alert.alert(
       t('buddyDetail.settleTitle'),
-      t('buddyDetail.settleMessage', { amount: formatAmount(offset), outcome }),
+      t('buddyDetail.settleMessage', { amount: showMoney(offset), outcome }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -167,12 +167,12 @@ export function BuddyDetailScreen({
         <GlassView style={[styles.totalCard, styles.totalsRow]}>
           <View style={styles.totalCell}>
             <Text style={styles.totalLabel}>{t('buddyDetail.owedToMe')}</Text>
-            <Text style={styles.totalValue}>{formatAmount(total)}</Text>
+            <Text style={styles.totalValue}>{showMoney(total)}</Text>
           </View>
           <View style={styles.totalDivider} />
           <View style={styles.totalCell}>
             <Text style={styles.totalLabel}>{t('buddyDetail.owedByMe')}</Text>
-            <Text style={[styles.totalValue, styles.totalValueOwed]}>{formatAmount(owedTotal)}</Text>
+            <Text style={[styles.totalValue, styles.totalValueOwed]}>{showMoney(owedTotal)}</Text>
           </View>
         </GlassView>
 
@@ -206,7 +206,7 @@ export function BuddyDetailScreen({
               </Pressable>
               <View style={styles.rowRight}>
                 <Pressable onPress={() => onSelectInvoice(share.invoiceId)}>
-                  <Text style={styles.rowShare}>{formatAmount(share.share)}</Text>
+                  <Text style={styles.rowShare}>{showMoney(share.share)}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.markPaidButton, pressed && styles.markPaidButtonPressed]}
@@ -236,7 +236,7 @@ export function BuddyDetailScreen({
               </Pressable>
               <View style={styles.rowRight}>
                 <Pressable onPress={() => openOwed(share)}>
-                  <Text style={[styles.rowShare, styles.rowShareOwed]}>{formatAmount(share.share)}</Text>
+                  <Text style={[styles.rowShare, styles.rowShareOwed]}>{showMoney(share.share)}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.markPaidButton, pressed && styles.markPaidButtonPressed]}

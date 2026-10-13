@@ -9,7 +9,7 @@ import {
   type ReviewInvoice,
 } from '../lib/adminApi';
 import { toDateLabel } from '../lib/date';
-import { formatAmount } from '../lib/formatAmount';
+import { showInvoiceMoney } from '../lib/displayCurrency';
 import { useTranslation, type TranslationKey } from '../lib/i18n';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
@@ -169,7 +169,7 @@ export function InvoiceReviewScreen() {
                 </View>
 
                 <View style={styles.rowRight}>
-                  <Text style={styles.rowTotal}>{formatAmount(invoice.data.totalPrice)}</Text>
+                  <Text style={styles.rowTotal}>{showInvoiceMoney(invoice.data.totalPrice, invoice.data)}</Text>
                   <View style={styles.rowActions}>
                     {status !== 'denied' && (
                       <Pressable
