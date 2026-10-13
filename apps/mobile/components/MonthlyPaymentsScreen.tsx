@@ -19,7 +19,7 @@ import {
 import { requestNotificationPermissions, scheduleMonthlyPaymentReminders } from '../lib/paymentNotifications';
 import { saveInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
-import { BuddyPicker } from './BuddyPicker';
+import { BuddyCircles } from './BuddyCircles';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
@@ -276,7 +276,7 @@ export function MonthlyPaymentsScreen() {
               onChangeText={(value) => setForm((current) => ({ ...current, dueDay: value.replace(/[^0-9]/g, '') }))}
             />
             <View style={styles.buddyRow}>
-              <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
+              <BuddyCircles buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
             </View>
             <GlassButton
               label={isSaving ? t('common.saving') : t('common.save')}

@@ -7,12 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
 import { fetchBuddies, type Buddy } from '../lib/buddiesApi';
 import { CURRENCIES, CURRENCY_SYMBOL, type Currency } from '../lib/currency';
+import { chosenDisplayCurrency } from '../lib/displayCurrency';
 import { toDateLabel, toLocalIsoString } from '../lib/date';
 import { formatAmountInput, formatAmountLoose, parseAmountInput } from '../lib/formatAmount';
 import { useTranslation } from '../lib/i18n';
 import { createProject, deleteProject, updateProject, type Project, type ProjectKind } from '../lib/projectsApi';
 import { HEADER_INSET, colors, radius } from '../lib/theme';
-import { BuddyPicker } from './BuddyPicker';
+import { BuddyCircles } from './BuddyCircles';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { ToastHost } from './ToastHost';
@@ -45,7 +46,7 @@ function initialForm(project: Project | null): FormState {
       details: '',
       budget: '',
       kind: 'project',
-      currency: 'ALL',
+      currency: chosenDisplayCurrency(),
       startDate: null,
       endDate: null,
       buddyIds: [],
@@ -329,7 +330,7 @@ export function ProjectFormScreen({ project, onClose, onDone }: ProjectFormScree
 
           <View style={styles.field}>
             <Text style={styles.label}>{t('projects.sharedWith')}</Text>
-            <BuddyPicker buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
+            <BuddyCircles buddies={buddies} selectedIds={form.buddyIds} onToggle={toggleBuddy} />
           </View>
 
           <GlassButton
