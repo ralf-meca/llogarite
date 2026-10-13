@@ -27,6 +27,7 @@ import {
   groupByMonth,
   monthKeyOf,
 } from '../lib/monthlySpending';
+import { isNightMode } from '../lib/nightMode';
 import { fetchOwedInvoices, type OwedInvoice, type SavedInvoice } from '../lib/savedInvoicesApi';
 import { colors } from '../lib/theme';
 import { GlassView } from './GlassView';
@@ -196,6 +197,8 @@ export function DashboardScreen({
         .reduce((sum, share) => sum + share.share, 0),
     [owedInvoices, userId],
   );
+  // The red of what is owed, lighter by night, when the day's red is too dark to read.
+  const debtOutColor = isNightMode() ? colors.danger : DEBT_OUT_COLOR;
   const hasOpenDebts = owedToMe > 0 || owedByMe > 0;
 
   const monthSpent = currentMonthTotal(invoices);
@@ -338,10 +341,10 @@ export function DashboardScreen({
               onPress={() => onSelectBuddies('owedByMe')}
             >
               <View style={styles.debtLabelRow}>
-                <ArrowUpRightIcon size={12} color={DEBT_OUT_COLOR} weight="bold" />
+                <ArrowUpRightIcon size={12} color={debtOutColor} weight="bold" />
                 <Text style={styles.debtLabel}>{t('dashboard.buddiesOwedByMe')}</Text>
               </View>
-              <Text style={[styles.trendValue, { color: DEBT_OUT_COLOR }]} numberOfLines={1}>
+              <Text style={[styles.trendValue, { color: debtOutColor }]} numberOfLines={1}>
                 {formatAmountLoose(owedByMe)}
               </Text>
             </Pressable>
@@ -461,7 +464,7 @@ export function DashboardScreen({
               </View>
               <View style={styles.trendCell}>
                 <Text
-                  style={[styles.trendValue, { color: trendPercent !== null && trendPercent > 0 ? '#dc2626' : '#059669' }]}
+                  style={[styles.trendValue, { color: trendPercent !== null && trendPercent > 0 ? colors.danger : '#059669' }]}
                   numberOfLines={1}
                 >
                   {trendPercent === null ? '—' : `${trendPercent > 0 ? '↑' : '↓'} ${Math.abs(trendPercent)}%`}
