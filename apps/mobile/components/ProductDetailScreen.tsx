@@ -40,7 +40,7 @@ export function ProductDetailScreen({ productKey, productName, invoices, onBack 
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
-          <ArrowLeftIcon size={22} color="#1f2937" />
+          <ArrowLeftIcon size={22} color={colors.textDark} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
           {productName}

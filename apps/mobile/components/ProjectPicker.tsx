@@ -89,11 +89,11 @@ export function ProjectPicker({ projects, value, onChange, variant = 'pill' }: P
           style={[styles.trigger, variant === 'wide-pill' && styles.triggerWide]}
           onPress={open}
         >
-          <SelectedIcon size={14} color="#374151" />
+          <SelectedIcon size={14} color={colors.textDark} />
           <Text style={[styles.triggerText, variant === 'wide-pill' && styles.triggerTextWide]} numberOfLines={1}>
             {selectedLabel}
           </Text>
-          <CaretDownIcon size={12} color="#6b7280" />
+          <CaretDownIcon size={12} color={colors.textMuted} />
         </Pressable>
       )}
 

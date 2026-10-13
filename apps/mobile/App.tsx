@@ -78,6 +78,7 @@ import {
 import { configurePurchases } from "./lib/purchases";
 import { BOTTOM_NAV_HEIGHT, HEADER_INSET, colors, radius } from "./lib/theme";
 import { normalizeKey, type PricedInvoice, type ProductSummary } from "./lib/productPrices";
+import { isNightMode } from "./lib/nightMode";
 import { captureReceipt } from "./lib/receiptCapture";
 import { recognizeReceipt } from "./lib/receiptOcr";
 import { parseReceipt, toQrParams } from "./lib/receiptParser";
@@ -1607,7 +1608,13 @@ function AppContent() {
                 />
             )}
 
-            <StatusBar style={MAIN_SCREENS.has(screen) || screen === "auth" || screen === "manual" ? "light" : "auto"} />
+            <StatusBar
+                style={
+                    isNightMode() || MAIN_SCREENS.has(screen) || screen === "auth" || screen === "manual"
+                        ? "light"
+                        : "auto"
+                }
+            />
             {/* Above the tab bar where there is one, so a notice never covers it. */}
             <ToastHost
                 toasts={toasts}

@@ -35,11 +35,11 @@ export function CategoryFilter({ value, onChange, style }: CategoryFilterProps) 
   return (
     <>
       <Pressable style={[styles.trigger, style]} onPress={() => setIsOpen(true)}>
-        <TriggerIcon size={14} color="#374151" />
+        <TriggerIcon size={14} color={colors.textDark} />
         <Text style={styles.triggerText} numberOfLines={1}>
           {value ? t(categoryLabelKey(value)) : t('categoryFilter.allCategories')}
         </Text>
-        <CaretDownIcon size={12} color="#6b7280" />
+        <CaretDownIcon size={12} color={colors.textMuted} />
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>

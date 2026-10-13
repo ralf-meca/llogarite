@@ -204,7 +204,7 @@ export function BottomNavBar({
       >
         <Pressable style={styles.backdrop} onPress={() => setIsMoreOpen(false)}>
           <View style={styles.sheetWrapper} pointerEvents="box-none">
-            <View style={[styles.sheet, { marginBottom: sheetGap + POPOVER_TAIL_HEIGHT }]}>
+            <View style={[styles.moreSheet, { marginBottom: sheetGap + POPOVER_TAIL_HEIGHT }]}>
               {moreItems.map((item) => {
                 const isActive = activeScreen === item.key;
                 const isLocked = Boolean(item.premium) && !isPremium;
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  sheet: {
+  moreSheet: {
     marginHorizontal: 16,
     paddingVertical: 8,
     borderRadius: radius.card,

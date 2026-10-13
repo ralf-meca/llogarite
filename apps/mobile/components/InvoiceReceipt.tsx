@@ -117,14 +117,14 @@ export function InvoiceReceipt({
       {project && (
         <View style={styles.metaRow}>
           {/* The same mark the project wears on its own card. */}
-          <ProjectIcon size={14} color="#6b7280" />
+          <ProjectIcon size={14} color={colors.textMuted} />
           <Text style={styles.metaText}>{project.name}</Text>
         </View>
       )}
 
       {debts.hasOtherPayers && (
         <View style={styles.metaRow}>
-          <HandCoinsIcon size={14} color="#6b7280" />
+          <HandCoinsIcon size={14} color={colors.textMuted} />
           <Text style={styles.metaText}>
             {/* One payer needs no figure; several each get theirs. */}
             {t('invoiceReceipt.paidBy', {

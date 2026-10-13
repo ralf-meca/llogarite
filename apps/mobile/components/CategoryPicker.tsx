@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     minWidth: 240,
     maxHeight: 380,
     paddingVertical: 8,
+    backgroundColor: colors.white,
   },
   menuItem: {
     flexDirection: 'row',

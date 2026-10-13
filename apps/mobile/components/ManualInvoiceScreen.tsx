@@ -885,16 +885,16 @@ export function ManualInvoiceScreen({
                     count: selectedBuddies.length,
                   })}
                 </Text>
-                <CaretDownIcon size={12} color="#6b7280" />
+                <CaretDownIcon size={12} color={colors.textMuted} />
               </Pressable>
             ) : (
               <PremiumLock locked={!isPremium} onPress={onRequirePremium}>
                 <Pressable style={styles.buddyPillTrigger} onPress={() => setIsBuddyPickerOpen(true)}>
-                  <UsersIcon size={14} color="#374151" />
+                  <UsersIcon size={14} color={colors.textDark} />
                   <Text style={styles.buddyPillTriggerText} numberOfLines={1}>
                     {t('buddyPicker.addBuddy')}
                   </Text>
-                  <CaretDownIcon size={12} color="#6b7280" />
+                  <CaretDownIcon size={12} color={colors.textMuted} />
                 </Pressable>
               </PremiumLock>
             )}

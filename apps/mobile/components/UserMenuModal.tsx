@@ -7,6 +7,7 @@ import {
   EyeSlashIcon,
   ImagesIcon,
   KeyIcon,
+  MoonIcon,
   QuestionIcon,
   SignOutIcon,
   TranslateIcon,
@@ -20,8 +21,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
   useWindowDimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToasts } from '../hooks/useToasts';
@@ -35,10 +36,12 @@ import {
 } from '../lib/authApi';
 import { useTranslation } from '../lib/i18n';
 import { colors, radius } from '../lib/theme';
+import { isNightMode, setNightMode } from '../lib/nightMode';
 import { GlassButton } from './GlassButton';
 import { GlassTextInput } from './GlassTextInput';
 import { GlassView } from './GlassView';
 import { LanguageSwitch } from './LanguageSwitch';
+import { NightModeSwitch } from './NightModeSwitch';
 import { ToastHost } from './ToastHost';
 import { UserAvatar } from './UserAvatar';
 
@@ -337,27 +340,34 @@ export function UserMenuModal({
                 </View>
 
                 <Pressable style={styles.menuItem} onPress={onOpenPlans}>
-                  <CrownSimpleIcon size={20} color="#1f2937" />
+                  <CrownSimpleIcon size={20} color={colors.textDark} />
                   <Text style={styles.menuItemText}>{t('userMenu.subscription')}</Text>
                   <Text style={styles.menuItemValue}>
                     {user?.isPremium ? t('plans.premiumPlan') : t('plans.freePlan')}
                   </Text>
                 </Pressable>
                 <Pressable style={styles.menuItem} onPress={() => setView('changePassword')}>
-                  <KeyIcon size={20} color="#1f2937" />
+                  <KeyIcon size={20} color={colors.textDark} />
                   <Text style={styles.menuItemText}>
                     {t(hasPassword ? 'userMenu.changePassword' : 'login.setPasswordTitle')}
                   </Text>
                 </Pressable>
                 <View style={styles.menuItem}>
-                  <TranslateIcon size={20} color="#1f2937" />
+                  <TranslateIcon size={20} color={colors.textDark} />
                   <Text style={styles.menuItemText}>{t('userMenu.language')}</Text>
                   <View style={styles.languageSlot}>
                     <LanguageSwitch />
                   </View>
                 </View>
+                <View style={styles.menuItem}>
+                  <MoonIcon size={20} color={colors.textDark} />
+                  <Text style={styles.menuItemText}>{t('userMenu.nightMode')}</Text>
+                  <View style={styles.languageSlot}>
+                    <NightModeSwitch value={isNightMode()} onValueChange={setNightMode} />
+                  </View>
+                </View>
                 <Pressable style={styles.menuItem} onPress={onRestartTour}>
-                  <QuestionIcon size={20} color="#1f2937" />
+                  <QuestionIcon size={20} color={colors.textDark} />
                   <Text style={styles.menuItemText}>{t('userMenu.restartTour')}</Text>
                 </Pressable>
 
@@ -455,11 +465,11 @@ export function UserMenuModal({
             <GlassView style={styles.photoMenu}>
               <Text style={styles.title}>{t('userMenu.changePhotoTitle')}</Text>
               <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(takeAvatarPhoto)}>
-                <CameraIcon size={20} color="#1f2937" />
+                <CameraIcon size={20} color={colors.textDark} />
                 <Text style={styles.menuItemText}>{t('userMenu.takePhoto')}</Text>
               </Pressable>
               <Pressable style={styles.menuItem} onPress={() => choosePhotoOption(pickAvatarFromLibrary)}>
-                <ImagesIcon size={20} color="#1f2937" />
+                <ImagesIcon size={20} color={colors.textDark} />
                 <Text style={styles.menuItemText}>{t('userMenu.choosePhoto')}</Text>
               </Pressable>
               {user?.avatarUrl && (

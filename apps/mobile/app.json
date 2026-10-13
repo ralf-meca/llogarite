@@ -93,6 +93,7 @@
       "./plugins/withoutStatusBarColor",
       "./plugins/withPortraitOnPhones",
       "./plugins/withPortraitOnIos",
+      "./plugins/withDevVariant",
       [
         "expo-build-properties",
         {

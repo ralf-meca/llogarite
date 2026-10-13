@@ -1,6 +1,6 @@
-import { PencilSimpleIcon } from 'phosphor-react-native';
+import { CheckIcon, PencilSimpleIcon } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View, type TextInput } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useToasts } from '../hooks/useToasts';
 import {
@@ -47,7 +47,8 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   const [allocations, setAllocations] = useState<Record<CategoryId, AllocationDraft>>(emptyAllocations());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingCategoryIds, setEditingCategoryIds] = useState<Set<CategoryId>>(new Set());
+  // The categories are edited all together or not at all.
+  const [isEditingCategories, setIsEditingCategories] = useState(false);
   const categoryInputs = useRef<Partial<Record<CategoryId, TextInput | null>>>({});
   const { toasts, showError, dismissToast } = useToasts();
 
@@ -141,13 +142,11 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
   };
 
   const handleSave = () => {
-    persistBudget(() => setEditingCategoryIds(new Set()));
+    // Saving ends the typing: the keyboard goes and the field gives up its cursor,
+    // which the list would otherwise leave where it was.
+    Keyboard.dismiss();
+    persistBudget(() => setIsEditingCategories(false));
   };
-
-  // One control for the whole grid: opening eight cards one pencil at a time
-  // is the slow way to do what is nearly always wanted, which is a pass over
-  // all of them.
-  const isEditingAnyCategory = editingCategoryIds.size > 0;
 
   // Named rather than left to autoFocus, which would hand the keyboard to
   // whichever input mounted last instead of the first card.
@@ -156,26 +155,77 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
     setTimeout(() => categoryInputs.current[categoryId]?.focus(), 80);
   };
 
+  // One control for the whole list: a pass over all the categories is nearly always
+  // what is wanted, and a pencil on every row was eight ways of starting it.
   const handleEditAll = () => {
-    setEditingCategoryIds(new Set(CATEGORIES.map((category) => category.id)));
+    setIsEditingCategories(true);
     focusCategory(CATEGORIES[0].id);
   };
 
-  const startEditingCategory = (categoryId: CategoryId) => {
-    setEditingCategoryIds((current) => new Set(current).add(categoryId));
-    focusCategory(categoryId);
-  };
+  // The card of this month's spending is only there once a budget is set, which moves
+  // the heading that is to stay in view one place down the list.
+  const showsThisMonth = !isLoading && target !== null;
+
+  // Whether the amount in the field is a real one and not the one already saved.
+  const typedBudget = parseAmountInput(input);
+  const isBudgetDirty = input.trim() !== '' && Number.isFinite(typedBudget) && typedBudget !== target;
+
+  // The categories' heading stays in view while they scroll. It is a second copy laid
+  // over the top of the list rather than the scroll view's own pinned header: on
+  // Android a pinned header is drawn in its new place but goes on being touched in
+  // its old one, so its button stopped answering once the list had moved.
+  const [headerTop, setHeaderTop] = useState<number | null>(null);
+  const [isHeaderPinned, setIsHeaderPinned] = useState(false);
+
+  const sectionRow = (
+    <View style={styles.categorySectionRow}>
+      <Text style={styles.sectionLabel} numberOfLines={1}>
+        {t('budget.splitByCategory')}
+      </Text>
+      {isEditingCategories ? (
+        <Pressable
+          style={[styles.sectionButton, styles.sectionButtonFilled, isSaving && styles.sectionButtonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}
+          hitSlop={8}
+        >
+          <CheckIcon size={16} weight="bold" color={colors.white} />
+          <Text style={[styles.sectionButtonText, styles.sectionButtonTextFilled]}>
+            {isSaving ? t('common.saving') : t('common.save')}
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={styles.sectionButton}
+          onPress={handleEditAll}
+          hitSlop={8}
+          accessibilityLabel={t('budget.editAll')}
+        >
+          <PencilSimpleIcon size={16} weight="bold" color={colors.primary} />
+          <Text style={styles.sectionButtonText}>{t('budget.edit')}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
 
   return (
+    <View style={styles.container}>
     <KeyboardAwareScrollView
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
       bottomOffset={20}
       keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        const isPast = headerTop !== null && event.nativeEvent.contentOffset.y >= headerTop;
+        if (isPast !== isHeaderPinned) {
+          setIsHeaderPinned(isPast);
+        }
+      }}
     >
       <Text style={styles.title}>{t('budget.title')}</Text>
 
-      {!isLoading && target !== null && (
+      {showsThisMonth && (
         <GlassView style={styles.card}>
           <Text style={styles.cardLabel}>{t('budget.thisMonth')}</Text>
           <Text style={styles.amountText}>
@@ -200,26 +250,29 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
           value={input}
           onChangeText={(value) => setInput(formatAmountInput(value))}
         />
+        {/* Only once the amount differs from the one saved: until then there is
+            nothing here to save, and the categories have a save of their own. */}
+        {isBudgetDirty && (
+          <GlassButton
+            label={isSaving ? t('common.saving') : t('common.save')}
+            variant="accent"
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={isSaving}
+          />
+        )}
+      </GlassView>
 
-        <View style={styles.categorySectionHeader}>
-          <View style={styles.categorySectionHeaderText}>
-            <Text style={styles.sectionLabel}>{t('budget.splitByCategory')}</Text>
-            <Text style={styles.sectionHint}>{t('budget.categoryAllocationHint')}</Text>
-          </View>
+      {/* Stays at the top while the categories scroll under it, so the way into
+          editing them - and, while editing, the way to save - is always in reach. */}
+      {/* Where the heading sits in the list. Once it has scrolled off the top, the copy
+          outside the scroll view takes over. */}
+      <View style={styles.categorySectionHeader} onLayout={(event) => setHeaderTop(event.nativeEvent.layout.y)}>
+        {sectionRow}
+      </View>
 
-          {/* Gone once the grid is open: there is one way out of editing and it
-              is the save at the bottom. */}
-          {!isEditingAnyCategory && (
-            <Pressable
-              style={styles.editAllButton}
-              onPress={handleEditAll}
-              hitSlop={10}
-              accessibilityLabel={t('budget.editAll')}
-            >
-              <PencilSimpleIcon size={15} color={colors.primary} />
-            </Pressable>
-          )}
-        </View>
+      <View>
+        <Text style={styles.sectionHint}>{t('budget.categoryAllocationHint')}</Text>
 
         <View style={styles.categoryGrid}>
           {CATEGORIES.map((category, index) => {
@@ -228,94 +281,98 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
             const resolvedAmount = resolveAllocationAmount(allocation, parseAmountInput(input) || 0);
             const categorySpent = spentByCategory.get(category.id) ?? 0;
             const categoryRatio = resolvedAmount > 0 ? categorySpent / resolvedAmount : 0;
-            const isEditingCategory = editingCategoryIds.has(category.id);
-            // The next card still open, so the keyboard's next key walks the
-            // grid in order and only the last one offers done.
-            const nextEditingId = CATEGORIES.slice(index + 1).find((candidate) =>
-              editingCategoryIds.has(candidate.id),
-            )?.id;
+            const isEditingCategory = isEditingCategories;
+            // The keyboard's next key walks the rows in order; only the last offers done.
+            const nextEditingId = CATEGORIES[index + 1]?.id;
             const CategoryIcon = categoryIcon(category.id);
 
             return (
-              <View key={category.id} style={styles.categoryCube}>
-                {!isEditingCategory && (
-                  <Pressable
-                    style={styles.categoryEditButton}
-                    onPress={() => startEditingCategory(category.id)}
-                    disabled={isSaving}
-                  >
-                    <PencilSimpleIcon size={14} color={colors.primary} />
-                  </Pressable>
-                )}
+              // One category to a row: its icon, then its name with what is set aside
+              // for it, and under those how much of that is already spent.
+              <View key={category.id} style={styles.categoryRow}>
+                <View style={styles.categoryIconWrap}>
+                  <CategoryIcon size={22} color={colors.primary} />
+                </View>
 
-                <CategoryIcon size={32} color={colors.primary} />
-                <Text style={styles.categoryLabel} numberOfLines={1}>
-                  {t(categoryLabelKey(category.id))}
-                </Text>
+                <View style={styles.categoryBody}>
+                  <View style={styles.categoryTopLine}>
+                    <Text style={styles.categoryLabel} numberOfLines={1}>
+                      {t(categoryLabelKey(category.id))}
+                    </Text>
 
-                {isEditingCategory ? (
-                  <View style={styles.categoryInputRow}>
-                    <GlassTextInput
-                      style={styles.categoryInput}
-                      placeholder={draft.mode === 'percent' ? '0%' : t('budget.amountPlaceholder')}
-                      keyboardType="numeric"
-                      value={draft.value}
-                      onChangeText={(value) => setAllocationValue(category.id, value)}
-                      ref={(node) => {
-                        categoryInputs.current[category.id] = node;
-                      }}
-                      returnKeyType={nextEditingId ? 'next' : 'done'}
-                      // Keeps the keyboard up between cards; without it every
-                      // hop closes and reopens it.
-                      submitBehavior={nextEditingId ? 'submit' : 'blurAndSubmit'}
-                      onSubmitEditing={() =>
-                        nextEditingId ? categoryInputs.current[nextEditingId]?.focus() : handleSave()
-                      }
-                    />
-
-                    <View style={styles.modeToggle}>
-                      <Pressable
-                        style={[styles.modeOption, draft.mode === 'percent' && styles.modeOptionActive]}
-                        onPress={() => setAllocationMode(category.id, 'percent')}
-                      >
-                        <Text
-                          style={[styles.modeOptionText, draft.mode === 'percent' && styles.modeOptionTextActive]}
-                        >
-                          %
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        style={[styles.modeOption, draft.mode === 'amount' && styles.modeOptionActive]}
-                        onPress={() => setAllocationMode(category.id, 'amount')}
-                      >
-                        <Text style={[styles.modeOptionText, draft.mode === 'amount' && styles.modeOptionTextActive]}>
-                          {t('budget.amountMode')}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    {resolvedAmount > 0 ? (
-                      <Text style={styles.categoryResolved} numberOfLines={1}>
-                        {formatAmountDisplay(resolvedAmount)}
-                      </Text>
-                    ) : (
-                      <Text style={styles.categoryNotDefined} numberOfLines={1}>
-                        {t('budget.notDefined')}
-                      </Text>
+                    {!isEditingCategory && (
+                      <>
+                        {resolvedAmount > 0 ? (
+                          <Text style={styles.categoryResolved} numberOfLines={1}>
+                            {formatAmountDisplay(resolvedAmount)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.categoryNotDefined} numberOfLines={1}>
+                            {t('budget.notDefined')}
+                          </Text>
+                        )}
+                      </>
                     )}
+                  </View>
 
-                    {resolvedAmount > 0 && (
-                      <View style={styles.categoryProgressWrapper}>
-                        <ProgressBar ratio={categoryRatio} height={6} />
+                  {/* The field sits under the name, with the row's whole width to itself. */}
+                  {isEditingCategory && (
+                    <View style={styles.categoryInputRow}>
+                      <GlassTextInput
+                        style={styles.categoryInput}
+                        placeholder={draft.mode === 'percent' ? '0%' : t('budget.amountPlaceholder')}
+                        keyboardType="numeric"
+                        value={draft.value}
+                        onChangeText={(value) => setAllocationValue(category.id, value)}
+                        ref={(node) => {
+                          categoryInputs.current[category.id] = node;
+                        }}
+                        returnKeyType={nextEditingId ? 'next' : 'done'}
+                        // Keeps the keyboard up between rows; without it every
+                        // hop closes and reopens it.
+                        submitBehavior={nextEditingId ? 'submit' : 'blurAndSubmit'}
+                        onSubmitEditing={() =>
+                          nextEditingId ? categoryInputs.current[nextEditingId]?.focus() : handleSave()
+                        }
+                      />
+
+                      <View style={styles.modeToggle}>
+                        <Pressable
+                          style={[styles.modeOption, draft.mode === 'percent' && styles.modeOptionActive]}
+                          onPress={() => setAllocationMode(category.id, 'percent')}
+                        >
+                          <Text
+                            style={[styles.modeOptionText, draft.mode === 'percent' && styles.modeOptionTextActive]}
+                          >
+                            %
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.modeOption, draft.mode === 'amount' && styles.modeOptionActive]}
+                          onPress={() => setAllocationMode(category.id, 'amount')}
+                        >
+                          <Text
+                            style={[styles.modeOptionText, draft.mode === 'amount' && styles.modeOptionTextActive]}
+                          >
+                            {t('budget.amountMode')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+
+                  {!isEditingCategory && resolvedAmount > 0 && (
+                    <View style={styles.categoryProgressWrapper}>
+                      <ProgressBar ratio={categoryRatio} height={6} />
+                      <View style={styles.categorySpentLine}>
                         <Text style={styles.categorySpentText} numberOfLines={1}>
                           {formatAmountDisplay(categorySpent)} {t('budget.of')} {formatAmountDisplay(resolvedAmount)}
                         </Text>
+                        <Text style={styles.categorySpentText}>{Math.round(categoryRatio * 100)}%</Text>
                       </View>
-                    )}
-                  </>
-                )}
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })}
@@ -331,25 +388,33 @@ export function BudgetScreen({ invoices }: BudgetScreenProps) {
               : t('budget.overAllocatedBy', { amount: formatAmountDisplay(Math.abs(unallocated)) })}
           </Text>
         </View>
-
-        <GlassButton
-          label={isSaving ? t('common.saving') : t('common.save')}
-          variant="accent"
-          style={styles.saveButton}
-          onPress={handleSave}
-          disabled={isSaving}
-        />
-      </GlassView>
+      </View>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </KeyboardAwareScrollView>
+
+    {isHeaderPinned && <View style={[styles.categorySectionHeader, styles.pinnedHeader]}>{sectionRow}</View>}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  container: {
     flex: 1,
     marginTop: 12,
+  },
+  scroll: {
+    flex: 1,
+  },
+  // Over the top edge of the list, with a line under it to part it from the rows.
+  pinnedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    marginHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   scrollContent: {
     paddingHorizontal: 24,
@@ -389,89 +454,103 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   input: {
-    marginBottom: 12,
+    marginBottom: 0,
   },
+  // Reaches both edges of the screen and is opaque, so the rows passing under it
+  // while it is held at the top do not show through.
   categorySectionHeader: {
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: colors.white,
+  },
+  categorySectionRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  categorySectionHeaderText: {
-    flex: 1,
-  },
-  editAllButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: 21,
     backgroundColor: colors.primaryTint,
   },
-
-  sectionLabel: {
-    marginTop: 8,
+  sectionButtonFilled: {
+    backgroundColor: colors.primary,
+  },
+  sectionButtonDisabled: {
+    opacity: 0.6,
+  },
+  sectionButtonText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  sectionButtonTextFilled: {
+    color: colors.white,
+  },
+  sectionLabel: {
+    flex: 1,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1f2937',
   },
   sectionHint: {
-    marginTop: 2,
     marginBottom: 14,
     fontSize: 12,
     color: '#6b7280',
   },
   categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
-  categoryCube: {
-    position: 'relative',
-    width: '47%',
+  categoryRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     backgroundColor: colors.primaryTint,
     borderRadius: 16,
   },
-  categoryEditButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  categoryIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#ffffff',
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
-    zIndex: 1,
   },
-  categoryLabel: {
-    marginTop: 8,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1f2937',
-    textAlign: 'center',
+  categoryBody: {
+    flex: 1,
   },
-  categoryInputRow: {
+  // Name on the left taking the slack; the amount, or the field for it, on the right.
+  categoryTopLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    width: '100%',
+    gap: 8,
+    minHeight: 30,
+  },
+  categoryLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
   },
   modeToggle: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
     padding: 2,
     gap: 2,
   },
   modeOption: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    minWidth: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 6,
     alignItems: 'center',
   },
@@ -480,44 +559,48 @@ const styles = StyleSheet.create({
     boxShadow: '0px 1px 3px rgba(0,0,0,0.15)',
   },
   modeOptionText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: '#6b7280',
   },
   modeOptionTextActive: {
     color: colors.primary,
   },
+  categoryInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
   categoryInput: {
     flex: 1,
     marginBottom: 0,
     paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     backgroundColor: '#ffffff',
-    textAlign: 'center',
   },
   categoryResolved: {
-    marginTop: 8,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1f2937',
-    textAlign: 'center',
   },
   categoryNotDefined: {
-    marginTop: 8,
     fontSize: 12,
     fontStyle: 'italic',
     color: '#9ca3af',
-    textAlign: 'center',
   },
   categoryProgressWrapper: {
-    width: '100%',
-    marginTop: 10,
+    marginTop: 8,
+  },
+  categorySpentLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
   },
   categorySpentText: {
-    marginTop: 4,
-    fontSize: 10,
+    fontSize: 11,
     color: '#6b7280',
-    textAlign: 'center',
   },
   allocationSummary: {
     marginTop: 4,
@@ -533,6 +616,6 @@ const styles = StyleSheet.create({
     color: '#dc2626',
   },
   saveButton: {
-    marginTop: 0,
+    marginTop: 14,
   },
 });

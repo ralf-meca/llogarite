@@ -17,6 +17,11 @@ export const colors = {
   textDark: '#1D1F20',
   textMuted: '#6F7375',
   white: '#FFFFFF',
+  // What a card or a sheet is made of: white by day, dark by night (lib/nightMode.ts).
+  // `white` stays white, for lettering and icons on a coloured button.
+  surface: '#FFFFFF',
+  // The same for what floats over the page - a menu, a dialog - which by night is a shade lighter.
+  surfaceRaised: '#FFFFFF',
   danger: '#dc2626',
   dangerTint: '#FEE2E2',
   border: '#E7E7EA',

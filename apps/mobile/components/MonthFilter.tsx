@@ -93,11 +93,11 @@ export function MonthFilter({ value, onChange, style }: MonthFilterProps) {
   return (
     <>
       <Pressable style={[styles.trigger, style]} onPress={open}>
-        <CalendarIcon size={14} color="#374151" />
+        <CalendarIcon size={14} color={colors.textDark} />
         <Text style={styles.triggerText} numberOfLines={1}>
           {selectedLabel}
         </Text>
-        <CaretDownIcon size={12} color="#6b7280" />
+        <CaretDownIcon size={12} color={colors.textMuted} />
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>

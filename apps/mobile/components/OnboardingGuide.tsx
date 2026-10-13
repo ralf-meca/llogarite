@@ -61,12 +61,13 @@ export function OnboardingGuide({ step, stepIndex, totalSteps, onNext, onBack, o
         <View style={styles.row}>
           <View style={styles.bubble}>
             <Pressable style={styles.closeButton} onPress={onSkip} hitSlop={10}>
-              <XIcon size={14} color={colors.textMuted} />
+              <XIcon size={18} color={colors.textMuted} />
             </Pressable>
 
             <View style={styles.bubbleHeader}>
+              {/* Ahead of the title: after it, a title that wraps pushed the crown under the close button. */}
+              {step.premium && <CrownIcon size={18} weight="fill" color={colors.primary} />}
               <Text style={styles.bubbleTitle}>{t(step.titleKey)}</Text>
-              {step.premium && <CrownIcon size={14} weight="fill" color={colors.primary} />}
             </View>
             <Text style={styles.bubbleMessage}>{t(step.messageKey)}</Text>
 
@@ -92,7 +93,7 @@ export function OnboardingGuide({ step, stepIndex, totalSteps, onNext, onBack, o
             <View style={styles.bubbleTail} />
           </View>
 
-          <AccountantMascot size={80} />
+          <AccountantMascot size={108} />
         </View>
       </View>
     </View>
@@ -115,11 +116,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryTint,
@@ -129,23 +130,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: 10,
   },
+  // Takes all the width the mascot leaves: the text is the point of the thing.
   bubble: {
     flex: 1,
-    maxWidth: 240,
     backgroundColor: colors.white,
     borderRadius: radius.card,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
+    padding: 18,
   },
   bubbleTail: {
     position: 'absolute',
-    top: 16,
-    right: -6,
-    width: 12,
-    height: 12,
+    top: 26,
+    right: -8,
+    width: 16,
+    height: 16,
     backgroundColor: colors.white,
     borderRightWidth: 1,
     borderBottomWidth: 1,
@@ -155,29 +156,30 @@ const styles = StyleSheet.create({
   bubbleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingRight: 22,
+    gap: 8,
+    paddingRight: 34,
   },
   bubbleTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    flexShrink: 1,
+    fontSize: 19,
+    fontWeight: '700',
     color: colors.textDark,
   },
   bubbleMessage: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.textMuted,
-    marginTop: 6,
+    marginTop: 8,
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 4,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 16,
   },
   dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.border,
   },
   dotActive: {
@@ -187,24 +189,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 16,
   },
   backButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
   },
   backButtonText: {
-    fontSize: 12,
+    fontSize: 15,
     color: colors.textMuted,
   },
   nextButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingVertical: 11,
+    paddingHorizontal: 24,
   },
   nextButtonText: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.white,
   },

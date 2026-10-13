@@ -62,7 +62,7 @@ export function VerifiedBadge({ size = 28 }: VerifiedBadgeProps) {
           ]}
         />
         <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
-          <QrCodeIcon size={size * 0.6} weight="fill" color="#374151" />
+          <QrCodeIcon size={size * 0.6} weight="fill" color={colors.textDark} />
         </View>
         <View
           style={[

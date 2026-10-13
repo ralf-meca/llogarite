@@ -97,7 +97,7 @@ export function ScanMenu({ onScanQr, onAddManually, onScanReceipt, onUploadFromG
               <GlassView style={styles.menu}>
                 {MENU_ITEMS.map((item) => (
                   <Pressable key={item.key} style={styles.menuItem} onPress={() => handleSelect(item.key)}>
-                    <item.icon size={20} color="#1f2937" />
+                    <item.icon size={20} color={colors.textDark} />
                     <Text style={styles.menuItemText}>{t(item.labelKey)}</Text>
                   </Pressable>
                 ))}
@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
   menu: {
     minWidth: 220,
     paddingVertical: 8,
+    backgroundColor: colors.white,
     // No border: the tail cannot carry one around its curve without the join
     // showing, so the menu goes without too and the scrim does the separating.
     borderWidth: 0,

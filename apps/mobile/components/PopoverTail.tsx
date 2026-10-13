@@ -42,7 +42,7 @@ export function PopoverTail({ pointing = 'down', scale = 1, style }: PopoverTail
       style={[pointing === 'up' && styles.flipped, style]}
       pointerEvents="none"
     >
-      <Path d={`${PATH} Z`} fill={colors.white} />
+      <Path d={`${PATH} Z`} fill={colors.surfaceRaised} />
     </Svg>
   );
 }

@@ -50,11 +50,11 @@ export function BuddyPicker({
         </Pressable>
       ) : (
         <Pressable style={styles.trigger} onPress={() => setIsOpen(true)}>
-          <UsersIcon size={14} color="#374151" />
+          <UsersIcon size={14} color={colors.textDark} />
           <Text style={styles.triggerText} numberOfLines={1}>
             {label}
           </Text>
-          <CaretDownIcon size={12} color="#6b7280" />
+          <CaretDownIcon size={12} color={colors.textMuted} />
         </Pressable>
       )}
 

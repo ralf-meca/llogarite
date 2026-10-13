@@ -61,7 +61,7 @@ export function InvoiceScreen({
           </Pressable>
           <Pressable onPress={onEdit} style={styles.iconButtonShadow}>
             <GlassView style={styles.iconButton}>
-              <PencilSimpleIcon size={18} color="#111827" />
+              <PencilSimpleIcon size={18} color={colors.textDark} />
             </GlassView>
           </Pressable>
         </View>
